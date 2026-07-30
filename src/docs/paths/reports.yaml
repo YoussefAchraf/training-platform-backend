@@ -1,0 +1,24 @@
+/reports/{sessionId}:
+  get:
+    tags: [Reports]
+    summary: Get a session's report
+    description: Sales, Manager, or Instructor.
+    parameters:
+      - { name: sessionId, in: path, required: true, schema: { type: integer } }
+    responses:
+      200: { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+      404: { description: No report yet for this session, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+/reports/{sessionId}/generate:
+  post:
+    tags: [Reports]
+    summary: Manually trigger report generation for a session
+    description: >
+      Sales or Manager only. Normally unnecessary - a report auto-generates once every attendee
+      submits a survey, or via the scheduled job REPORT_AUTO_GENERATE_AFTER_MINUTES after the
+      session ends (default 60 minutes).
+    parameters:
+      - { name: sessionId, in: path, required: true, schema: { type: integer } }
+    responses:
+      200: { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+      403: { description: Not Sales or Manager }
