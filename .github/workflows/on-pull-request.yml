@@ -1,0 +1,19 @@
+name: On pull request
+
+
+
+
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
+  docker:
+    uses: ./.github/workflows/docker-build-and-scan.yml
+    with:
+      push: false

@@ -10,3 +10,4 @@ Dockerfile filter=stripcomments
 .dockerignore filter=stripcomments
 .gitignore filter=stripcomments
 .gitattributes filter=stripcomments
+CODEOWNERS filter=stripcomments
