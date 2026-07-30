@@ -8,6 +8,7 @@ try {
   run('git rev-parse --is-inside-work-tree');
   run('git config filter.stripcomments.clean "node scripts/strip-comments.js %f"');
   run('git config filter.stripcomments.smudge cat');
-} catch {
+} catch (err) {
   
+  void err;
 }
