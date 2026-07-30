@@ -1,0 +1,129 @@
+/auth/signup:
+  post:
+    tags: [Auth]
+    summary: Create an account (Sales, Manager, or Instructor)
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [firstname, lastname, email, password, role]
+            properties:
+              firstname: { type: string }
+              lastname: { type: string }
+              email: { type: string, format: email }
+              password: { type: string, format: password }
+              role: { $ref: '#/components/schemas/Role' }
+    responses:
+      201:
+        description: Account created, status is "pending" until a Manager approves it.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                user: { $ref: '#/components/schemas/User' }
+      400: { description: Validation error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+      429: { description: Rate limited }
+
+/auth/login:
+  post:
+    tags: [Auth]
+    summary: Log in and receive an access + refresh token pair
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email, password]
+            properties:
+              email: { type: string, format: email }
+              password: { type: string, format: password }
+    responses:
+      200:
+        description: OK
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/AuthTokens'
+                - type: object
+                  properties: { user: { $ref: '#/components/schemas/User' } }
+      401: { description: 'Invalid credentials, pending, or rejected account', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+      429: { description: Rate limited }
+
+/auth/refresh:
+  post:
+    tags: [Auth]
+    summary: Exchange a refresh token for a new access + refresh token pair (rotation)
+    description: The presented refreshToken is revoked immediately, whether or not the call succeeds after that point.
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [refreshToken]
+            properties: { refreshToken: { type: string } }
+    responses:
+      200: { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AuthTokens' } } } }
+      401: { description: 'Invalid, expired, or already-used refresh token', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+      429: { description: Rate limited }
+
+/auth/logout:
+  post:
+    tags: [Auth]
+    summary: Revoke a refresh token
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [refreshToken]
+            properties: { refreshToken: { type: string } }
+    responses:
+      200: { description: "Always succeeds if authenticated, even if the token was already invalid (doesn't leak validity)" }
+      401: { description: Missing/invalid access token }
+
+/auth/users/pending:
+  get:
+    tags: [Auth]
+    summary: List users awaiting approval
+    description: Manager only.
+    responses:
+      200:
+        description: OK
+        content:
+          application/json:
+            schema: { type: array, items: { $ref: '#/components/schemas/User' } }
+      401: { description: Not authenticated }
+      403: { description: Not a Manager }
+
+/auth/users/{id}/approve:
+  post:
+    tags: [Auth]
+    summary: Approve a pending user
+    description: Manager only. Sends an approval email and points the user to the login page.
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    responses:
+      200: { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+      403: { description: Not a Manager }
+
+/auth/users/{id}/reject:
+  post:
+    tags: [Auth]
+    summary: Reject a pending user
+    description: Manager only. Also revokes every refresh token the user currently holds.
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    responses:
+      200: { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+      403: { description: Not a Manager }

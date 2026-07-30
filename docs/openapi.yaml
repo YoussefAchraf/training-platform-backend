@@ -1,0 +1,1195 @@
+openapi: 3.0.3
+info:
+  title: Training Platform API
+  version: 1.0.0
+  description: "Backend for training management platform (providers, trainings,
+    sessions, instructors, surveys, reports). Clean architecture: interface
+    (controllers/routes) -> use-cases -> domain <- infrastructure."
+servers:
+  - url: http://localhost:{port}
+    description: Local
+    variables:
+      port:
+        default: "4000"
+tags:
+  - name: Auth
+  - name: Providers
+  - name: Trainings
+  - name: Clients
+  - name: Sessions
+  - name: Instructors
+  - name: Calendar
+  - name: Survey
+  - name: Reports
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token returned by /auth/login or /auth/refresh.
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid credentials
+    Role:
+      type: string
+      enum:
+        - Sales
+        - Manager
+        - Instructor
+    UserStatus:
+      type: string
+      enum:
+        - pending
+        - approved
+        - rejected
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        firstname:
+          type: string
+          example: Jane
+        lastname:
+          type: string
+          example: Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        role:
+          $ref: "#/components/schemas/Role"
+        status:
+          $ref: "#/components/schemas/UserStatus"
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Short-lived JWT, JWT_EXPIRES_IN (default 8h).
+        refreshToken:
+          type: string
+          description: Opaque, Redis-backed, revocable token, REFRESH_TOKEN_TTL_DAYS
+            (default 30d). Rotated on every /auth/refresh call.
+    Provider:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Red Hat
+        description:
+          type: string
+          nullable: true
+          example: Enterprise Linux
+        createdAt:
+          type: string
+          format: date-time
+    Training:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: RHCSA
+        providerId:
+          type: integer
+          example: 1
+        providerName:
+          type: string
+          example: Red Hat
+        description:
+          type: string
+          nullable: true
+        duration:
+          type: integer
+          nullable: true
+          description: In hours or days, kept generic.
+        createdBy:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    Client:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        companyName:
+          type: string
+          example: Acme Corp
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        createdBy:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    SessionStatus:
+      type: string
+      enum:
+        - scheduled
+        - ongoing
+        - completed
+        - cancelled
+    AssignmentStatus:
+      type: string
+      enum:
+        - unassigned
+        - pending
+        - accepted
+        - refused
+    TrainingSession:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        trainingId:
+          type: integer
+        clientId:
+          type: integer
+        instructorId:
+          type: integer
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        sessionStatus:
+          $ref: "#/components/schemas/SessionStatus"
+        assignmentStatus:
+          $ref: "#/components/schemas/AssignmentStatus"
+        createdBy:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    SessionAttendee:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        sessionId:
+          type: integer
+        name:
+          type: string
+          example: Alice Attendee
+        email:
+          type: string
+          nullable: true
+        surveySubmitted:
+          type: boolean
+    InstructorSkill:
+      type: object
+      properties:
+        trainingId:
+          type: integer
+        trainingName:
+          type: string
+    Instructor:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        userId:
+          type: integer
+        bio:
+          type: string
+          nullable: true
+        firstname:
+          type: string
+        lastname:
+          type: string
+        email:
+          type: string
+        skills:
+          type: array
+          items:
+            $ref: "#/components/schemas/InstructorSkill"
+    CalendarEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        sessionId:
+          type: integer
+        eventDate:
+          type: string
+          format: date-time
+        title:
+          type: string
+          example: RHCSA - Acme Corp
+    SurveyQR:
+      type: object
+      properties:
+        surveyUrl:
+          type: string
+          example: http://localhost:3000/survey/1
+        qrCodeDataUrl:
+          type: string
+          description: PNG QR code as a data URL - drop straight into an <img src>.
+          example: data:image/png;base64,iVBORw0KGgoAAAANSU...
+    SurveyInfo:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        trainingName:
+          type: string
+          nullable: true
+        instructorName:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+    Survey:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        sessionId:
+          type: integer
+        instructorId:
+          type: integer
+          description: Filled server-side from the session - not client-supplied.
+        attendeeId:
+          type: integer
+          nullable: true
+        instructorScore:
+          type: integer
+          minimum: 0
+          maximum: 5
+          example: 4
+        npsScore:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: NPS/global score.
+          example: 9
+        comments:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        sessionId:
+          type: integer
+        pdfUrl:
+          type: string
+          nullable: true
+          description: Not yet implemented - always null today.
+        averageScore:
+          type: string
+          example: "4.00"
+        npsAverage:
+          type: string
+          example: "9.00"
+        generatedAt:
+          type: string
+          format: date-time
+security:
+  - bearerAuth: []
+paths:
+  /auth/signup:
+    post:
+      tags:
+        - Auth
+      summary: Create an account (Sales, Manager, or Instructor)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstname
+                - lastname
+                - email
+                - password
+                - role
+              properties:
+                firstname:
+                  type: string
+                lastname:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                role:
+                  $ref: "#/components/schemas/Role"
+      responses:
+        "201":
+          description: Account created, status is "pending" until a Manager approves it.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Log in and receive an access + refresh token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/AuthTokens"
+                  - type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials, pending, or rejected account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+  /auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Exchange a refresh token for a new access + refresh token pair (rotation)
+      description: The presented refreshToken is revoked immediately, whether or not
+        the call succeeds after that point.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "401":
+          description: Invalid, expired, or already-used refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Revoke a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: Always succeeds if authenticated, even if the token was already
+            invalid (doesn't leak validity)
+        "401":
+          description: Missing/invalid access token
+  /auth/users/pending:
+    get:
+      tags:
+        - Auth
+      summary: List users awaiting approval
+      description: Manager only.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+        "403":
+          description: Not a Manager
+  /auth/users/{id}/approve:
+    post:
+      tags:
+        - Auth
+      summary: Approve a pending user
+      description: Manager only. Sends an approval email and points the user to the
+        login page.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          description: Not a Manager
+  /auth/users/{id}/reject:
+    post:
+      tags:
+        - Auth
+      summary: Reject a pending user
+      description: Manager only. Also revokes every refresh token the user currently holds.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          description: Not a Manager
+  /calendar/global:
+    get:
+      tags:
+        - Calendar
+      summary: List the global calendar
+      description: Sales or Manager only.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarEvent"
+        "403":
+          description: Not Sales or Manager
+  /calendar/global/{id}:
+    patch:
+      tags:
+        - Calendar
+      summary: Update a global calendar event
+      description: Sales or Manager only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventDate:
+                  type: string
+                  format: date-time
+                title:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+        "403":
+          description: Not Sales or Manager
+    delete:
+      tags:
+        - Calendar
+      summary: Delete a global calendar event
+      description: Sales or Manager only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Not Sales or Manager
+  /calendar/mine:
+    get:
+      tags:
+        - Calendar
+      summary: List my own calendar
+      description: Instructor only. Read-only, pre-filtered to sessions assigned to
+        this instructor.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarEvent"
+        "403":
+          description: Not an Instructor
+  /clients:
+    get:
+      tags:
+        - Clients
+      summary: List clients
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      tags:
+        - Clients
+      summary: Add a client
+      description: Sales or Manager only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - companyName
+              properties:
+                companyName:
+                  type: string
+                  example: Acme Corp
+                email:
+                  type: string
+                phone:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /instructors:
+    get:
+      tags:
+        - Instructors
+      summary: List instructor profiles
+      description: Sales or Manager only.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Instructor"
+        "403":
+          description: Not Sales or Manager
+  /instructors/me:
+    get:
+      tags:
+        - Instructors
+      summary: Get my own instructor profile
+      description: Instructor only.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instructor"
+        "403":
+          description: Not an Instructor
+    patch:
+      tags:
+        - Instructors
+      summary: Update my own instructor profile (bio, trainings I can deliver)
+      description: Instructor only.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bio:
+                  type: string
+                trainingIds:
+                  type: array
+                  items:
+                    type: integer
+                  description: Full replacement list of trainings this instructor can deliver.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instructor"
+        "403":
+          description: Not an Instructor
+  /instructors/{id}:
+    patch:
+      tags:
+        - Instructors
+      summary: Update another instructor's profile
+      description: Manager only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bio:
+                  type: string
+                trainingIds:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instructor"
+        "403":
+          description: Not a Manager
+  /providers:
+    get:
+      tags:
+        - Providers
+      summary: List all providers (e.g. Red Hat, Linux Foundation, CompTIA, SUSE,
+        Oracle)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Provider"
+    post:
+      tags:
+        - Providers
+      summary: Add a provider
+      description: Sales or Manager only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Red Hat
+                description:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        "400":
+          description: Validation error or duplicate name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /reports/{sessionId}:
+    get:
+      tags:
+        - Reports
+      summary: Get a session's report
+      description: Sales, Manager, or Instructor.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "404":
+          description: No report yet for this session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /reports/{sessionId}/generate:
+    post:
+      tags:
+        - Reports
+      summary: Manually trigger report generation for a session
+      description: >
+        Sales or Manager only. Normally unnecessary - a report auto-generates
+        once every attendee submits a survey, or via the scheduled job
+        REPORT_AUTO_GENERATE_AFTER_MINUTES after the session ends (default 60
+        minutes).
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "403":
+          description: Not Sales or Manager
+  /sessions:
+    get:
+      tags:
+        - Sessions
+      summary: List training sessions
+      description: Sales/Manager see every session; an Instructor sees only sessions
+        assigned to them.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrainingSession"
+    post:
+      tags:
+        - Sessions
+      summary: Create a training session
+      description: Sales or Manager only. Also creates the matching global calendar entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - trainingId
+                - clientId
+                - startDate
+                - endDate
+              properties:
+                trainingId:
+                  type: integer
+                clientId:
+                  type: integer
+                startDate:
+                  type: string
+                  format: date-time
+                endDate:
+                  type: string
+                  format: date-time
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSession"
+        "400":
+          description: Validation error, or endDate not after startDate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /sessions/{id}/assign-instructor:
+    post:
+      tags:
+        - Sessions
+      summary: Assign a session to an instructor
+      description: Manager only (Sales cannot). Resets assignmentStatus to "pending"
+        so the instructor can accept/refuse.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - instructorId
+              properties:
+                instructorId:
+                  type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSession"
+        "403":
+          description: Not a Manager
+  /sessions/{id}/respond:
+    post:
+      tags:
+        - Sessions
+      summary: Accept or refuse an assigned session
+      description: Instructor only, and only for a session assigned to them.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - accept
+                    - refuse
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSession"
+        "400":
+          description: Session not assigned to this instructor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an Instructor
+  /sessions/{id}/attendees:
+    post:
+      tags:
+        - Sessions
+      summary: Add an attendee to a session
+      description: Sales or Manager only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAttendee"
+        "403":
+          description: Not Sales or Manager
+  /survey/{sessionId}/qr-code:
+    get:
+      tags:
+        - Survey
+      summary: Generate the survey QR code for a session
+      description: Instructor only, and only for their own session. Returns a PNG data
+        URL pointing to the public survey form.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SurveyQR"
+        "400":
+          description: Not this instructor's session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an Instructor
+  /survey/{sessionId}/form:
+    get:
+      tags:
+        - Survey
+      summary: Get the info an attendee sees before rating (what the QR code links to)
+      security: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SurveyInfo"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /survey/{sessionId}/submit:
+    post:
+      tags:
+        - Survey
+      summary: Submit a survey response
+      description: >
+        Public - no auth (attendees aren't logged-in users). sessionId comes
+        from the path and instructorId is filled in server-side from the
+        session, so neither can be spoofed by the client. Auto-triggers report
+        generation once every attendee on the session has submitted.
+      security: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - instructorScore
+                - npsScore
+              properties:
+                attendeeId:
+                  type: integer
+                  nullable: true
+                instructorScore:
+                  type: integer
+                  minimum: 0
+                  maximum: 5
+                npsScore:
+                  type: integer
+                  minimum: 0
+                  maximum: 10
+                  description: Global/NPS score.
+                comments:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Survey"
+        "400":
+          description: Session not found, no instructor assigned yet, or score out of range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /trainings:
+    get:
+      tags:
+        - Trainings
+      summary: List trainings (e.g. RHCSA), optionally filtered by provider
+      parameters:
+        - name: providerId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Training"
+    post:
+      tags:
+        - Trainings
+      summary: Create a training under a provider
+      description: Sales or Manager only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - providerId
+              properties:
+                name:
+                  type: string
+                  example: RHCSA
+                providerId:
+                  type: integer
+                description:
+                  type: string
+                duration:
+                  type: integer
+                  description: In hours or days, kept generic.
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Training"
+        "400":
+          description: Validation error or provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager

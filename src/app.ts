@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { pool } from './infrastructure/database/connection';
 import { redis } from './infrastructure/cache/RedisClient';
+import { swaggerSpec } from './docs/swaggerDefinition';
 
 import { PasswordHasher } from './infrastructure/security/PasswordHasher';
 import { TokenService } from './infrastructure/security/TokenService';
@@ -215,6 +217,9 @@ function buildApp() {
   app.use(globalLimiter);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+  app.get('/api-docs.json', (_req, res) => res.json(swaggerSpec));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use('/auth', authRoutes({ authController, authMiddleware, requireRole, authLimiter }));
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
