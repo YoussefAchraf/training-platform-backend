@@ -14,6 +14,8 @@ import { PgProviderRepository } from './infrastructure/repositories/PgProviderRe
 import { PgTrainingRepository } from './infrastructure/repositories/PgTrainingRepository';
 import { PgClientRepository } from './infrastructure/repositories/PgClientRepository';
 import { PgInstructorRepository } from './infrastructure/repositories/PgInstructorRepository';
+import { PgSessionRepository } from './infrastructure/repositories/PgSessionRepository';
+import { PgCalendarRepository } from './infrastructure/repositories/PgCalendarRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -34,11 +36,26 @@ import { GetMyInstructorProfileUseCase } from './use-cases/instructors/GetMyInst
 import { UpdateMyInstructorProfileUseCase } from './use-cases/instructors/UpdateMyInstructorProfileUseCase';
 import { UpdateInstructorByManagerUseCase } from './use-cases/instructors/UpdateInstructorByManagerUseCase';
 
+import { CreateSessionUseCase } from './use-cases/sessions/CreateSessionUseCase';
+import { ListSessionsUseCase } from './use-cases/sessions/ListSessionsUseCase';
+import { AssignInstructorUseCase } from './use-cases/sessions/AssignInstructorUseCase';
+import { RespondToAssignmentUseCase } from './use-cases/sessions/RespondToAssignmentUseCase';
+import { AddAttendeeUseCase } from './use-cases/sessions/AddAttendeeUseCase';
+
+import {
+  ListGlobalCalendarUseCase,
+  UpdateGlobalCalendarUseCase,
+  DeleteGlobalCalendarEventUseCase,
+} from './use-cases/calendar/GlobalCalendarUseCases';
+import { ListMyCalendarUseCase } from './use-cases/calendar/ListMyCalendarUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { ProviderController } from './interface/controllers/ProviderController';
 import { TrainingController } from './interface/controllers/TrainingController';
 import { ClientController } from './interface/controllers/ClientController';
 import { InstructorController } from './interface/controllers/InstructorController';
+import { SessionController } from './interface/controllers/SessionController';
+import { CalendarController } from './interface/controllers/CalendarController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import requireRole from './interface/middlewares/roleMiddleware';
@@ -49,6 +66,8 @@ import providerRoutes from './interface/routes/providerRoutes';
 import trainingRoutes from './interface/routes/trainingRoutes';
 import clientRoutes from './interface/routes/clientRoutes';
 import instructorRoutes from './interface/routes/instructorRoutes';
+import sessionRoutes from './interface/routes/sessionRoutes';
+import calendarRoutes from './interface/routes/calendarRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
@@ -61,6 +80,8 @@ function buildApp() {
   const trainingRepository = new PgTrainingRepository(pool);
   const clientRepository = new PgClientRepository(pool);
   const instructorRepository = new PgInstructorRepository(pool);
+  const sessionRepository = new PgSessionRepository(pool);
+  const calendarRepository = new PgCalendarRepository(pool);
 
   const signupUseCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService });
   const loginUseCase = new LoginUseCase({ userRepository, passwordHasher, tokenService, refreshTokenStore });
@@ -81,6 +102,22 @@ function buildApp() {
   const updateMyInstructorProfileUseCase = new UpdateMyInstructorProfileUseCase({ instructorRepository });
   const updateInstructorByManagerUseCase = new UpdateInstructorByManagerUseCase({ instructorRepository });
 
+  const createSessionUseCase = new CreateSessionUseCase({
+    sessionRepository,
+    trainingRepository,
+    clientRepository,
+    calendarRepository,
+  });
+  const listSessionsUseCase = new ListSessionsUseCase({ sessionRepository, instructorRepository });
+  const assignInstructorUseCase = new AssignInstructorUseCase({ sessionRepository, instructorRepository });
+  const respondToAssignmentUseCase = new RespondToAssignmentUseCase({ sessionRepository, instructorRepository });
+  const addAttendeeUseCase = new AddAttendeeUseCase({ sessionRepository });
+
+  const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
+  const updateGlobalCalendarUseCase = new UpdateGlobalCalendarUseCase({ calendarRepository });
+  const deleteGlobalCalendarEventUseCase = new DeleteGlobalCalendarEventUseCase({ calendarRepository });
+  const listMyCalendarUseCase = new ListMyCalendarUseCase({ calendarRepository, instructorRepository });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -97,6 +134,19 @@ function buildApp() {
     getMyInstructorProfileUseCase,
     updateMyInstructorProfileUseCase,
     updateInstructorByManagerUseCase,
+  });
+  const sessionController = new SessionController({
+    createSessionUseCase,
+    listSessionsUseCase,
+    assignInstructorUseCase,
+    respondToAssignmentUseCase,
+    addAttendeeUseCase,
+  });
+  const calendarController = new CalendarController({
+    listGlobalCalendarUseCase,
+    updateGlobalCalendarUseCase,
+    deleteGlobalCalendarEventUseCase,
+    listMyCalendarUseCase,
   });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository });
@@ -130,6 +180,8 @@ function buildApp() {
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
   app.use('/clients', clientRoutes({ clientController, authMiddleware, requireRole }));
   app.use('/instructors', instructorRoutes({ instructorController, authMiddleware, requireRole }));
+  app.use('/sessions', sessionRoutes({ sessionController, authMiddleware, requireRole }));
+  app.use('/calendar', calendarRoutes({ calendarController, authMiddleware, requireRole }));
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
