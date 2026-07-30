@@ -1,0 +1,5 @@
+*.ts filter=stripcomments
+*.tsx filter=stripcomments
+*.js filter=stripcomments
+*.mjs filter=stripcomments
+*.cjs filter=stripcomments
