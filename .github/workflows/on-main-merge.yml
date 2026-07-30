@@ -1,0 +1,20 @@
+name: On main merge
+
+
+
+
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
+  docker:
+    needs: verify
+    uses: ./.github/workflows/docker-build-and-scan.yml
+    with:
+      push: true

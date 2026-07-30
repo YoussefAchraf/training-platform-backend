@@ -1,0 +1,14 @@
+name: On feature branch push
+
+
+
+
+
+on:
+  push:
+    branches:
+      - "feature/**"
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml

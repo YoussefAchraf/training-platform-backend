@@ -50,7 +50,7 @@ function stripSqlComments(text) {
 }
 
 const jsLikeExts = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs']);
-const hashCommentFiles = new Set(['Dockerfile', '.dockerignore', '.gitignore', '.gitattributes']);
+const hashCommentFiles = new Set(['Dockerfile', '.dockerignore', '.gitignore', '.gitattributes', 'CODEOWNERS']);
 const hashCommentExts = new Set(['.yml', '.yaml']);
 
 let output;

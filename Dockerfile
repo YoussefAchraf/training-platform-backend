@@ -11,7 +11,7 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ \
     && npm config set audit false
 COPY package.json package-lock.json ./
 COPY scripts ./scripts
-RUN npm ci && apk del .build-deps
+RUN npm install && apk del .build-deps
 
 
 FROM deps AS build
@@ -26,7 +26,7 @@ WORKDIR /app
 RUN apk add --no-cache --virtual .build-deps python3 make g++
 COPY package.json package-lock.json ./
 COPY scripts ./scripts
-RUN npm ci --omit=dev && apk del .build-deps
+RUN npm install --omit=dev && apk del .build-deps
 
 
 FROM node:22-alpine AS runtime
