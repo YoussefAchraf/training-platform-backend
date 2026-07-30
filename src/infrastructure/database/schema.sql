@@ -1,6 +1,6 @@
--- ============================================================
--- Training Platform - PostgreSQL schema
--- ============================================================
+
+
+
 
 CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected');
 CREATE TYPE session_status AS ENUM ('scheduled', 'ongoing', 'completed', 'cancelled');
@@ -8,7 +8,7 @@ CREATE TYPE assignment_status AS ENUM ('unassigned', 'pending', 'accepted', 'ref
 
 CREATE TABLE roles (
     id          SERIAL PRIMARY KEY,
-    name        VARCHAR(50) UNIQUE NOT NULL -- 'Sales' | 'Manager' | 'Instructor'
+    name        VARCHAR(50) UNIQUE NOT NULL
 );
 
 CREATE TABLE users (
@@ -27,7 +27,7 @@ CREATE TABLE users (
 
 CREATE TABLE providers (
     id          SERIAL PRIMARY KEY,
-    name        VARCHAR(150) UNIQUE NOT NULL, -- Red Hat, Linux Foundation, CompTIA, SUSE, Oracle...
+    name        VARCHAR(150) UNIQUE NOT NULL,
     description TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -35,10 +35,10 @@ CREATE TABLE providers (
 
 CREATE TABLE trainings (
     id          SERIAL PRIMARY KEY,
-    name        VARCHAR(150) NOT NULL, -- e.g. RHCSA
+    name        VARCHAR(150) NOT NULL,
     provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
     description TEXT,
-    duration    INTEGER, -- in hours or days, kept generic
+    duration    INTEGER,
     created_by  INTEGER REFERENCES users(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -120,7 +120,7 @@ CREATE TABLE reports (
     generated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Seed roles (required for signup to work)
+
 INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor');
 
 CREATE INDEX idx_sessions_instructor ON training_sessions(instructor_id);

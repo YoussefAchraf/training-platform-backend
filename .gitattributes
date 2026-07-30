@@ -3,3 +3,10 @@
 *.js filter=stripcomments
 *.mjs filter=stripcomments
 *.cjs filter=stripcomments
+*.yml filter=stripcomments
+*.yaml filter=stripcomments
+*.sql filter=stripcomments
+Dockerfile filter=stripcomments
+.dockerignore filter=stripcomments
+.gitignore filter=stripcomments
+.gitattributes filter=stripcomments
