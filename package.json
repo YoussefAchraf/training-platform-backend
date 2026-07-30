@@ -1,0 +1,22 @@
+{
+  "name": "training-platform-backend",
+  "version": "1.0.0",
+  "description": "Backend for training management platform",
+  "main": "dist/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/node": "^22.10.2",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.example
+npm-debug.log
+dist/
+coverage/
+*.tsbuildinfo
+README.md
+CI-CD-DEVSECOPS-PLAN.md
+REBUILD-PLAN.md
