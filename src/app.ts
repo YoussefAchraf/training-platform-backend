@@ -8,6 +8,7 @@ import { TokenService } from './infrastructure/security/TokenService';
 import { RefreshTokenStore } from './infrastructure/security/RefreshTokenStore';
 
 import { EmailService } from './infrastructure/services/EmailService';
+import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -16,6 +17,8 @@ import { PgClientRepository } from './infrastructure/repositories/PgClientReposi
 import { PgInstructorRepository } from './infrastructure/repositories/PgInstructorRepository';
 import { PgSessionRepository } from './infrastructure/repositories/PgSessionRepository';
 import { PgCalendarRepository } from './infrastructure/repositories/PgCalendarRepository';
+import { PgSurveyRepository } from './infrastructure/repositories/PgSurveyRepository';
+import { PgReportRepository } from './infrastructure/repositories/PgReportRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -49,6 +52,9 @@ import {
 } from './use-cases/calendar/GlobalCalendarUseCases';
 import { ListMyCalendarUseCase } from './use-cases/calendar/ListMyCalendarUseCase';
 
+import { GenerateReportUseCase } from './use-cases/reports/GenerateReportUseCase';
+import { GetReportUseCase } from './use-cases/reports/GetReportUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { ProviderController } from './interface/controllers/ProviderController';
 import { TrainingController } from './interface/controllers/TrainingController';
@@ -56,6 +62,7 @@ import { ClientController } from './interface/controllers/ClientController';
 import { InstructorController } from './interface/controllers/InstructorController';
 import { SessionController } from './interface/controllers/SessionController';
 import { CalendarController } from './interface/controllers/CalendarController';
+import { ReportController } from './interface/controllers/ReportController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import requireRole from './interface/middlewares/roleMiddleware';
@@ -68,6 +75,7 @@ import clientRoutes from './interface/routes/clientRoutes';
 import instructorRoutes from './interface/routes/instructorRoutes';
 import sessionRoutes from './interface/routes/sessionRoutes';
 import calendarRoutes from './interface/routes/calendarRoutes';
+import reportRoutes from './interface/routes/reportRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
@@ -82,6 +90,8 @@ function buildApp() {
   const instructorRepository = new PgInstructorRepository(pool);
   const sessionRepository = new PgSessionRepository(pool);
   const calendarRepository = new PgCalendarRepository(pool);
+  const surveyRepository = new PgSurveyRepository(pool);
+  const reportRepository = new PgReportRepository(pool);
 
   const signupUseCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService });
   const loginUseCase = new LoginUseCase({ userRepository, passwordHasher, tokenService, refreshTokenStore });
@@ -118,6 +128,9 @@ function buildApp() {
   const deleteGlobalCalendarEventUseCase = new DeleteGlobalCalendarEventUseCase({ calendarRepository });
   const listMyCalendarUseCase = new ListMyCalendarUseCase({ calendarRepository, instructorRepository });
 
+  const generateReportUseCase = new GenerateReportUseCase({ sessionRepository, surveyRepository, reportRepository });
+  const getReportUseCase = new GetReportUseCase({ reportRepository });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -148,6 +161,7 @@ function buildApp() {
     deleteGlobalCalendarEventUseCase,
     listMyCalendarUseCase,
   });
+  const reportController = new ReportController({ getReportUseCase, generateReportUseCase });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository });
 
@@ -182,6 +196,7 @@ function buildApp() {
   app.use('/instructors', instructorRoutes({ instructorController, authMiddleware, requireRole }));
   app.use('/sessions', sessionRoutes({ sessionController, authMiddleware, requireRole }));
   app.use('/calendar', calendarRoutes({ calendarController, authMiddleware, requireRole }));
+  app.use('/reports', reportRoutes({ reportController, authMiddleware, requireRole }));
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
@@ -189,7 +204,9 @@ function buildApp() {
     res.status(500).json({ error: 'Internal server error' });
   });
 
-  return { app };
+  const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase });
+
+  return { app, reportScheduler };
 }
 
 export { buildApp };
