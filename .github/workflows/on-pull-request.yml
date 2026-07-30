@@ -9,11 +9,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
 
   docker:
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/docker-build-and-scan.yml
     with:
       push: false
