@@ -13,6 +13,7 @@ import { PgUserRepository } from './infrastructure/repositories/PgUserRepository
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
 import { PgTrainingRepository } from './infrastructure/repositories/PgTrainingRepository';
 import { PgClientRepository } from './infrastructure/repositories/PgClientRepository';
+import { PgInstructorRepository } from './infrastructure/repositories/PgInstructorRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -28,10 +29,16 @@ import { ListTrainingsUseCase } from './use-cases/trainings/ListTrainingsUseCase
 import { CreateClientUseCase } from './use-cases/clients/CreateClientUseCase';
 import { ListClientsUseCase } from './use-cases/clients/ListClientsUseCase';
 
+import { ListInstructorsUseCase } from './use-cases/instructors/ListInstructorsUseCase';
+import { GetMyInstructorProfileUseCase } from './use-cases/instructors/GetMyInstructorProfileUseCase';
+import { UpdateMyInstructorProfileUseCase } from './use-cases/instructors/UpdateMyInstructorProfileUseCase';
+import { UpdateInstructorByManagerUseCase } from './use-cases/instructors/UpdateInstructorByManagerUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { ProviderController } from './interface/controllers/ProviderController';
 import { TrainingController } from './interface/controllers/TrainingController';
 import { ClientController } from './interface/controllers/ClientController';
+import { InstructorController } from './interface/controllers/InstructorController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import requireRole from './interface/middlewares/roleMiddleware';
@@ -41,6 +48,7 @@ import authRoutes from './interface/routes/authRoutes';
 import providerRoutes from './interface/routes/providerRoutes';
 import trainingRoutes from './interface/routes/trainingRoutes';
 import clientRoutes from './interface/routes/clientRoutes';
+import instructorRoutes from './interface/routes/instructorRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
@@ -52,13 +60,9 @@ function buildApp() {
   const providerRepository = new PgProviderRepository(pool);
   const trainingRepository = new PgTrainingRepository(pool);
   const clientRepository = new PgClientRepository(pool);
+  const instructorRepository = new PgInstructorRepository(pool);
 
-  const signupUseCase = new SignupUseCase({
-    userRepository,
-    instructorRepository: undefined,
-    passwordHasher,
-    emailService,
-  });
+  const signupUseCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService });
   const loginUseCase = new LoginUseCase({ userRepository, passwordHasher, tokenService, refreshTokenStore });
   const listPendingUsersUseCase = new ListPendingUsersUseCase({ userRepository });
   const approveUserUseCase = new ApproveUserUseCase({ userRepository, emailService, refreshTokenStore });
@@ -72,6 +76,11 @@ function buildApp() {
   const createClientUseCase = new CreateClientUseCase({ clientRepository });
   const listClientsUseCase = new ListClientsUseCase({ clientRepository });
 
+  const listInstructorsUseCase = new ListInstructorsUseCase({ instructorRepository });
+  const getMyInstructorProfileUseCase = new GetMyInstructorProfileUseCase({ instructorRepository });
+  const updateMyInstructorProfileUseCase = new UpdateMyInstructorProfileUseCase({ instructorRepository });
+  const updateInstructorByManagerUseCase = new UpdateInstructorByManagerUseCase({ instructorRepository });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -83,6 +92,12 @@ function buildApp() {
   const providerController = new ProviderController({ createProviderUseCase, listProvidersUseCase });
   const trainingController = new TrainingController({ createTrainingUseCase, listTrainingsUseCase });
   const clientController = new ClientController({ createClientUseCase, listClientsUseCase });
+  const instructorController = new InstructorController({
+    listInstructorsUseCase,
+    getMyInstructorProfileUseCase,
+    updateMyInstructorProfileUseCase,
+    updateInstructorByManagerUseCase,
+  });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository });
 
@@ -114,6 +129,7 @@ function buildApp() {
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
   app.use('/clients', clientRoutes({ clientController, authMiddleware, requireRole }));
+  app.use('/instructors', instructorRoutes({ instructorController, authMiddleware, requireRole }));
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
