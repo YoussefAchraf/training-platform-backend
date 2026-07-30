@@ -9,6 +9,7 @@ import { RefreshTokenStore } from './infrastructure/security/RefreshTokenStore';
 
 import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
+import { QRCodeService } from './infrastructure/services/QRCodeService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -54,6 +55,9 @@ import { ListMyCalendarUseCase } from './use-cases/calendar/ListMyCalendarUseCas
 
 import { GenerateReportUseCase } from './use-cases/reports/GenerateReportUseCase';
 import { GetReportUseCase } from './use-cases/reports/GetReportUseCase';
+import { GenerateSurveyQRUseCase } from './use-cases/surveys/GenerateSurveyQRUseCase';
+import { GetSurveySessionInfoUseCase } from './use-cases/surveys/GetSurveySessionInfoUseCase';
+import { SubmitSurveyUseCase } from './use-cases/surveys/SubmitSurveyUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
 import { ProviderController } from './interface/controllers/ProviderController';
@@ -63,6 +67,7 @@ import { InstructorController } from './interface/controllers/InstructorControll
 import { SessionController } from './interface/controllers/SessionController';
 import { CalendarController } from './interface/controllers/CalendarController';
 import { ReportController } from './interface/controllers/ReportController';
+import { SurveyController } from './interface/controllers/SurveyController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import requireRole from './interface/middlewares/roleMiddleware';
@@ -76,12 +81,14 @@ import instructorRoutes from './interface/routes/instructorRoutes';
 import sessionRoutes from './interface/routes/sessionRoutes';
 import calendarRoutes from './interface/routes/calendarRoutes';
 import reportRoutes from './interface/routes/reportRoutes';
+import surveyRoutes from './interface/routes/surveyRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
   const tokenService = new TokenService();
   const refreshTokenStore = new RefreshTokenStore({ redisClient: redis });
   const emailService = new EmailService();
+  const qrCodeService = new QRCodeService();
 
   const userRepository = new PgUserRepository(pool);
   const providerRepository = new PgProviderRepository(pool);
@@ -130,6 +137,21 @@ function buildApp() {
 
   const generateReportUseCase = new GenerateReportUseCase({ sessionRepository, surveyRepository, reportRepository });
   const getReportUseCase = new GetReportUseCase({ reportRepository });
+  const generateSurveyQRUseCase = new GenerateSurveyQRUseCase({
+    sessionRepository,
+    instructorRepository,
+    qrCodeService,
+  });
+  const getSurveySessionInfoUseCase = new GetSurveySessionInfoUseCase({
+    sessionRepository,
+    trainingRepository,
+    instructorRepository,
+  });
+  const submitSurveyUseCase = new SubmitSurveyUseCase({
+    sessionRepository,
+    surveyRepository,
+    generateReportUseCase,
+  });
 
   const authController = new AuthController({
     signupUseCase,
@@ -162,6 +184,11 @@ function buildApp() {
     listMyCalendarUseCase,
   });
   const reportController = new ReportController({ getReportUseCase, generateReportUseCase });
+  const surveyController = new SurveyController({
+    generateSurveyQRUseCase,
+    getSurveySessionInfoUseCase,
+    submitSurveyUseCase,
+  });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository });
 
@@ -197,6 +224,7 @@ function buildApp() {
   app.use('/sessions', sessionRoutes({ sessionController, authMiddleware, requireRole }));
   app.use('/calendar', calendarRoutes({ calendarController, authMiddleware, requireRole }));
   app.use('/reports', reportRoutes({ reportController, authMiddleware, requireRole }));
+  app.use('/survey', surveyRoutes({ surveyController, authMiddleware, requireRole }));
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
