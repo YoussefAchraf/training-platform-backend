@@ -23,7 +23,7 @@ jobs:
       contents: read
       pull-requests: write
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.DEV_AUTOMERGE_TOKEN }}
     steps:
       - name: Open (or reuse) a PR into dev, and enable auto-merge
         run: |
@@ -35,4 +35,4 @@ jobs:
               --title "$TITLE" \
               --body "Auto-opened after verify passed on \`$BRANCH\`. Auto-merges once dev's required checks pass."
           fi
-          gh pr merge "$BRANCH" --repo "${{ github.repository }}" --auto --merge || true
+          gh pr merge "$BRANCH" --repo "${{ github.repository }}" --auto --merge
