@@ -15,7 +15,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-project
       - run: npm run lint
 
@@ -23,7 +23,7 @@ jobs:
     name: typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-project
       - run: npx tsc --noEmit
 
@@ -35,7 +35,7 @@ jobs:
     name: sca
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-project
       - name: npm audit (report only)
         run: npm audit --omit=dev || true
@@ -50,7 +50,7 @@ jobs:
     name: sast
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Semgrep scan (community rules, report only for now)
         run: |
           docker run --rm -v "${{ github.workspace }}:/src" semgrep/semgrep \
@@ -60,7 +60,7 @@ jobs:
     name: secret-scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v3
@@ -94,7 +94,7 @@ jobs:
       REFRESH_TOKEN_TTL_DAYS: 30
       CLIENT_URL: http://localhost:3000
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-project
       - run: npm run db:migrate
       - run: npm test
