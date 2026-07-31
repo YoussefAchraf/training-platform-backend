@@ -76,7 +76,7 @@ jobs:
         env:
           POSTGRES_DB: training_platform
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres -d training_platform"
@@ -87,11 +87,9 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     env:
-
-
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/training_platform
+      DATABASE_URL: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/training_platform
       REDIS_URL: redis://localhost:6379
-      JWT_SECRET: ci-test-secret-not-for-production
+      JWT_SECRET: ${{ secrets.CI_JWT_SECRET }}
       JWT_EXPIRES_IN: 8h
       REFRESH_TOKEN_TTL_DAYS: 30
       CLIENT_URL: http://localhost:3000
