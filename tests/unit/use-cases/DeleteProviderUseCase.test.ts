@@ -3,6 +3,9 @@ import { DeleteProviderUseCase } from '../../../src/use-cases/providers/DeletePr
 function buildRequester(overrides: Record<string, any> = {}) {
   return {
     id: 1,
+    email: 'actor@example.com',
+    firstname: 'Actor',
+    lastname: 'Person',
     canManageCatalog: () => true,
     isSuperAdmin: () => false,
     ...overrides,
@@ -16,13 +19,20 @@ function buildRepos() {
       softDelete: jest.fn().mockResolvedValue({ id: 5, name: 'Old Name', createdBy: 1, deletedAt: new Date() }),
     },
     auditLogRepository: { create: jest.fn() },
+    userRepository: {
+      listApprovedManagers: jest.fn().mockResolvedValue([
+        { email: 'actor@example.com' },
+        { email: 'other-manager@example.com' },
+      ]),
+    },
+    emailService: { sendRecordChangedNotification: jest.fn() },
   };
 }
 
 describe('DeleteProviderUseCase', () => {
   it('rejects a requester who cannot manage the catalog and is not SuperAdmin', async () => {
-    const { providerRepository, auditLogRepository } = buildRepos();
-    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ canManageCatalog: () => false }), providerId: 5 })
@@ -31,9 +41,9 @@ describe('DeleteProviderUseCase', () => {
   });
 
   it('rejects a provider that does not exist', async () => {
-    const { providerRepository, auditLogRepository } = buildRepos();
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     providerRepository.findById.mockResolvedValue(null);
-    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), providerId: 999 })
@@ -41,8 +51,8 @@ describe('DeleteProviderUseCase', () => {
   });
 
   it('rejects a requester who did not create the provider', async () => {
-    const { providerRepository, auditLogRepository } = buildRepos();
-    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ id: 2 }), providerId: 5 })
@@ -51,8 +61,8 @@ describe('DeleteProviderUseCase', () => {
   });
 
   it('allows the creator to delete and writes an audit log entry', async () => {
-    const { providerRepository, auditLogRepository } = buildRepos();
-    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
 
     await useCase.execute({ requester: buildRequester(), providerId: 5 });
 
@@ -63,8 +73,8 @@ describe('DeleteProviderUseCase', () => {
   });
 
   it('allows a SuperAdmin to delete a provider they did not create', async () => {
-    const { providerRepository, auditLogRepository } = buildRepos();
-    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({
@@ -73,5 +83,26 @@ describe('DeleteProviderUseCase', () => {
       })
     ).resolves.toBeDefined();
     expect(providerRepository.softDelete).toHaveBeenCalled();
+  });
+
+  it('notifies approved managers except the acting user', async () => {
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), providerId: 5 });
+
+    expect(emailService.sendRecordChangedNotification).toHaveBeenCalledWith(
+      ['other-manager@example.com'],
+      expect.objectContaining({ action: 'delete', entityType: 'Provider', entityId: 5, label: 'Old Name' })
+    );
+  });
+
+  it('still deletes the provider even if sending the manager notification fails', async () => {
+    const { providerRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    emailService.sendRecordChangedNotification.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    const useCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(useCase.execute({ requester: buildRequester(), providerId: 5 })).resolves.toBeDefined();
+    expect(providerRepository.softDelete).toHaveBeenCalledWith(5);
   });
 });

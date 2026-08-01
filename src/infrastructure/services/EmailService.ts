@@ -62,6 +62,28 @@ class EmailService {
       `,
     });
   }
+
+  async sendRecordChangedNotification(managerEmails, { actor, action, entityType, entityId, label }) {
+    if (!managerEmails || managerEmails.length === 0) {
+      return;
+    }
+
+    const ACTION_VERBS = { update: 'updated', delete: 'deleted', cancel: 'cancelled' };
+    const verb = ACTION_VERBS[action] || action;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: managerEmails.join(','),
+      subject: `${entityType} ${verb} by ${actor.firstname} ${actor.lastname}`,
+      html: `
+        <p><strong>${actor.firstname} ${actor.lastname}</strong> (${actor.email}) just ${verb} a ${entityType.toLowerCase()}${label ? `: <strong>${label}</strong>` : ''}.</p>
+        <ul>
+          <li><strong>Entity:</strong> ${entityType} #${entityId}</li>
+          <li><strong>Action:</strong> ${verb}</li>
+        </ul>
+      `,
+    });
+  }
 }
 
 export { EmailService };

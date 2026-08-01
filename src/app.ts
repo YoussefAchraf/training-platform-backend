@@ -132,20 +132,50 @@ function buildApp() {
 
   const createProviderUseCase = new CreateProviderUseCase({ providerRepository, auditLogRepository });
   const listProvidersUseCase = new ListProvidersUseCase({ providerRepository });
-  const updateProviderUseCase = new UpdateProviderUseCase({ providerRepository, auditLogRepository });
-  const deleteProviderUseCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
+  const updateProviderUseCase = new UpdateProviderUseCase({
+    providerRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const deleteProviderUseCase = new DeleteProviderUseCase({
+    providerRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
   const createTrainingUseCase = new CreateTrainingUseCase({
     trainingRepository,
     providerRepository,
     auditLogRepository,
   });
   const listTrainingsUseCase = new ListTrainingsUseCase({ trainingRepository });
-  const updateTrainingUseCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
-  const deleteTrainingUseCase = new DeleteTrainingUseCase({ trainingRepository, auditLogRepository });
+  const updateTrainingUseCase = new UpdateTrainingUseCase({
+    trainingRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const deleteTrainingUseCase = new DeleteTrainingUseCase({
+    trainingRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
   const createClientUseCase = new CreateClientUseCase({ clientRepository, auditLogRepository });
   const listClientsUseCase = new ListClientsUseCase({ clientRepository });
-  const updateClientUseCase = new UpdateClientUseCase({ clientRepository, auditLogRepository });
-  const deleteClientUseCase = new DeleteClientUseCase({ clientRepository, auditLogRepository });
+  const updateClientUseCase = new UpdateClientUseCase({
+    clientRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const deleteClientUseCase = new DeleteClientUseCase({
+    clientRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
 
   const listInstructorsUseCase = new ListInstructorsUseCase({ instructorRepository });
   const getMyInstructorProfileUseCase = new GetMyInstructorProfileUseCase({ instructorRepository });
@@ -168,12 +198,16 @@ function buildApp() {
     reportRepository,
     surveyRepository,
     auditLogRepository,
+    userRepository,
+    emailService,
   });
   const cancelSessionUseCase = new CancelSessionUseCase({
     sessionRepository,
     reportRepository,
     surveyRepository,
     auditLogRepository,
+    userRepository,
+    emailService,
   });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });

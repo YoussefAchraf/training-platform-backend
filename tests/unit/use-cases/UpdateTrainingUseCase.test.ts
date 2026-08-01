@@ -3,6 +3,9 @@ import { UpdateTrainingUseCase } from '../../../src/use-cases/trainings/UpdateTr
 function buildRequester(overrides: Record<string, any> = {}) {
   return {
     id: 1,
+    email: 'actor@example.com',
+    firstname: 'Actor',
+    lastname: 'Person',
     canManageCatalog: () => true,
     isSuperAdmin: () => false,
     ...overrides,
@@ -16,13 +19,20 @@ function buildRepos() {
       update: jest.fn().mockResolvedValue({ id: 5, name: 'New', createdBy: 1 }),
     },
     auditLogRepository: { create: jest.fn() },
+    userRepository: {
+      listApprovedManagers: jest.fn().mockResolvedValue([
+        { email: 'actor@example.com' },
+        { email: 'other-manager@example.com' },
+      ]),
+    },
+    emailService: { sendRecordChangedNotification: jest.fn() },
   };
 }
 
 describe('UpdateTrainingUseCase', () => {
   it('rejects a requester who cannot manage the catalog and is not SuperAdmin', async () => {
-    const { trainingRepository, auditLogRepository } = buildRepos();
-    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ canManageCatalog: () => false }), trainingId: 5, name: 'X' })
@@ -30,9 +40,9 @@ describe('UpdateTrainingUseCase', () => {
   });
 
   it('rejects a training that does not exist', async () => {
-    const { trainingRepository, auditLogRepository } = buildRepos();
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     trainingRepository.findById.mockResolvedValue(null);
-    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), trainingId: 999, name: 'X' })
@@ -40,8 +50,8 @@ describe('UpdateTrainingUseCase', () => {
   });
 
   it('rejects a requester who did not create the training', async () => {
-    const { trainingRepository, auditLogRepository } = buildRepos();
-    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ id: 2 }), trainingId: 5, name: 'X' })
@@ -50,8 +60,8 @@ describe('UpdateTrainingUseCase', () => {
   });
 
   it('allows the creator to update and writes an audit log entry', async () => {
-    const { trainingRepository, auditLogRepository } = buildRepos();
-    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
 
     await useCase.execute({ requester: buildRequester(), trainingId: 5, name: 'New' });
 
@@ -61,8 +71,8 @@ describe('UpdateTrainingUseCase', () => {
   });
 
   it('allows a SuperAdmin to update a training they did not create', async () => {
-    const { trainingRepository, auditLogRepository } = buildRepos();
-    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({
@@ -70,6 +80,28 @@ describe('UpdateTrainingUseCase', () => {
         trainingId: 5,
         name: 'New',
       })
+    ).resolves.toBeDefined();
+  });
+
+  it('notifies approved managers except the acting user', async () => {
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), trainingId: 5, name: 'New' });
+
+    expect(emailService.sendRecordChangedNotification).toHaveBeenCalledWith(
+      ['other-manager@example.com'],
+      expect.objectContaining({ action: 'update', entityType: 'Training', entityId: 5, label: 'New' })
+    );
+  });
+
+  it('still returns the updated training even if sending the manager notification fails', async () => {
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    emailService.sendRecordChangedNotification.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), trainingId: 5, name: 'New' })
     ).resolves.toBeDefined();
   });
 });

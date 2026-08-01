@@ -5,12 +5,16 @@ class CancelSessionUseCase {
   reportRepository: any;
   surveyRepository: any;
   auditLogRepository: any;
+  userRepository: any;
+  emailService: any;
 
-  constructor({ sessionRepository, reportRepository, surveyRepository, auditLogRepository }) {
+  constructor({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService }) {
     this.sessionRepository = sessionRepository;
     this.reportRepository = reportRepository;
     this.surveyRepository = surveyRepository;
     this.auditLogRepository = auditLogRepository;
+    this.userRepository = userRepository;
+    this.emailService = emailService;
   }
 
   async execute({ requester, sessionId }) {
@@ -51,6 +55,16 @@ class CancelSessionUseCase {
       before: session,
       after: updated,
     });
+
+    try {
+      const managers = await this.userRepository.listApprovedManagers();
+      await this.emailService.sendRecordChangedNotification(
+        managers.filter((m) => m.email !== requester.email).map((m) => m.email),
+        { actor: requester, action: 'cancel', entityType: 'Session', entityId: sessionId }
+      );
+    } catch (err) {
+      console.error('Failed to send manager notification:', err.message);
+    }
 
     return updated;
   }

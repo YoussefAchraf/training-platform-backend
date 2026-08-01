@@ -1,10 +1,14 @@
 class UpdateClientUseCase {
   clientRepository: any;
   auditLogRepository: any;
+  userRepository: any;
+  emailService: any;
 
-  constructor({ clientRepository, auditLogRepository }) {
+  constructor({ clientRepository, auditLogRepository, userRepository, emailService }) {
     this.clientRepository = clientRepository;
     this.auditLogRepository = auditLogRepository;
+    this.userRepository = userRepository;
+    this.emailService = emailService;
   }
 
   async execute({ requester, clientId, companyName, email, phone }) {
@@ -31,6 +35,16 @@ class UpdateClientUseCase {
       before: client,
       after: updated,
     });
+
+    try {
+      const managers = await this.userRepository.listApprovedManagers();
+      await this.emailService.sendRecordChangedNotification(
+        managers.filter((m) => m.email !== requester.email).map((m) => m.email),
+        { actor: requester, action: 'update', entityType: 'Client', entityId: clientId, label: updated.companyName }
+      );
+    } catch (err) {
+      console.error('Failed to send manager notification:', err.message);
+    }
 
     return updated;
   }
