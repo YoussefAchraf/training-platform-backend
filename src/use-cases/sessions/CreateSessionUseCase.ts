@@ -3,12 +3,14 @@ class CreateSessionUseCase {
   trainingRepository: any;
   clientRepository: any;
   calendarRepository: any;
+  auditLogRepository: any;
 
-  constructor({ sessionRepository, trainingRepository, clientRepository, calendarRepository }) {
+  constructor({ sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository }) {
     this.sessionRepository = sessionRepository;
     this.trainingRepository = trainingRepository;
     this.clientRepository = clientRepository;
     this.calendarRepository = calendarRepository;
+    this.auditLogRepository = auditLogRepository;
   }
 
   async execute({ requester, trainingId, clientId, startDate, endDate }) {
@@ -35,11 +37,18 @@ class CreateSessionUseCase {
       createdBy: requester.id,
     });
 
-    
     await this.calendarRepository.create({
       sessionId: session.id,
       eventDate: startDate,
       title: `${training.name} - ${client.companyName}`,
+    });
+
+    await this.auditLogRepository.create({
+      actorId: requester.id,
+      action: 'create',
+      entityType: 'Session',
+      entityId: session.id,
+      after: session,
     });
 
     return session;

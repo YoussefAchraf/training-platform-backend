@@ -1,8 +1,10 @@
 class CreateClientUseCase {
   clientRepository: any;
+  auditLogRepository: any;
 
-  constructor({ clientRepository }) {
+  constructor({ clientRepository, auditLogRepository }) {
     this.clientRepository = clientRepository;
+    this.auditLogRepository = auditLogRepository;
   }
 
   async execute({ requester, companyName, email, phone }) {
@@ -13,12 +15,22 @@ class CreateClientUseCase {
       throw new Error('Company name is required');
     }
 
-    return this.clientRepository.create({
+    const client = await this.clientRepository.create({
       companyName: companyName.trim(),
       email,
       phone,
       createdBy: requester.id,
     });
+
+    await this.auditLogRepository.create({
+      actorId: requester.id,
+      action: 'create',
+      entityType: 'Client',
+      entityId: client.id,
+      after: client,
+    });
+
+    return client;
   }
 }
 

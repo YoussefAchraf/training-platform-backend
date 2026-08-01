@@ -123,6 +123,17 @@ CREATE TABLE reports (
     generated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE audit_log (
+    id            SERIAL PRIMARY KEY,
+    actor_id      INTEGER REFERENCES users(id),
+    action        VARCHAR(20) NOT NULL,
+    entity_type   VARCHAR(50) NOT NULL,
+    entity_id     INTEGER NOT NULL,
+    before        JSONB,
+    after         JSONB,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 
 INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor');
 
@@ -134,3 +145,6 @@ CREATE INDEX idx_attendees_session ON session_attendees(session_id);
 CREATE INDEX idx_providers_active ON providers(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_trainings_active ON trainings(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_clients_active ON clients(id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id);
+CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
