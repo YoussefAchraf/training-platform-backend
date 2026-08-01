@@ -58,11 +58,15 @@ class SignupUseCase {
     
     
     
-    const managers = await this.userRepository.listApprovedManagers();
-    await this.emailService.sendNewSignupNotification(
-      managers.map((m) => m.email),
-      { firstname: user.firstname, lastname: user.lastname, email: user.email, roleName: role }
-    );
+    try {
+      const managers = await this.userRepository.listApprovedManagers();
+      await this.emailService.sendNewSignupNotification(
+        managers.map((m) => m.email),
+        { firstname: user.firstname, lastname: user.lastname, email: user.email, roleName: role }
+      );
+    } catch (err) {
+      console.error('Failed to send new-signup notification:', err.message);
+    }
 
     return user.toSafeJSON();
   }

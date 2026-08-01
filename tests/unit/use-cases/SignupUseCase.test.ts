@@ -98,4 +98,17 @@ describe('SignupUseCase', () => {
 
     expect(instructorRepository.create).toHaveBeenCalledWith({ userId: 10, bio: '' });
   });
+
+  it('still returns the created user even if sending the new-signup notification fails', async () => {
+    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository, createdUser } =
+      buildRepos({
+        userRepository: { listApprovedManagers: jest.fn().mockResolvedValue([{ email: 'manager@example.com' }]) },
+        emailService: { sendNewSignupNotification: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')) },
+      });
+    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+
+    await expect(
+      useCase.execute({ firstname: 'Jane', lastname: 'Doe', email: 'jane@example.com', password: 'password123', role: 'Sales' })
+    ).resolves.toEqual(createdUser.toSafeJSON());
+  });
 });
