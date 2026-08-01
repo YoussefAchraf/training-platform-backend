@@ -54,6 +54,8 @@ import { ListSessionsUseCase } from './use-cases/sessions/ListSessionsUseCase';
 import { AssignInstructorUseCase } from './use-cases/sessions/AssignInstructorUseCase';
 import { RespondToAssignmentUseCase } from './use-cases/sessions/RespondToAssignmentUseCase';
 import { AddAttendeeUseCase } from './use-cases/sessions/AddAttendeeUseCase';
+import { UpdateSessionUseCase } from './use-cases/sessions/UpdateSessionUseCase';
+import { CancelSessionUseCase } from './use-cases/sessions/CancelSessionUseCase';
 
 import {
   ListGlobalCalendarUseCase,
@@ -161,6 +163,18 @@ function buildApp() {
   const assignInstructorUseCase = new AssignInstructorUseCase({ sessionRepository, instructorRepository });
   const respondToAssignmentUseCase = new RespondToAssignmentUseCase({ sessionRepository, instructorRepository });
   const addAttendeeUseCase = new AddAttendeeUseCase({ sessionRepository });
+  const updateSessionUseCase = new UpdateSessionUseCase({
+    sessionRepository,
+    reportRepository,
+    surveyRepository,
+    auditLogRepository,
+  });
+  const cancelSessionUseCase = new CancelSessionUseCase({
+    sessionRepository,
+    reportRepository,
+    surveyRepository,
+    auditLogRepository,
+  });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
   const updateGlobalCalendarUseCase = new UpdateGlobalCalendarUseCase({ calendarRepository });
@@ -223,6 +237,8 @@ function buildApp() {
     assignInstructorUseCase,
     respondToAssignmentUseCase,
     addAttendeeUseCase,
+    updateSessionUseCase,
+    cancelSessionUseCase,
   });
   const calendarController = new CalendarController({
     listGlobalCalendarUseCase,

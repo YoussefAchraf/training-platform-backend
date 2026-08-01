@@ -102,6 +102,19 @@ class PgSessionRepository extends ISessionRepository {
     return mapRow(rows[0]);
   }
 
+  async update(sessionId, fields) {
+    const { rows } = await this.pool.query(
+      `UPDATE training_sessions
+       SET start_date = COALESCE($2, start_date),
+           end_date = COALESCE($3, end_date),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [sessionId, fields.startDate || null, fields.endDate || null]
+    );
+    return mapRow(rows[0]);
+  }
+
   
   
   async listEndedWithoutReport(minutesAgo) {
