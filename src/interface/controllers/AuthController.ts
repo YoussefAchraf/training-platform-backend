@@ -5,6 +5,10 @@ class AuthController {
   approveUserUseCase: any;
   refreshTokenUseCase: any;
   logoutUseCase: any;
+  listAllUsersUseCase: any;
+  updateUserByAdminUseCase: any;
+  deactivateUserUseCase: any;
+  updateOwnProfileUseCase: any;
 
   constructor({
     signupUseCase,
@@ -13,6 +17,10 @@ class AuthController {
     approveUserUseCase,
     refreshTokenUseCase,
     logoutUseCase,
+    listAllUsersUseCase,
+    updateUserByAdminUseCase,
+    deactivateUserUseCase,
+    updateOwnProfileUseCase,
   }) {
     this.signupUseCase = signupUseCase;
     this.loginUseCase = loginUseCase;
@@ -20,6 +28,10 @@ class AuthController {
     this.approveUserUseCase = approveUserUseCase;
     this.refreshTokenUseCase = refreshTokenUseCase;
     this.logoutUseCase = logoutUseCase;
+    this.listAllUsersUseCase = listAllUsersUseCase;
+    this.updateUserByAdminUseCase = updateUserByAdminUseCase;
+    this.deactivateUserUseCase = deactivateUserUseCase;
+    this.updateOwnProfileUseCase = updateOwnProfileUseCase;
   }
 
   signup = async (req, res) => {
@@ -91,6 +103,55 @@ class AuthController {
         targetUserId: Number(req.params.id),
         decision: 'reject',
       });
+      res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  listAllUsers = async (req, res) => {
+    try {
+      const users = await this.listAllUsersUseCase.execute({ requester: req.user });
+      res.status(200).json(users);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  updateUserByAdmin = async (req, res) => {
+    try {
+      const { firstname, lastname, email, role, status } = req.body;
+      const user = await this.updateUserByAdminUseCase.execute({
+        requester: req.user,
+        targetUserId: Number(req.params.id),
+        firstname,
+        lastname,
+        email,
+        role,
+        status,
+      });
+      res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  deactivateUser = async (req, res) => {
+    try {
+      const user = await this.deactivateUserUseCase.execute({
+        requester: req.user,
+        targetUserId: Number(req.params.id),
+      });
+      res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  updateMe = async (req, res) => {
+    try {
+      const { firstname, lastname } = req.body;
+      const user = await this.updateOwnProfileUseCase.execute({ requester: req.user, firstname, lastname });
       res.status(200).json(user);
     } catch (err) {
       res.status(400).json({ error: err.message });
