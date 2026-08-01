@@ -2,16 +2,40 @@
 
 
 
-CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected', 'deactivated');
-CREATE TYPE session_status AS ENUM ('scheduled', 'ongoing', 'completed', 'cancelled');
-CREATE TYPE assignment_status AS ENUM ('unassigned', 'pending', 'accepted', 'refused');
 
-CREATE TABLE roles (
+
+
+
+
+
+
+
+
+
+DO $$ BEGIN
+    CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected', 'deactivated');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE session_status AS ENUM ('scheduled', 'ongoing', 'completed', 'cancelled');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE assignment_status AS ENUM ('unassigned', 'pending', 'accepted', 'refused');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS roles (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id              SERIAL PRIMARY KEY,
     firstname       VARCHAR(100) NOT NULL,
     lastname        VARCHAR(100) NOT NULL,
@@ -25,7 +49,7 @@ CREATE TABLE users (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE providers (
+CREATE TABLE IF NOT EXISTS providers (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(150) UNIQUE NOT NULL,
     description TEXT,
@@ -35,7 +59,7 @@ CREATE TABLE providers (
     deleted_at  TIMESTAMPTZ
 );
 
-CREATE TABLE trainings (
+CREATE TABLE IF NOT EXISTS trainings (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(150) NOT NULL,
     provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
@@ -47,7 +71,7 @@ CREATE TABLE trainings (
     deleted_at  TIMESTAMPTZ
 );
 
-CREATE TABLE clients (
+CREATE TABLE IF NOT EXISTS clients (
     id            SERIAL PRIMARY KEY,
     company_name  VARCHAR(150) NOT NULL,
     email         VARCHAR(150),
@@ -58,7 +82,7 @@ CREATE TABLE clients (
     deleted_at    TIMESTAMPTZ
 );
 
-CREATE TABLE instructors (
+CREATE TABLE IF NOT EXISTS instructors (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     bio         TEXT,
@@ -66,13 +90,13 @@ CREATE TABLE instructors (
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE instructor_skills (
+CREATE TABLE IF NOT EXISTS instructor_skills (
     instructor_id INTEGER NOT NULL REFERENCES instructors(id) ON DELETE CASCADE,
     training_id   INTEGER NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
     PRIMARY KEY (instructor_id, training_id)
 );
 
-CREATE TABLE training_sessions (
+CREATE TABLE IF NOT EXISTS training_sessions (
     id                  SERIAL PRIMARY KEY,
     training_id         INTEGER NOT NULL REFERENCES trainings(id),
     client_id           INTEGER NOT NULL REFERENCES clients(id),
@@ -87,7 +111,7 @@ CREATE TABLE training_sessions (
     CHECK (end_date > start_date)
 );
 
-CREATE TABLE session_attendees (
+CREATE TABLE IF NOT EXISTS session_attendees (
     id                  SERIAL PRIMARY KEY,
     session_id          INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     name                VARCHAR(150) NOT NULL,
@@ -96,7 +120,7 @@ CREATE TABLE session_attendees (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE calendar (
+CREATE TABLE IF NOT EXISTS calendar (
     id          SERIAL PRIMARY KEY,
     session_id  INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     event_date  TIMESTAMPTZ NOT NULL,
@@ -104,7 +128,7 @@ CREATE TABLE calendar (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE surveys (
+CREATE TABLE IF NOT EXISTS surveys (
     id                  SERIAL PRIMARY KEY,
     session_id          INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     instructor_id       INTEGER NOT NULL REFERENCES instructors(id),
@@ -115,7 +139,7 @@ CREATE TABLE surveys (
     submitted_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE reports (
+CREATE TABLE IF NOT EXISTS reports (
     id              SERIAL PRIMARY KEY,
     session_id      INTEGER UNIQUE NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     pdf_url         VARCHAR(255),
@@ -124,7 +148,7 @@ CREATE TABLE reports (
     generated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
     id            SERIAL PRIMARY KEY,
     actor_id      INTEGER REFERENCES users(id),
     action        VARCHAR(20) NOT NULL,
@@ -136,16 +160,17 @@ CREATE TABLE audit_log (
 );
 
 
-INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor'), ('SuperAdmin');
+INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor'), ('SuperAdmin')
+ON CONFLICT (name) DO NOTHING;
 
-CREATE INDEX idx_sessions_instructor ON training_sessions(instructor_id);
-CREATE INDEX idx_sessions_status ON training_sessions(session_status);
-CREATE INDEX idx_surveys_session ON surveys(session_id);
-CREATE INDEX idx_attendees_session ON session_attendees(session_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_instructor ON training_sessions(instructor_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON training_sessions(session_status);
+CREATE INDEX IF NOT EXISTS idx_surveys_session ON surveys(session_id);
+CREATE INDEX IF NOT EXISTS idx_attendees_session ON session_attendees(session_id);
 
-CREATE INDEX idx_providers_active ON providers(id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_trainings_active ON trainings(id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_clients_active ON clients(id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_providers_active ON providers(id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_trainings_active ON trainings(id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_clients_active ON clients(id) WHERE deleted_at IS NULL;
 
-CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id);
-CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
