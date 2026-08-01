@@ -10,7 +10,7 @@ class GenerateReportUseCase {
   }
 
     async execute({ requester, sessionId, triggeredBy = 'manual' }) {
-    if (requester && !(requester.isManager() || requester.canManageCatalog())) {
+    if (requester && !(requester.isManager() || requester.canManageCatalog() || requester.isSuperAdmin())) {
       throw new Error('Only Sales or Manager can manually trigger report generation');
     }
 

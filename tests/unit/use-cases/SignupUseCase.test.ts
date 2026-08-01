@@ -39,6 +39,17 @@ describe('SignupUseCase', () => {
     expect(userRepository.findByEmail).not.toHaveBeenCalled();
   });
 
+  it('rejects SuperAdmin as a self-signup role - it is a real ROLES value but not self-signup-able', async () => {
+    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos();
+    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+
+    await expect(
+      useCase.execute({ firstname: 'A', lastname: 'B', email: 'a@b.com', password: 'x', role: 'SuperAdmin' })
+    ).rejects.toThrow('role must be one of');
+
+    expect(userRepository.findByEmail).not.toHaveBeenCalled();
+  });
+
   it('rejects a duplicate email', async () => {
     const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos({
       userRepository: { findByEmail: jest.fn().mockResolvedValue({ id: 1 }) },

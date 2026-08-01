@@ -135,7 +135,7 @@ CREATE TABLE audit_log (
 );
 
 
-INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor');
+INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor'), ('SuperAdmin');
 
 CREATE INDEX idx_sessions_instructor ON training_sessions(instructor_id);
 CREATE INDEX idx_sessions_status ON training_sessions(session_status);

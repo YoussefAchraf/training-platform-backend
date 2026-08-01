@@ -7,7 +7,7 @@ class UpdateInstructorByManagerUseCase {
 
   async execute({ requester, instructorId, bio, trainingIds }) {
     
-    if (!requester.isManager()) {
+    if (!requester.isManager() && !requester.isSuperAdmin()) {
       throw new Error('Only a Manager can update another instructor profile');
     }
 

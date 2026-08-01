@@ -12,7 +12,7 @@ class ApproveUserUseCase {
   }
 
   async execute({ managerUser, targetUserId, decision }) {
-    if (!managerUser.isManager()) {
+    if (!managerUser.isManager() && !managerUser.isSuperAdmin()) {
       throw new Error('Only a Manager can approve or reject account requests');
     }
 

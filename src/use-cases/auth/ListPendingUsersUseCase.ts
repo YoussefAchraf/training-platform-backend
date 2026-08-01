@@ -6,7 +6,7 @@ class ListPendingUsersUseCase {
   }
 
   async execute({ managerUser }) {
-    if (!managerUser.isManager()) {
+    if (!managerUser.isManager() && !managerUser.isSuperAdmin()) {
       throw new Error('Only a Manager can view pending account requests');
     }
     const pending = await this.userRepository.listPending();

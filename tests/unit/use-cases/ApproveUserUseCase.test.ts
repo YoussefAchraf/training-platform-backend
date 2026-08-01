@@ -4,6 +4,7 @@ function buildManager(overrides: Record<string, any> = {}) {
   return {
     id: 1,
     isManager: () => true,
+    isSuperAdmin: () => false,
     ...overrides,
   };
 }
@@ -36,6 +37,30 @@ describe('ApproveUserUseCase', () => {
 
     expect(userRepository.findById).not.toHaveBeenCalled();
     expect(auditLogRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('allows a SuperAdmin actor even though they are not a Manager', async () => {
+    const targetUser = buildTargetUser();
+    const approvedUser = buildTargetUser({ status: 'approved' });
+    const userRepository = {
+      findById: jest.fn().mockResolvedValue(targetUser),
+      approve: jest.fn().mockResolvedValue(approvedUser),
+    };
+    const auditLogRepository = { create: jest.fn() };
+    const useCase = new ApproveUserUseCase({
+      userRepository,
+      emailService: { sendAccountApprovedEmail: jest.fn() },
+      refreshTokenStore: { revokeAllForUser: jest.fn() },
+      auditLogRepository,
+    });
+
+    const superAdmin = buildManager({ isManager: () => false, isSuperAdmin: () => true });
+
+    await expect(
+      useCase.execute({ managerUser: superAdmin, targetUserId: 2, decision: 'approve' })
+    ).resolves.toBeDefined();
+
+    expect(userRepository.approve).toHaveBeenCalledWith(2, superAdmin.id);
   });
 
   it('writes an audit log entry with before/after state on approve', async () => {
