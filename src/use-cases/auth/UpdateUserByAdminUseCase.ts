@@ -1,4 +1,5 @@
 import { ROLES, USER_STATUS } from '../../domain/entities/User';
+import { isValidEmail } from '../../domain/validation/isValidEmail';
 
 class UpdateUserByAdminUseCase {
   userRepository: any;
@@ -12,6 +13,10 @@ class UpdateUserByAdminUseCase {
   async execute({ requester, targetUserId, firstname, lastname, email, role, status }) {
     if (!requester.isSuperAdmin()) {
       throw new Error("Only a SuperAdmin can edit another user's profile");
+    }
+
+    if (email !== undefined && !isValidEmail(email)) {
+      throw new Error('email must be a valid email address');
     }
 
     const target = await this.userRepository.findById(targetUserId);

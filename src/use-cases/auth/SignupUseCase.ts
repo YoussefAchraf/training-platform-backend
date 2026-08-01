@@ -1,4 +1,5 @@
 import { User, ROLES, SELF_SIGNUP_ROLES, USER_STATUS } from '../../domain/entities/User';
+import { isValidEmail } from '../../domain/validation/isValidEmail';
 
 class SignupUseCase {
   userRepository: any;
@@ -18,6 +19,10 @@ class SignupUseCase {
   async execute({ firstname, lastname, email, password, role }) {
     if (!Object.values(SELF_SIGNUP_ROLES).includes(role)) {
       throw new Error(`role must be one of: ${Object.values(SELF_SIGNUP_ROLES).join(', ')}`);
+    }
+
+    if (!isValidEmail(email)) {
+      throw new Error('A valid email address is required');
     }
 
     const existing = await this.userRepository.findByEmail(email);

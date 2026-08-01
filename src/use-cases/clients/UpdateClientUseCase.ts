@@ -1,3 +1,5 @@
+import { isValidEmail } from '../../domain/validation/isValidEmail';
+
 class UpdateClientUseCase {
   clientRepository: any;
   auditLogRepository: any;
@@ -14,6 +16,10 @@ class UpdateClientUseCase {
   async execute({ requester, clientId, companyName, email, phone }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a client');
+    }
+
+    if (email && !isValidEmail(email)) {
+      throw new Error('email must be a valid email address');
     }
 
     const client = await this.clientRepository.findById(clientId);

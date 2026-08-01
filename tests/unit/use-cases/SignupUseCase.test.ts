@@ -50,6 +50,17 @@ describe('SignupUseCase', () => {
     expect(userRepository.findByEmail).not.toHaveBeenCalled();
   });
 
+  it('rejects a malformed email address before touching any repository', async () => {
+    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos();
+    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+
+    await expect(
+      useCase.execute({ firstname: 'A', lastname: 'B', email: 'not-an-email', password: 'x', role: 'Sales' })
+    ).rejects.toThrow('valid email');
+
+    expect(userRepository.findByEmail).not.toHaveBeenCalled();
+  });
+
   it('rejects a duplicate email', async () => {
     const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos({
       userRepository: { findByEmail: jest.fn().mockResolvedValue({ id: 1 }) },

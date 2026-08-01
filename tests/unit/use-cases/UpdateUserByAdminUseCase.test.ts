@@ -54,6 +54,16 @@ describe('UpdateUserByAdminUseCase', () => {
     ).rejects.toThrow('User not found');
   });
 
+  it('rejects a malformed email address before looking up the target user', async () => {
+    const { userRepository, auditLogRepository } = buildRepos();
+    const useCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), targetUserId: 5, email: 'not-an-email' })
+    ).rejects.toThrow('valid email');
+    expect(userRepository.findById).not.toHaveBeenCalled();
+  });
+
   it('rejects an unknown role', async () => {
     const { userRepository, auditLogRepository } = buildRepos();
     const useCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });

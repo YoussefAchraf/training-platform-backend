@@ -92,6 +92,7 @@ import { SurveyController } from './interface/controllers/SurveyController';
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
+import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
 import adminRoutes from './interface/routes/adminRoutes';
@@ -338,6 +339,7 @@ function buildApp() {
   }
   app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
   app.use(express.json());
+  app.use(sanitizeMiddleware);
   app.use(globalLimiter);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
