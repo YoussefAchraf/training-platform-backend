@@ -31,7 +31,11 @@ class ApproveUserUseCase {
         before: targetUser.toSafeJSON(),
         after: updated.toSafeJSON(),
       });
-      await this.emailService.sendAccountApprovedEmail(updated.email, updated.firstname);
+      try {
+        await this.emailService.sendAccountApprovedEmail(updated.email, updated.firstname);
+      } catch (err) {
+        console.error('Failed to send account-approved email:', err.message);
+      }
       return updated.toSafeJSON();
     }
 
@@ -46,7 +50,11 @@ class ApproveUserUseCase {
         after: updated.toSafeJSON(),
       });
       await this.refreshTokenStore.revokeAllForUser(targetUserId);
-      await this.emailService.sendAccountRejectedEmail(updated.email, updated.firstname);
+      try {
+        await this.emailService.sendAccountRejectedEmail(updated.email, updated.firstname);
+      } catch (err) {
+        console.error('Failed to send account-rejected email:', err.message);
+      }
       return updated.toSafeJSON();
     }
 

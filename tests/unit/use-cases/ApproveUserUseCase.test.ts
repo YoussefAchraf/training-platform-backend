@@ -117,4 +117,43 @@ describe('ApproveUserUseCase', () => {
     );
     expect(refreshTokenStore.revokeAllForUser).toHaveBeenCalledWith(2);
   });
+
+  it('still returns the approved user even if sending the approval email fails', async () => {
+    const targetUser = buildTargetUser();
+    const approvedUser = buildTargetUser({ status: 'approved' });
+    const userRepository = {
+      findById: jest.fn().mockResolvedValue(targetUser),
+      approve: jest.fn().mockResolvedValue(approvedUser),
+    };
+    const auditLogRepository = { create: jest.fn() };
+    const emailService = { sendAccountApprovedEmail: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')) };
+    const useCase = new ApproveUserUseCase({
+      userRepository,
+      emailService,
+      refreshTokenStore: { revokeAllForUser: jest.fn() },
+      auditLogRepository,
+    });
+
+    await expect(
+      useCase.execute({ managerUser: buildManager(), targetUserId: 2, decision: 'approve' })
+    ).resolves.toEqual(approvedUser.toSafeJSON());
+  });
+
+  it('still returns the rejected user even if sending the rejection email fails', async () => {
+    const targetUser = buildTargetUser();
+    const rejectedUser = buildTargetUser({ status: 'rejected' });
+    const userRepository = {
+      findById: jest.fn().mockResolvedValue(targetUser),
+      reject: jest.fn().mockResolvedValue(rejectedUser),
+    };
+    const auditLogRepository = { create: jest.fn() };
+    const refreshTokenStore = { revokeAllForUser: jest.fn() };
+    const emailService = { sendAccountRejectedEmail: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')) };
+    const useCase = new ApproveUserUseCase({ userRepository, emailService, refreshTokenStore, auditLogRepository });
+
+    await expect(
+      useCase.execute({ managerUser: buildManager(), targetUserId: 2, decision: 'reject' })
+    ).resolves.toEqual(rejectedUser.toSafeJSON());
+    expect(refreshTokenStore.revokeAllForUser).toHaveBeenCalledWith(2);
+  });
 });
