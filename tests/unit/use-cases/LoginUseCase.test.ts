@@ -1,7 +1,7 @@
 import { LoginUseCase } from '../../../src/use-cases/auth/LoginUseCase';
 
 function buildUser(overrides: Record<string, any> = {}) {
-  return {
+  const user = {
     id: 1,
     roleName: 'Sales',
     status: 'approved',
@@ -9,6 +9,7 @@ function buildUser(overrides: Record<string, any> = {}) {
     toSafeJSON: () => ({ id: 1, email: 'jane@example.com' }),
     ...overrides,
   };
+  return { ...user, isApproved: () => user.status === 'approved' };
 }
 
 describe('LoginUseCase', () => {
@@ -70,6 +71,22 @@ describe('LoginUseCase', () => {
 
     await expect(useCase.execute({ email: 'jane@example.com', password: 'x' })).rejects.toThrow(
       'request was rejected'
+    );
+  });
+
+  it('rejects a deactivated account', async () => {
+    const userRepository = {
+      findByEmail: jest.fn().mockResolvedValue(buildUser({ status: 'deactivated' })),
+    };
+    const useCase = new LoginUseCase({
+      userRepository,
+      passwordHasher: { compare: jest.fn().mockResolvedValue(true) },
+      tokenService: { signAccessToken: jest.fn() },
+      refreshTokenStore: { issue: jest.fn() },
+    });
+
+    await expect(useCase.execute({ email: 'jane@example.com', password: 'x' })).rejects.toThrow(
+      'cannot log in'
     );
   });
 

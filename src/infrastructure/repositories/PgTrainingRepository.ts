@@ -19,6 +19,7 @@ const SELECT_BASE = `
   SELECT t.*, p.name AS provider_name
   FROM trainings t
   JOIN providers p ON p.id = t.provider_id
+  WHERE t.deleted_at IS NULL
 `;
 
 class PgTrainingRepository extends ITrainingRepository {
@@ -40,7 +41,7 @@ class PgTrainingRepository extends ITrainingRepository {
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query(`${SELECT_BASE} WHERE t.id = $1`, [id]);
+    const { rows } = await this.pool.query(`${SELECT_BASE} AND t.id = $1`, [id]);
     return mapRow(rows[0]);
   }
 
@@ -50,7 +51,7 @@ class PgTrainingRepository extends ITrainingRepository {
   }
 
   async listByProvider(providerId) {
-    const { rows } = await this.pool.query(`${SELECT_BASE} WHERE t.provider_id = $1`, [providerId]);
+    const { rows } = await this.pool.query(`${SELECT_BASE} AND t.provider_id = $1`, [providerId]);
     return rows.map(mapRow);
   }
 }

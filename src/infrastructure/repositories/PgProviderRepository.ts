@@ -28,17 +28,25 @@ class PgProviderRepository extends IProviderRepository {
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query('SELECT * FROM providers WHERE id = $1', [id]);
+    const { rows } = await this.pool.query(
+      'SELECT * FROM providers WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
     return mapRow(rows[0]);
   }
 
   async findByName(name) {
-    const { rows } = await this.pool.query('SELECT * FROM providers WHERE name = $1', [name]);
+    const { rows } = await this.pool.query(
+      'SELECT * FROM providers WHERE name = $1 AND deleted_at IS NULL',
+      [name]
+    );
     return mapRow(rows[0]);
   }
 
   async listAll() {
-    const { rows } = await this.pool.query('SELECT * FROM providers ORDER BY name ASC');
+    const { rows } = await this.pool.query(
+      'SELECT * FROM providers WHERE deleted_at IS NULL ORDER BY name ASC'
+    );
     return rows.map(mapRow);
   }
 }
