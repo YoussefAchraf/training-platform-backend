@@ -199,6 +199,11 @@ class PgSessionRepository extends ISessionRepository {
     return rows.map(mapAttendeeRow);
   }
 
+  async findAttendeeById(attendeeId) {
+    const { rows } = await this.pool.query('SELECT * FROM session_attendees WHERE id = $1', [attendeeId]);
+    return mapAttendeeRow(rows[0]);
+  }
+
   async markAttendeeSurveySubmitted(attendeeId) {
     const { rows } = await this.pool.query(
       `UPDATE session_attendees SET survey_submitted = TRUE WHERE id = $1 RETURNING *`,
