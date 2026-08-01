@@ -22,6 +22,7 @@ import { PgSessionRepository } from './infrastructure/repositories/PgSessionRepo
 import { PgCalendarRepository } from './infrastructure/repositories/PgCalendarRepository';
 import { PgSurveyRepository } from './infrastructure/repositories/PgSurveyRepository';
 import { PgReportRepository } from './infrastructure/repositories/PgReportRepository';
+import { PgAuditLogRepository } from './infrastructure/repositories/PgAuditLogRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -101,19 +102,35 @@ function buildApp() {
   const calendarRepository = new PgCalendarRepository(pool);
   const surveyRepository = new PgSurveyRepository(pool);
   const reportRepository = new PgReportRepository(pool);
+  const auditLogRepository = new PgAuditLogRepository(pool);
 
-  const signupUseCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService });
+  const signupUseCase = new SignupUseCase({
+    userRepository,
+    instructorRepository,
+    passwordHasher,
+    emailService,
+    auditLogRepository,
+  });
   const loginUseCase = new LoginUseCase({ userRepository, passwordHasher, tokenService, refreshTokenStore });
   const listPendingUsersUseCase = new ListPendingUsersUseCase({ userRepository });
-  const approveUserUseCase = new ApproveUserUseCase({ userRepository, emailService, refreshTokenStore });
+  const approveUserUseCase = new ApproveUserUseCase({
+    userRepository,
+    emailService,
+    refreshTokenStore,
+    auditLogRepository,
+  });
   const refreshTokenUseCase = new RefreshTokenUseCase({ userRepository, tokenService, refreshTokenStore });
   const logoutUseCase = new LogoutUseCase({ refreshTokenStore });
 
-  const createProviderUseCase = new CreateProviderUseCase({ providerRepository });
+  const createProviderUseCase = new CreateProviderUseCase({ providerRepository, auditLogRepository });
   const listProvidersUseCase = new ListProvidersUseCase({ providerRepository });
-  const createTrainingUseCase = new CreateTrainingUseCase({ trainingRepository, providerRepository });
+  const createTrainingUseCase = new CreateTrainingUseCase({
+    trainingRepository,
+    providerRepository,
+    auditLogRepository,
+  });
   const listTrainingsUseCase = new ListTrainingsUseCase({ trainingRepository });
-  const createClientUseCase = new CreateClientUseCase({ clientRepository });
+  const createClientUseCase = new CreateClientUseCase({ clientRepository, auditLogRepository });
   const listClientsUseCase = new ListClientsUseCase({ clientRepository });
 
   const listInstructorsUseCase = new ListInstructorsUseCase({ instructorRepository });
@@ -126,6 +143,7 @@ function buildApp() {
     trainingRepository,
     clientRepository,
     calendarRepository,
+    auditLogRepository,
   });
   const listSessionsUseCase = new ListSessionsUseCase({ sessionRepository, instructorRepository });
   const assignInstructorUseCase = new AssignInstructorUseCase({ sessionRepository, instructorRepository });

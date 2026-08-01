@@ -5,12 +5,14 @@ class SignupUseCase {
   instructorRepository: any;
   passwordHasher: any;
   emailService: any;
+  auditLogRepository: any;
 
-  constructor({ userRepository, instructorRepository, passwordHasher, emailService }) {
+  constructor({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository }) {
     this.userRepository = userRepository;
     this.instructorRepository = instructorRepository;
     this.passwordHasher = passwordHasher;
     this.emailService = emailService;
+    this.auditLogRepository = auditLogRepository;
   }
 
   async execute({ firstname, lastname, email, password, role }) {
@@ -41,8 +43,14 @@ class SignupUseCase {
       })
     );
 
-    
-    
+    await this.auditLogRepository.create({
+      actorId: user.id,
+      action: 'create',
+      entityType: 'User',
+      entityId: user.id,
+      after: user.toSafeJSON(),
+    });
+
     if (role === ROLES.INSTRUCTOR) {
       await this.instructorRepository.create({ userId: user.id, bio: '' });
     }
