@@ -12,6 +12,7 @@ import { RefreshTokenStore } from './infrastructure/security/RefreshTokenStore';
 import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
+import { PdfReportService } from './infrastructure/services/PdfReportService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -72,6 +73,7 @@ import { ListMyCalendarUseCase } from './use-cases/calendar/ListMyCalendarUseCas
 
 import { GenerateReportUseCase } from './use-cases/reports/GenerateReportUseCase';
 import { GetReportUseCase } from './use-cases/reports/GetReportUseCase';
+import { GetReportPdfUseCase } from './use-cases/reports/GetReportPdfUseCase';
 import { GenerateSurveyQRUseCase } from './use-cases/surveys/GenerateSurveyQRUseCase';
 import { GetSurveySessionInfoUseCase } from './use-cases/surveys/GetSurveySessionInfoUseCase';
 import { SubmitSurveyUseCase } from './use-cases/surveys/SubmitSurveyUseCase';
@@ -108,6 +110,7 @@ function buildApp() {
   const refreshTokenStore = new RefreshTokenStore({ redisClient: redis });
   const emailService = new EmailService();
   const qrCodeService = new QRCodeService();
+  const pdfReportService = new PdfReportService();
 
   const userRepository = new PgUserRepository(pool);
   const providerRepository = new PgProviderRepository(pool);
@@ -231,6 +234,13 @@ function buildApp() {
 
   const generateReportUseCase = new GenerateReportUseCase({ sessionRepository, surveyRepository, reportRepository });
   const getReportUseCase = new GetReportUseCase({ reportRepository });
+  const getReportPdfUseCase = new GetReportPdfUseCase({
+    reportRepository,
+    sessionRepository,
+    trainingRepository,
+    clientRepository,
+    pdfReportService,
+  });
   const generateSurveyQRUseCase = new GenerateSurveyQRUseCase({
     sessionRepository,
     instructorRepository,
@@ -299,7 +309,7 @@ function buildApp() {
     deleteGlobalCalendarEventUseCase,
     listMyCalendarUseCase,
   });
-  const reportController = new ReportController({ getReportUseCase, generateReportUseCase });
+  const reportController = new ReportController({ getReportUseCase, generateReportUseCase, getReportPdfUseCase });
   const surveyController = new SurveyController({
     generateSurveyQRUseCase,
     getSurveySessionInfoUseCase,
