@@ -34,6 +34,8 @@ import { ListAllUsersUseCase } from './use-cases/auth/ListAllUsersUseCase';
 import { UpdateUserByAdminUseCase } from './use-cases/auth/UpdateUserByAdminUseCase';
 import { DeactivateUserUseCase } from './use-cases/auth/DeactivateUserUseCase';
 import { UpdateOwnProfileUseCase } from './use-cases/auth/UpdateOwnProfileUseCase';
+import { GetAdminSessionsOverviewUseCase } from './use-cases/admin/GetAdminSessionsOverviewUseCase';
+import { GetAuditLogUseCase } from './use-cases/admin/GetAuditLogUseCase';
 
 import { CreateProviderUseCase } from './use-cases/providers/CreateProviderUseCase';
 import { ListProvidersUseCase } from './use-cases/providers/ListProvidersUseCase';
@@ -75,6 +77,7 @@ import { GetSurveySessionInfoUseCase } from './use-cases/surveys/GetSurveySessio
 import { SubmitSurveyUseCase } from './use-cases/surveys/SubmitSurveyUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
+import { AdminController } from './interface/controllers/AdminController';
 import { ProviderController } from './interface/controllers/ProviderController';
 import { TrainingController } from './interface/controllers/TrainingController';
 import { ClientController } from './interface/controllers/ClientController';
@@ -138,6 +141,8 @@ function buildApp() {
   const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
   const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
   const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
+  const getAdminSessionsOverviewUseCase = new GetAdminSessionsOverviewUseCase({ sessionRepository });
+  const getAuditLogUseCase = new GetAuditLogUseCase({ auditLogRepository });
 
   const createProviderUseCase = new CreateProviderUseCase({ providerRepository, auditLogRepository });
   const listProvidersUseCase = new ListProvidersUseCase({ providerRepository });
@@ -254,6 +259,7 @@ function buildApp() {
     deactivateUserUseCase,
     updateOwnProfileUseCase,
   });
+  const adminController = new AdminController({ getAdminSessionsOverviewUseCase, getAuditLogUseCase });
   const providerController = new ProviderController({
     createProviderUseCase,
     listProvidersUseCase,
@@ -330,7 +336,7 @@ function buildApp() {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use('/auth', authRoutes({ authController, authMiddleware, requireRole, authLimiter }));
-  app.use('/admin', adminRoutes({ authController, authMiddleware, requireRole }));
+  app.use('/admin', adminRoutes({ authController, adminController, authMiddleware, requireRole }));
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
   app.use('/clients', clientRoutes({ clientController, authMiddleware, requireRole }));
