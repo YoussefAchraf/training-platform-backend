@@ -54,6 +54,27 @@ class PgTrainingRepository extends ITrainingRepository {
     const { rows } = await this.pool.query(`${SELECT_BASE} AND t.provider_id = $1`, [providerId]);
     return rows.map(mapRow);
   }
+
+  async update(id, fields) {
+    await this.pool.query(
+      `UPDATE trainings
+       SET name = COALESCE($2, name),
+           description = COALESCE($3, description),
+           duration = COALESCE($4, duration),
+           updated_at = now()
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [id, fields.name || null, fields.description || null, fields.duration ?? null]
+    );
+    return this.findById(id);
+  }
+
+  async softDelete(id) {
+    const { rows } = await this.pool.query(
+      `UPDATE trainings SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id]
+    );
+    return mapRow(rows[0]);
+  }
 }
 
 export { PgTrainingRepository };

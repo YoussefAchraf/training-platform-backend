@@ -33,10 +33,16 @@ import { LogoutUseCase } from './use-cases/auth/LogoutUseCase';
 
 import { CreateProviderUseCase } from './use-cases/providers/CreateProviderUseCase';
 import { ListProvidersUseCase } from './use-cases/providers/ListProvidersUseCase';
+import { UpdateProviderUseCase } from './use-cases/providers/UpdateProviderUseCase';
+import { DeleteProviderUseCase } from './use-cases/providers/DeleteProviderUseCase';
 import { CreateTrainingUseCase } from './use-cases/trainings/CreateTrainingUseCase';
 import { ListTrainingsUseCase } from './use-cases/trainings/ListTrainingsUseCase';
+import { UpdateTrainingUseCase } from './use-cases/trainings/UpdateTrainingUseCase';
+import { DeleteTrainingUseCase } from './use-cases/trainings/DeleteTrainingUseCase';
 import { CreateClientUseCase } from './use-cases/clients/CreateClientUseCase';
 import { ListClientsUseCase } from './use-cases/clients/ListClientsUseCase';
+import { UpdateClientUseCase } from './use-cases/clients/UpdateClientUseCase';
+import { DeleteClientUseCase } from './use-cases/clients/DeleteClientUseCase';
 
 import { ListInstructorsUseCase } from './use-cases/instructors/ListInstructorsUseCase';
 import { GetMyInstructorProfileUseCase } from './use-cases/instructors/GetMyInstructorProfileUseCase';
@@ -124,14 +130,20 @@ function buildApp() {
 
   const createProviderUseCase = new CreateProviderUseCase({ providerRepository, auditLogRepository });
   const listProvidersUseCase = new ListProvidersUseCase({ providerRepository });
+  const updateProviderUseCase = new UpdateProviderUseCase({ providerRepository, auditLogRepository });
+  const deleteProviderUseCase = new DeleteProviderUseCase({ providerRepository, auditLogRepository });
   const createTrainingUseCase = new CreateTrainingUseCase({
     trainingRepository,
     providerRepository,
     auditLogRepository,
   });
   const listTrainingsUseCase = new ListTrainingsUseCase({ trainingRepository });
+  const updateTrainingUseCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository });
+  const deleteTrainingUseCase = new DeleteTrainingUseCase({ trainingRepository, auditLogRepository });
   const createClientUseCase = new CreateClientUseCase({ clientRepository, auditLogRepository });
   const listClientsUseCase = new ListClientsUseCase({ clientRepository });
+  const updateClientUseCase = new UpdateClientUseCase({ clientRepository, auditLogRepository });
+  const deleteClientUseCase = new DeleteClientUseCase({ clientRepository, auditLogRepository });
 
   const listInstructorsUseCase = new ListInstructorsUseCase({ instructorRepository });
   const getMyInstructorProfileUseCase = new GetMyInstructorProfileUseCase({ instructorRepository });
@@ -181,9 +193,24 @@ function buildApp() {
     refreshTokenUseCase,
     logoutUseCase,
   });
-  const providerController = new ProviderController({ createProviderUseCase, listProvidersUseCase });
-  const trainingController = new TrainingController({ createTrainingUseCase, listTrainingsUseCase });
-  const clientController = new ClientController({ createClientUseCase, listClientsUseCase });
+  const providerController = new ProviderController({
+    createProviderUseCase,
+    listProvidersUseCase,
+    updateProviderUseCase,
+    deleteProviderUseCase,
+  });
+  const trainingController = new TrainingController({
+    createTrainingUseCase,
+    listTrainingsUseCase,
+    updateTrainingUseCase,
+    deleteTrainingUseCase,
+  });
+  const clientController = new ClientController({
+    createClientUseCase,
+    listClientsUseCase,
+    updateClientUseCase,
+    deleteClientUseCase,
+  });
   const instructorController = new InstructorController({
     listInstructorsUseCase,
     getMyInstructorProfileUseCase,

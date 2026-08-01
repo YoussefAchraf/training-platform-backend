@@ -20,7 +20,11 @@ class CreateProviderUseCase {
       throw new Error('A provider with this name already exists');
     }
 
-    const provider = await this.providerRepository.create({ name: name.trim(), description });
+    const provider = await this.providerRepository.create({
+      name: name.trim(),
+      description,
+      createdBy: requester.id,
+    });
 
     await this.auditLogRepository.create({
       actorId: requester.id,

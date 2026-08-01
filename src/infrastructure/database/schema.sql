@@ -29,6 +29,7 @@ CREATE TABLE providers (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(150) UNIQUE NOT NULL,
     description TEXT,
+    created_by  INTEGER REFERENCES users(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at  TIMESTAMPTZ

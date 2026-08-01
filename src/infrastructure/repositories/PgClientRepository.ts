@@ -45,6 +45,28 @@ class PgClientRepository extends IClientRepository {
     );
     return rows.map(mapRow);
   }
+
+  async update(id, fields) {
+    const { rows } = await this.pool.query(
+      `UPDATE clients
+       SET company_name = COALESCE($2, company_name),
+           email = COALESCE($3, email),
+           phone = COALESCE($4, phone),
+           updated_at = now()
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING *`,
+      [id, fields.companyName || null, fields.email || null, fields.phone || null]
+    );
+    return mapRow(rows[0]);
+  }
+
+  async softDelete(id) {
+    const { rows } = await this.pool.query(
+      `UPDATE clients SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      [id]
+    );
+    return mapRow(rows[0]);
+  }
 }
 
 export { PgClientRepository };
