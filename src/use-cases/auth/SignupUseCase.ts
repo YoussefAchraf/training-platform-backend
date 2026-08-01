@@ -1,4 +1,4 @@
-import { User, ROLES, USER_STATUS } from '../../domain/entities/User';
+import { User, ROLES, SELF_SIGNUP_ROLES, USER_STATUS } from '../../domain/entities/User';
 
 class SignupUseCase {
   userRepository: any;
@@ -16,8 +16,8 @@ class SignupUseCase {
   }
 
   async execute({ firstname, lastname, email, password, role }) {
-    if (!Object.values(ROLES).includes(role)) {
-      throw new Error(`role must be one of: ${Object.values(ROLES).join(', ')}`);
+    if (!Object.values(SELF_SIGNUP_ROLES).includes(role)) {
+      throw new Error(`role must be one of: ${Object.values(SELF_SIGNUP_ROLES).join(', ')}`);
     }
 
     const existing = await this.userRepository.findByEmail(email);

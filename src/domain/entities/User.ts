@@ -2,12 +2,24 @@ const ROLES = Object.freeze({
   SALES: 'Sales',
   MANAGER: 'Manager',
   INSTRUCTOR: 'Instructor',
+  SUPER_ADMIN: 'SuperAdmin',
+});
+
+
+
+
+
+const SELF_SIGNUP_ROLES = Object.freeze({
+  SALES: ROLES.SALES,
+  MANAGER: ROLES.MANAGER,
+  INSTRUCTOR: ROLES.INSTRUCTOR,
 });
 
 const USER_STATUS = Object.freeze({
   PENDING: 'pending',
   APPROVED: 'approved',
   REJECTED: 'rejected',
+  DEACTIVATED: 'deactivated',
 });
 
 class User {
@@ -65,7 +77,10 @@ class User {
     return this.roleName === ROLES.INSTRUCTOR;
   }
 
-  
+  isSuperAdmin() {
+    return this.roleName === ROLES.SUPER_ADMIN;
+  }
+
   canManageCatalog() {
     return this.isSales() || this.isManager();
   }
@@ -82,4 +97,4 @@ class User {
   }
 }
 
-export { User, ROLES, USER_STATUS };
+export { User, ROLES, SELF_SIGNUP_ROLES, USER_STATUS };

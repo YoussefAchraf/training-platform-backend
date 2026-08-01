@@ -9,7 +9,7 @@ class AssignInstructorUseCase {
 
   async execute({ requester, sessionId, instructorId }) {
     
-    if (!requester.isManager()) {
+    if (!requester.isManager() && !requester.isSuperAdmin()) {
       throw new Error('Only a Manager can assign a training session to an instructor');
     }
 
