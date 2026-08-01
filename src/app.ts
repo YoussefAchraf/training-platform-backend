@@ -30,6 +30,10 @@ import { ListPendingUsersUseCase } from './use-cases/auth/ListPendingUsersUseCas
 import { ApproveUserUseCase } from './use-cases/auth/ApproveUserUseCase';
 import { RefreshTokenUseCase } from './use-cases/auth/RefreshTokenUseCase';
 import { LogoutUseCase } from './use-cases/auth/LogoutUseCase';
+import { ListAllUsersUseCase } from './use-cases/auth/ListAllUsersUseCase';
+import { UpdateUserByAdminUseCase } from './use-cases/auth/UpdateUserByAdminUseCase';
+import { DeactivateUserUseCase } from './use-cases/auth/DeactivateUserUseCase';
+import { UpdateOwnProfileUseCase } from './use-cases/auth/UpdateOwnProfileUseCase';
 
 import { CreateProviderUseCase } from './use-cases/providers/CreateProviderUseCase';
 import { ListProvidersUseCase } from './use-cases/providers/ListProvidersUseCase';
@@ -85,6 +89,7 @@ import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
+import adminRoutes from './interface/routes/adminRoutes';
 import providerRoutes from './interface/routes/providerRoutes';
 import trainingRoutes from './interface/routes/trainingRoutes';
 import clientRoutes from './interface/routes/clientRoutes';
@@ -129,6 +134,10 @@ function buildApp() {
   });
   const refreshTokenUseCase = new RefreshTokenUseCase({ userRepository, tokenService, refreshTokenStore });
   const logoutUseCase = new LogoutUseCase({ refreshTokenStore });
+  const listAllUsersUseCase = new ListAllUsersUseCase({ userRepository });
+  const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
+  const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
+  const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
 
   const createProviderUseCase = new CreateProviderUseCase({ providerRepository, auditLogRepository });
   const listProvidersUseCase = new ListProvidersUseCase({ providerRepository });
@@ -240,6 +249,10 @@ function buildApp() {
     approveUserUseCase,
     refreshTokenUseCase,
     logoutUseCase,
+    listAllUsersUseCase,
+    updateUserByAdminUseCase,
+    deactivateUserUseCase,
+    updateOwnProfileUseCase,
   });
   const providerController = new ProviderController({
     createProviderUseCase,
@@ -317,6 +330,7 @@ function buildApp() {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use('/auth', authRoutes({ authController, authMiddleware, requireRole, authLimiter }));
+  app.use('/admin', adminRoutes({ authController, authMiddleware, requireRole }));
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
   app.use('/clients', clientRoutes({ clientController, authMiddleware, requireRole }));

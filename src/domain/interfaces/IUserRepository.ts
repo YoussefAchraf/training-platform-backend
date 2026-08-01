@@ -8,6 +8,9 @@ class IUserRepository {
   async approve(userId, approvedByUserId): Promise<any> { notImplemented('IUserRepository', 'approve'); }
   async listPending(): Promise<any> { notImplemented('IUserRepository', 'listPending'); }
   async listApprovedManagers(): Promise<any> { notImplemented('IUserRepository', 'listApprovedManagers'); }
+  async listAll(): Promise<any> { notImplemented('IUserRepository', 'listAll'); }
+  async update(userId, fields): Promise<any> { notImplemented('IUserRepository', 'update'); }
+  async countActiveSuperAdmins(): Promise<any> { notImplemented('IUserRepository', 'countActiveSuperAdmins'); }
 }
 
 export { IUserRepository };
