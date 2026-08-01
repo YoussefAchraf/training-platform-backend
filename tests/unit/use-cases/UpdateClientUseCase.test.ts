@@ -39,6 +39,16 @@ describe('UpdateClientUseCase', () => {
     ).rejects.toThrow('Only Sales or Manager');
   });
 
+  it('rejects a malformed email address before looking up the client', async () => {
+    const { clientRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateClientUseCase({ clientRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), clientId: 5, email: 'not-an-email' })
+    ).rejects.toThrow('valid email');
+    expect(clientRepository.findById).not.toHaveBeenCalled();
+  });
+
   it('rejects a client that does not exist', async () => {
     const { clientRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     clientRepository.findById.mockResolvedValue(null);

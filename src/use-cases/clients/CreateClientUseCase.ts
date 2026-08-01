@@ -1,3 +1,5 @@
+import { isValidEmail } from '../../domain/validation/isValidEmail';
+
 class CreateClientUseCase {
   clientRepository: any;
   auditLogRepository: any;
@@ -13,6 +15,9 @@ class CreateClientUseCase {
     }
     if (!companyName || !companyName.trim()) {
       throw new Error('Company name is required');
+    }
+    if (email && !isValidEmail(email)) {
+      throw new Error('email must be a valid email address');
     }
 
     const client = await this.clientRepository.create({
