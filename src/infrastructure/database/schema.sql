@@ -2,7 +2,7 @@
 
 
 
-CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected', 'deactivated');
 CREATE TYPE session_status AS ENUM ('scheduled', 'ongoing', 'completed', 'cancelled');
 CREATE TYPE assignment_status AS ENUM ('unassigned', 'pending', 'accepted', 'refused');
 
@@ -30,7 +30,8 @@ CREATE TABLE providers (
     name        VARCHAR(150) UNIQUE NOT NULL,
     description TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ
 );
 
 CREATE TABLE trainings (
@@ -41,7 +42,8 @@ CREATE TABLE trainings (
     duration    INTEGER,
     created_by  INTEGER REFERENCES users(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ
 );
 
 CREATE TABLE clients (
@@ -51,7 +53,8 @@ CREATE TABLE clients (
     phone         VARCHAR(30),
     created_by    INTEGER REFERENCES users(id),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at    TIMESTAMPTZ
 );
 
 CREATE TABLE instructors (
@@ -127,3 +130,7 @@ CREATE INDEX idx_sessions_instructor ON training_sessions(instructor_id);
 CREATE INDEX idx_sessions_status ON training_sessions(session_status);
 CREATE INDEX idx_surveys_session ON surveys(session_id);
 CREATE INDEX idx_attendees_session ON session_attendees(session_id);
+
+CREATE INDEX idx_providers_active ON providers(id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_trainings_active ON trainings(id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_clients_active ON clients(id) WHERE deleted_at IS NULL;

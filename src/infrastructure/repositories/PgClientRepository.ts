@@ -32,12 +32,17 @@ class PgClientRepository extends IClientRepository {
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query('SELECT * FROM clients WHERE id = $1', [id]);
+    const { rows } = await this.pool.query(
+      'SELECT * FROM clients WHERE id = $1 AND deleted_at IS NULL',
+      [id]
+    );
     return mapRow(rows[0]);
   }
 
   async listAll() {
-    const { rows } = await this.pool.query('SELECT * FROM clients ORDER BY created_at DESC');
+    const { rows } = await this.pool.query(
+      'SELECT * FROM clients WHERE deleted_at IS NULL ORDER BY created_at DESC'
+    );
     return rows.map(mapRow);
   }
 }

@@ -28,6 +28,13 @@ class LoginUseCase {
     if (user.status === 'rejected') {
       throw new Error('Your account request was rejected');
     }
+    if (!user.isApproved()) {
+      
+      
+      
+      
+      throw new Error('Your account cannot log in. Contact a Manager for details.');
+    }
 
     const accessToken = this.tokenService.signAccessToken({
       userId: user.id,
