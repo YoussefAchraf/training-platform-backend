@@ -16,6 +16,13 @@ class SubmitSurveyUseCase {
     if (!session) throw new Error('Training session not found');
     if (!session.instructorId) throw new Error('This session has no instructor assigned yet');
 
+    if (attendeeId) {
+      const attendee = await this.sessionRepository.findAttendeeById(attendeeId);
+      if (!attendee) throw new Error('Attendee not found');
+      if (attendee.sessionId !== sessionId) throw new Error('This attendee is not registered for this session');
+      if (attendee.surveySubmitted) throw new Error('This attendee has already submitted a survey for this session');
+    }
+
     const survey = await this.surveyRepository.create({
       sessionId,
       instructorId: session.instructorId,
