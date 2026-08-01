@@ -1,10 +1,14 @@
 class DeleteTrainingUseCase {
   trainingRepository: any;
   auditLogRepository: any;
+  userRepository: any;
+  emailService: any;
 
-  constructor({ trainingRepository, auditLogRepository }) {
+  constructor({ trainingRepository, auditLogRepository, userRepository, emailService }) {
     this.trainingRepository = trainingRepository;
     this.auditLogRepository = auditLogRepository;
+    this.userRepository = userRepository;
+    this.emailService = emailService;
   }
 
   async execute({ requester, trainingId }) {
@@ -31,6 +35,16 @@ class DeleteTrainingUseCase {
       before: training,
       after: deleted,
     });
+
+    try {
+      const managers = await this.userRepository.listApprovedManagers();
+      await this.emailService.sendRecordChangedNotification(
+        managers.filter((m) => m.email !== requester.email).map((m) => m.email),
+        { actor: requester, action: 'delete', entityType: 'Training', entityId: trainingId, label: training.name }
+      );
+    } catch (err) {
+      console.error('Failed to send manager notification:', err.message);
+    }
 
     return deleted;
   }

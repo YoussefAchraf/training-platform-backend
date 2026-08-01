@@ -3,6 +3,9 @@ import { CancelSessionUseCase } from '../../../src/use-cases/sessions/CancelSess
 function buildRequester(overrides: Record<string, any> = {}) {
   return {
     id: 1,
+    email: 'actor@example.com',
+    firstname: 'Actor',
+    lastname: 'Person',
     canManageCatalog: () => true,
     isSuperAdmin: () => false,
     ...overrides,
@@ -19,14 +22,21 @@ function buildRepos() {
     reportRepository: { findBySessionId: jest.fn().mockResolvedValue(null) },
     surveyRepository: { listBySession: jest.fn().mockResolvedValue([]) },
     auditLogRepository: { create: jest.fn() },
+    userRepository: {
+      listApprovedManagers: jest.fn().mockResolvedValue([
+        { email: 'actor@example.com' },
+        { email: 'other-manager@example.com' },
+      ]),
+    },
+    emailService: { sendRecordChangedNotification: jest.fn() },
     session,
   };
 }
 
 describe('CancelSessionUseCase', () => {
   it('rejects a requester who cannot manage the catalog and is not SuperAdmin', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository } = buildRepos();
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ canManageCatalog: () => false }), sessionId: 5 })
@@ -34,9 +44,9 @@ describe('CancelSessionUseCase', () => {
   });
 
   it('rejects a session that does not exist', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository } = buildRepos();
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     sessionRepository.findById.mockResolvedValue(null);
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 999 })
@@ -44,8 +54,8 @@ describe('CancelSessionUseCase', () => {
   });
 
   it('rejects a requester who did not create the session', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository } = buildRepos();
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ id: 2 }), sessionId: 5 })
@@ -53,9 +63,9 @@ describe('CancelSessionUseCase', () => {
   });
 
   it('rejects a session that is already cancelled', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, session } = buildRepos();
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService, session } = buildRepos();
     sessionRepository.findById.mockResolvedValue({ ...session, sessionStatus: 'cancelled' });
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5 })
@@ -63,9 +73,9 @@ describe('CancelSessionUseCase', () => {
   });
 
   it('rejects cancelling a session that already has a report', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository } = buildRepos();
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     reportRepository.findBySessionId.mockResolvedValue({ id: 1, sessionId: 5 });
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5 })
@@ -73,8 +83,8 @@ describe('CancelSessionUseCase', () => {
   });
 
   it('allows the creator to cancel and writes an audit log entry', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository } = buildRepos();
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await useCase.execute({ requester: buildRequester(), sessionId: 5 });
 
@@ -85,9 +95,9 @@ describe('CancelSessionUseCase', () => {
   });
 
   it('allows a SuperAdmin to cancel a session with an existing report, bypassing both ownership and the guard', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository } = buildRepos();
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     reportRepository.findBySessionId.mockResolvedValue({ id: 1, sessionId: 5 });
-    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository });
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({
@@ -95,5 +105,26 @@ describe('CancelSessionUseCase', () => {
         sessionId: 5,
       })
     ).resolves.toBeDefined();
+  });
+
+  it('notifies approved managers except the acting user', async () => {
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), sessionId: 5 });
+
+    expect(emailService.sendRecordChangedNotification).toHaveBeenCalledWith(
+      ['other-manager@example.com'],
+      expect.objectContaining({ action: 'cancel', entityType: 'Session', entityId: 5 })
+    );
+  });
+
+  it('still cancels the session even if sending the manager notification fails', async () => {
+    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    emailService.sendRecordChangedNotification.mockRejectedValue(new Error('connect ECONNREFUSED'));
+    const useCase = new CancelSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(useCase.execute({ requester: buildRequester(), sessionId: 5 })).resolves.toBeDefined();
+    expect(sessionRepository.updateSessionStatus).toHaveBeenCalledWith(5, 'cancelled');
   });
 });
