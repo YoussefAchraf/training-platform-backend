@@ -53,4 +53,15 @@ describe('GenerateReportUseCase', () => {
       useCase.execute({ requester: null, sessionId: 5, triggeredBy: 'auto' })
     ).resolves.toBeDefined();
   });
+
+  it('sets pdfUrl to the on-demand download endpoint for the session', async () => {
+    const { sessionRepository, surveyRepository, reportRepository } = buildRepos();
+    const useCase = new GenerateReportUseCase({ sessionRepository, surveyRepository, reportRepository });
+
+    await useCase.execute({ requester: null, sessionId: 5, triggeredBy: 'auto' });
+
+    expect(reportRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 5, pdfUrl: '/reports/5/pdf' })
+    );
+  });
 });

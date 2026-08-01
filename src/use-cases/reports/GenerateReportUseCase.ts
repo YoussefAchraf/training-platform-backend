@@ -22,7 +22,7 @@ class GenerateReportUseCase {
 
     const report = await this.reportRepository.create({
       sessionId,
-      pdfUrl: null, 
+      pdfUrl: `/reports/${sessionId}/pdf`,
       averageScore: average_score,
       npsAverage: nps_average,
     });
