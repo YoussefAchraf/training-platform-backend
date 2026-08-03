@@ -9,7 +9,7 @@ class CreateClientUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, companyName, email, phone }) {
+  async execute({ requester, companyName, email, phone }: { requester: any; companyName: any; email?: any; phone?: any }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can add a client');
     }

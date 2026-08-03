@@ -7,7 +7,7 @@ class AddAttendeeUseCase {
     this.sessionRepository = sessionRepository;
   }
 
-  async execute({ requester, sessionId, name, email }) {
+  async execute({ requester, sessionId, name, email }: { requester: any; sessionId: any; name: any; email?: any }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can register attendees for a session');
     }

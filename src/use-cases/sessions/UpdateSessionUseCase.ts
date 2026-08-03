@@ -15,7 +15,7 @@ class UpdateSessionUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, sessionId, startDate, endDate }) {
+  async execute({ requester, sessionId, startDate, endDate }: { requester: any; sessionId: any; startDate?: any; endDate?: any }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a training session');
     }

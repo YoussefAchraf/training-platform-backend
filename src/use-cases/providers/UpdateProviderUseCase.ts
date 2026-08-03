@@ -11,7 +11,7 @@ class UpdateProviderUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, providerId, name, description }) {
+  async execute({ requester, providerId, name, description }: { requester: any; providerId: any; name: any; description?: any }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a provider');
     }

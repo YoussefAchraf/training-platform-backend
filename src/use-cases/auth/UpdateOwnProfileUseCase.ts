@@ -7,7 +7,7 @@ class UpdateOwnProfileUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, firstname, lastname }) {
+  async execute({ requester, firstname, lastname }: { requester: any; firstname?: any; lastname?: any }) {
     const before = requester.toSafeJSON();
 
     const updated = await this.userRepository.update(requester.id, { firstname, lastname });

@@ -5,7 +5,7 @@ class GetAuditLogUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, entityType, entityId }) {
+  async execute({ requester, entityType, entityId }: { requester: any; entityType?: any; entityId?: any }) {
     if (!requester.isManager() && !requester.isSuperAdmin()) {
       throw new Error('Only a Manager or SuperAdmin can view the audit log');
     }
