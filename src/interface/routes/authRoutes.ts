@@ -7,6 +7,7 @@ export default function authRoutes({ authController, authMiddleware, requireRole
   router.post('/login', authLimiter, authController.login);
   router.post('/refresh', authLimiter, authController.refresh);
   router.post('/logout', authMiddleware, authController.logout);
+  router.patch('/me', authMiddleware, authController.updateMe);
 
   router.get('/users/pending', authMiddleware, requireRole(['Manager']), authController.listPending);
   router.post('/users/:id/approve', authMiddleware, requireRole(['Manager']), authController.approve);

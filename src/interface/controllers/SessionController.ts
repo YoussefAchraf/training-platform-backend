@@ -4,6 +4,8 @@ class SessionController {
   assignInstructorUseCase: any;
   respondToAssignmentUseCase: any;
   addAttendeeUseCase: any;
+  updateSessionUseCase: any;
+  cancelSessionUseCase: any;
 
   constructor({
     createSessionUseCase,
@@ -11,12 +13,16 @@ class SessionController {
     assignInstructorUseCase,
     respondToAssignmentUseCase,
     addAttendeeUseCase,
+    updateSessionUseCase,
+    cancelSessionUseCase,
   }) {
     this.createSessionUseCase = createSessionUseCase;
     this.listSessionsUseCase = listSessionsUseCase;
     this.assignInstructorUseCase = assignInstructorUseCase;
     this.respondToAssignmentUseCase = respondToAssignmentUseCase;
     this.addAttendeeUseCase = addAttendeeUseCase;
+    this.updateSessionUseCase = updateSessionUseCase;
+    this.cancelSessionUseCase = cancelSessionUseCase;
   }
 
   create = async (req, res) => {
@@ -82,6 +88,33 @@ class SessionController {
         email,
       });
       res.status(201).json(attendee);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  update = async (req, res) => {
+    try {
+      const { startDate, endDate } = req.body;
+      const session = await this.updateSessionUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+        startDate,
+        endDate,
+      });
+      res.status(200).json(session);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  cancel = async (req, res) => {
+    try {
+      const session = await this.cancelSessionUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+      });
+      res.status(200).json(session);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

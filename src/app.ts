@@ -12,6 +12,7 @@ import { RefreshTokenStore } from './infrastructure/security/RefreshTokenStore';
 import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
+import { PdfReportService } from './infrastructure/services/PdfReportService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -22,6 +23,7 @@ import { PgSessionRepository } from './infrastructure/repositories/PgSessionRepo
 import { PgCalendarRepository } from './infrastructure/repositories/PgCalendarRepository';
 import { PgSurveyRepository } from './infrastructure/repositories/PgSurveyRepository';
 import { PgReportRepository } from './infrastructure/repositories/PgReportRepository';
+import { PgAuditLogRepository } from './infrastructure/repositories/PgAuditLogRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -29,13 +31,25 @@ import { ListPendingUsersUseCase } from './use-cases/auth/ListPendingUsersUseCas
 import { ApproveUserUseCase } from './use-cases/auth/ApproveUserUseCase';
 import { RefreshTokenUseCase } from './use-cases/auth/RefreshTokenUseCase';
 import { LogoutUseCase } from './use-cases/auth/LogoutUseCase';
+import { ListAllUsersUseCase } from './use-cases/auth/ListAllUsersUseCase';
+import { UpdateUserByAdminUseCase } from './use-cases/auth/UpdateUserByAdminUseCase';
+import { DeactivateUserUseCase } from './use-cases/auth/DeactivateUserUseCase';
+import { UpdateOwnProfileUseCase } from './use-cases/auth/UpdateOwnProfileUseCase';
+import { GetAdminSessionsOverviewUseCase } from './use-cases/admin/GetAdminSessionsOverviewUseCase';
+import { GetAuditLogUseCase } from './use-cases/admin/GetAuditLogUseCase';
 
 import { CreateProviderUseCase } from './use-cases/providers/CreateProviderUseCase';
 import { ListProvidersUseCase } from './use-cases/providers/ListProvidersUseCase';
+import { UpdateProviderUseCase } from './use-cases/providers/UpdateProviderUseCase';
+import { DeleteProviderUseCase } from './use-cases/providers/DeleteProviderUseCase';
 import { CreateTrainingUseCase } from './use-cases/trainings/CreateTrainingUseCase';
 import { ListTrainingsUseCase } from './use-cases/trainings/ListTrainingsUseCase';
+import { UpdateTrainingUseCase } from './use-cases/trainings/UpdateTrainingUseCase';
+import { DeleteTrainingUseCase } from './use-cases/trainings/DeleteTrainingUseCase';
 import { CreateClientUseCase } from './use-cases/clients/CreateClientUseCase';
 import { ListClientsUseCase } from './use-cases/clients/ListClientsUseCase';
+import { UpdateClientUseCase } from './use-cases/clients/UpdateClientUseCase';
+import { DeleteClientUseCase } from './use-cases/clients/DeleteClientUseCase';
 
 import { ListInstructorsUseCase } from './use-cases/instructors/ListInstructorsUseCase';
 import { GetMyInstructorProfileUseCase } from './use-cases/instructors/GetMyInstructorProfileUseCase';
@@ -47,6 +61,8 @@ import { ListSessionsUseCase } from './use-cases/sessions/ListSessionsUseCase';
 import { AssignInstructorUseCase } from './use-cases/sessions/AssignInstructorUseCase';
 import { RespondToAssignmentUseCase } from './use-cases/sessions/RespondToAssignmentUseCase';
 import { AddAttendeeUseCase } from './use-cases/sessions/AddAttendeeUseCase';
+import { UpdateSessionUseCase } from './use-cases/sessions/UpdateSessionUseCase';
+import { CancelSessionUseCase } from './use-cases/sessions/CancelSessionUseCase';
 
 import {
   ListGlobalCalendarUseCase,
@@ -57,11 +73,13 @@ import { ListMyCalendarUseCase } from './use-cases/calendar/ListMyCalendarUseCas
 
 import { GenerateReportUseCase } from './use-cases/reports/GenerateReportUseCase';
 import { GetReportUseCase } from './use-cases/reports/GetReportUseCase';
+import { GetReportPdfUseCase } from './use-cases/reports/GetReportPdfUseCase';
 import { GenerateSurveyQRUseCase } from './use-cases/surveys/GenerateSurveyQRUseCase';
 import { GetSurveySessionInfoUseCase } from './use-cases/surveys/GetSurveySessionInfoUseCase';
 import { SubmitSurveyUseCase } from './use-cases/surveys/SubmitSurveyUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
+import { AdminController } from './interface/controllers/AdminController';
 import { ProviderController } from './interface/controllers/ProviderController';
 import { TrainingController } from './interface/controllers/TrainingController';
 import { ClientController } from './interface/controllers/ClientController';
@@ -74,8 +92,10 @@ import { SurveyController } from './interface/controllers/SurveyController';
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
+import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
+import adminRoutes from './interface/routes/adminRoutes';
 import providerRoutes from './interface/routes/providerRoutes';
 import trainingRoutes from './interface/routes/trainingRoutes';
 import clientRoutes from './interface/routes/clientRoutes';
@@ -91,6 +111,7 @@ function buildApp() {
   const refreshTokenStore = new RefreshTokenStore({ redisClient: redis });
   const emailService = new EmailService();
   const qrCodeService = new QRCodeService();
+  const pdfReportService = new PdfReportService();
 
   const userRepository = new PgUserRepository(pool);
   const providerRepository = new PgProviderRepository(pool);
@@ -101,20 +122,78 @@ function buildApp() {
   const calendarRepository = new PgCalendarRepository(pool);
   const surveyRepository = new PgSurveyRepository(pool);
   const reportRepository = new PgReportRepository(pool);
+  const auditLogRepository = new PgAuditLogRepository(pool);
 
-  const signupUseCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService });
+  const signupUseCase = new SignupUseCase({
+    userRepository,
+    instructorRepository,
+    passwordHasher,
+    emailService,
+    auditLogRepository,
+  });
   const loginUseCase = new LoginUseCase({ userRepository, passwordHasher, tokenService, refreshTokenStore });
   const listPendingUsersUseCase = new ListPendingUsersUseCase({ userRepository });
-  const approveUserUseCase = new ApproveUserUseCase({ userRepository, emailService, refreshTokenStore });
+  const approveUserUseCase = new ApproveUserUseCase({
+    userRepository,
+    emailService,
+    refreshTokenStore,
+    auditLogRepository,
+  });
   const refreshTokenUseCase = new RefreshTokenUseCase({ userRepository, tokenService, refreshTokenStore });
   const logoutUseCase = new LogoutUseCase({ refreshTokenStore });
+  const listAllUsersUseCase = new ListAllUsersUseCase({ userRepository });
+  const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
+  const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
+  const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
+  const getAdminSessionsOverviewUseCase = new GetAdminSessionsOverviewUseCase({ sessionRepository });
+  const getAuditLogUseCase = new GetAuditLogUseCase({ auditLogRepository });
 
-  const createProviderUseCase = new CreateProviderUseCase({ providerRepository });
+  const createProviderUseCase = new CreateProviderUseCase({ providerRepository, auditLogRepository });
   const listProvidersUseCase = new ListProvidersUseCase({ providerRepository });
-  const createTrainingUseCase = new CreateTrainingUseCase({ trainingRepository, providerRepository });
+  const updateProviderUseCase = new UpdateProviderUseCase({
+    providerRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const deleteProviderUseCase = new DeleteProviderUseCase({
+    providerRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const createTrainingUseCase = new CreateTrainingUseCase({
+    trainingRepository,
+    providerRepository,
+    auditLogRepository,
+  });
   const listTrainingsUseCase = new ListTrainingsUseCase({ trainingRepository });
-  const createClientUseCase = new CreateClientUseCase({ clientRepository });
+  const updateTrainingUseCase = new UpdateTrainingUseCase({
+    trainingRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const deleteTrainingUseCase = new DeleteTrainingUseCase({
+    trainingRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const createClientUseCase = new CreateClientUseCase({ clientRepository, auditLogRepository });
   const listClientsUseCase = new ListClientsUseCase({ clientRepository });
+  const updateClientUseCase = new UpdateClientUseCase({
+    clientRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const deleteClientUseCase = new DeleteClientUseCase({
+    clientRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
 
   const listInstructorsUseCase = new ListInstructorsUseCase({ instructorRepository });
   const getMyInstructorProfileUseCase = new GetMyInstructorProfileUseCase({ instructorRepository });
@@ -126,11 +205,28 @@ function buildApp() {
     trainingRepository,
     clientRepository,
     calendarRepository,
+    auditLogRepository,
   });
   const listSessionsUseCase = new ListSessionsUseCase({ sessionRepository, instructorRepository });
   const assignInstructorUseCase = new AssignInstructorUseCase({ sessionRepository, instructorRepository });
   const respondToAssignmentUseCase = new RespondToAssignmentUseCase({ sessionRepository, instructorRepository });
   const addAttendeeUseCase = new AddAttendeeUseCase({ sessionRepository });
+  const updateSessionUseCase = new UpdateSessionUseCase({
+    sessionRepository,
+    reportRepository,
+    surveyRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
+  const cancelSessionUseCase = new CancelSessionUseCase({
+    sessionRepository,
+    reportRepository,
+    surveyRepository,
+    auditLogRepository,
+    userRepository,
+    emailService,
+  });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
   const updateGlobalCalendarUseCase = new UpdateGlobalCalendarUseCase({ calendarRepository });
@@ -139,6 +235,13 @@ function buildApp() {
 
   const generateReportUseCase = new GenerateReportUseCase({ sessionRepository, surveyRepository, reportRepository });
   const getReportUseCase = new GetReportUseCase({ reportRepository });
+  const getReportPdfUseCase = new GetReportPdfUseCase({
+    reportRepository,
+    sessionRepository,
+    trainingRepository,
+    clientRepository,
+    pdfReportService,
+  });
   const generateSurveyQRUseCase = new GenerateSurveyQRUseCase({
     sessionRepository,
     instructorRepository,
@@ -162,10 +265,30 @@ function buildApp() {
     approveUserUseCase,
     refreshTokenUseCase,
     logoutUseCase,
+    listAllUsersUseCase,
+    updateUserByAdminUseCase,
+    deactivateUserUseCase,
+    updateOwnProfileUseCase,
   });
-  const providerController = new ProviderController({ createProviderUseCase, listProvidersUseCase });
-  const trainingController = new TrainingController({ createTrainingUseCase, listTrainingsUseCase });
-  const clientController = new ClientController({ createClientUseCase, listClientsUseCase });
+  const adminController = new AdminController({ getAdminSessionsOverviewUseCase, getAuditLogUseCase });
+  const providerController = new ProviderController({
+    createProviderUseCase,
+    listProvidersUseCase,
+    updateProviderUseCase,
+    deleteProviderUseCase,
+  });
+  const trainingController = new TrainingController({
+    createTrainingUseCase,
+    listTrainingsUseCase,
+    updateTrainingUseCase,
+    deleteTrainingUseCase,
+  });
+  const clientController = new ClientController({
+    createClientUseCase,
+    listClientsUseCase,
+    updateClientUseCase,
+    deleteClientUseCase,
+  });
   const instructorController = new InstructorController({
     listInstructorsUseCase,
     getMyInstructorProfileUseCase,
@@ -178,6 +301,8 @@ function buildApp() {
     assignInstructorUseCase,
     respondToAssignmentUseCase,
     addAttendeeUseCase,
+    updateSessionUseCase,
+    cancelSessionUseCase,
   });
   const calendarController = new CalendarController({
     listGlobalCalendarUseCase,
@@ -185,7 +310,7 @@ function buildApp() {
     deleteGlobalCalendarEventUseCase,
     listMyCalendarUseCase,
   });
-  const reportController = new ReportController({ getReportUseCase, generateReportUseCase });
+  const reportController = new ReportController({ getReportUseCase, generateReportUseCase, getReportPdfUseCase });
   const surveyController = new SurveyController({
     generateSurveyQRUseCase,
     getSurveySessionInfoUseCase,
@@ -214,6 +339,7 @@ function buildApp() {
   }
   app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
   app.use(express.json());
+  app.use(sanitizeMiddleware);
   app.use(globalLimiter);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -222,6 +348,7 @@ function buildApp() {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use('/auth', authRoutes({ authController, authMiddleware, requireRole, authLimiter }));
+  app.use('/admin', adminRoutes({ authController, adminController, authMiddleware, requireRole }));
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
   app.use('/clients', clientRoutes({ clientController, authMiddleware, requireRole }));

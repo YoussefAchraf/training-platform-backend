@@ -4,6 +4,12 @@ export default function reportRoutes({ reportController, authMiddleware, require
   const router = Router();
 
   router.get('/:sessionId', authMiddleware, requireRole(['Sales', 'Manager', 'Instructor']), reportController.get);
+  router.get(
+    '/:sessionId/pdf',
+    authMiddleware,
+    requireRole(['Sales', 'Manager', 'Instructor']),
+    reportController.downloadPdf
+  );
   router.post(
     '/:sessionId/generate',
     authMiddleware,

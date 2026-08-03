@@ -5,9 +5,9 @@ class UpdateInstructorByManagerUseCase {
     this.instructorRepository = instructorRepository;
   }
 
-  async execute({ requester, instructorId, bio, trainingIds }) {
+  async execute({ requester, instructorId, bio, trainingIds }: { requester: any; instructorId: any; bio?: any; trainingIds?: any }) {
     
-    if (!requester.isManager()) {
+    if (!requester.isManager() && !requester.isSuperAdmin()) {
       throw new Error('Only a Manager can update another instructor profile');
     }
 

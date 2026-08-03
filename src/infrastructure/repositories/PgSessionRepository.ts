@@ -102,6 +102,72 @@ class PgSessionRepository extends ISessionRepository {
     return mapRow(rows[0]);
   }
 
+  async update(sessionId, fields) {
+    const { rows } = await this.pool.query(
+      `UPDATE training_sessions
+       SET start_date = COALESCE($2, start_date),
+           end_date = COALESCE($3, end_date),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [sessionId, fields.startDate || null, fields.endDate || null]
+    );
+    return mapRow(rows[0]);
+  }
+
+  async listAllWithDetails() {
+    const { rows } = await this.pool.query(`
+      SELECT
+        ts.id,
+        ts.training_id,
+        t.name AS training_name,
+        ts.client_id,
+        c.company_name AS client_company_name,
+        ts.instructor_id,
+        iu.firstname AS instructor_firstname,
+        iu.lastname AS instructor_lastname,
+        ts.start_date,
+        ts.end_date,
+        ts.session_status,
+        ts.assignment_status,
+        ts.created_by,
+        cu.firstname AS creator_firstname,
+        cu.lastname AS creator_lastname,
+        cu.email AS creator_email,
+        (SELECT COUNT(*)::int FROM session_attendees sa WHERE sa.session_id = ts.id) AS attendee_count,
+        (SELECT COUNT(*)::int FROM session_attendees sa WHERE sa.session_id = ts.id AND sa.survey_submitted) AS attendee_surveys_submitted,
+        (r.id IS NOT NULL) AS has_report
+      FROM training_sessions ts
+      JOIN trainings t ON t.id = ts.training_id
+      JOIN clients c ON c.id = ts.client_id
+      LEFT JOIN users cu ON cu.id = ts.created_by
+      LEFT JOIN instructors i ON i.id = ts.instructor_id
+      LEFT JOIN users iu ON iu.id = i.user_id
+      LEFT JOIN reports r ON r.session_id = ts.id
+      ORDER BY ts.start_date DESC
+    `);
+
+    return rows.map((row) => ({
+      id: row.id,
+      trainingId: row.training_id,
+      trainingName: row.training_name,
+      clientId: row.client_id,
+      clientCompanyName: row.client_company_name,
+      instructorId: row.instructor_id,
+      instructorName: row.instructor_id ? `${row.instructor_firstname} ${row.instructor_lastname}` : null,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      sessionStatus: row.session_status,
+      assignmentStatus: row.assignment_status,
+      createdBy: row.created_by,
+      creatorName: row.created_by ? `${row.creator_firstname} ${row.creator_lastname}` : null,
+      creatorEmail: row.creator_email,
+      attendeeCount: row.attendee_count,
+      attendeeSurveysSubmitted: row.attendee_surveys_submitted,
+      hasReport: row.has_report,
+    }));
+  }
+
   
   
   async listEndedWithoutReport(minutesAgo) {
@@ -131,6 +197,11 @@ class PgSessionRepository extends ISessionRepository {
       [sessionId]
     );
     return rows.map(mapAttendeeRow);
+  }
+
+  async findAttendeeById(attendeeId) {
+    const { rows } = await this.pool.query('SELECT * FROM session_attendees WHERE id = $1', [attendeeId]);
+    return mapAttendeeRow(rows[0]);
   }
 
   async markAttendeeSurveySubmitted(attendeeId) {

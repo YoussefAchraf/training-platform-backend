@@ -10,7 +10,7 @@ class GenerateReportUseCase {
   }
 
     async execute({ requester, sessionId, triggeredBy = 'manual' }) {
-    if (requester && !(requester.isManager() || requester.canManageCatalog())) {
+    if (requester && !(requester.isManager() || requester.canManageCatalog() || requester.isSuperAdmin())) {
       throw new Error('Only Sales or Manager can manually trigger report generation');
     }
 
@@ -22,7 +22,7 @@ class GenerateReportUseCase {
 
     const report = await this.reportRepository.create({
       sessionId,
-      pdfUrl: null, 
+      pdfUrl: `/reports/${sessionId}/pdf`,
       averageScore: average_score,
       npsAverage: nps_average,
     });

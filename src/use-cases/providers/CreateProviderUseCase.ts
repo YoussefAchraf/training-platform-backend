@@ -1,12 +1,13 @@
 class CreateProviderUseCase {
   providerRepository: any;
+  auditLogRepository: any;
 
-  constructor({ providerRepository }) {
+  constructor({ providerRepository, auditLogRepository }) {
     this.providerRepository = providerRepository;
+    this.auditLogRepository = auditLogRepository;
   }
 
   async execute({ requester, name, description }) {
-    
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can add a provider');
     }
@@ -19,7 +20,21 @@ class CreateProviderUseCase {
       throw new Error('A provider with this name already exists');
     }
 
-    return this.providerRepository.create({ name: name.trim(), description });
+    const provider = await this.providerRepository.create({
+      name: name.trim(),
+      description,
+      createdBy: requester.id,
+    });
+
+    await this.auditLogRepository.create({
+      actorId: requester.id,
+      action: 'create',
+      entityType: 'Provider',
+      entityId: provider.id,
+      after: provider,
+    });
+
+    return provider;
   }
 }
 

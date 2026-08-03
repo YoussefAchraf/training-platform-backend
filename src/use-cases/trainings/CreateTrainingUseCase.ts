@@ -1,10 +1,12 @@
 class CreateTrainingUseCase {
   trainingRepository: any;
   providerRepository: any;
+  auditLogRepository: any;
 
-  constructor({ trainingRepository, providerRepository }) {
+  constructor({ trainingRepository, providerRepository, auditLogRepository }) {
     this.trainingRepository = trainingRepository;
     this.providerRepository = providerRepository;
+    this.auditLogRepository = auditLogRepository;
   }
 
   async execute({ requester, name, providerId, description, duration }) {
@@ -20,13 +22,23 @@ class CreateTrainingUseCase {
       throw new Error('Provider not found');
     }
 
-    return this.trainingRepository.create({
+    const training = await this.trainingRepository.create({
       name: name.trim(),
       providerId,
       description,
       duration,
       createdBy: requester.id,
     });
+
+    await this.auditLogRepository.create({
+      actorId: requester.id,
+      action: 'create',
+      entityType: 'Training',
+      entityId: training.id,
+      after: training,
+    });
+
+    return training;
   }
 }
 
