@@ -13,7 +13,7 @@ class UpdateClientUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, clientId, companyName, email, phone }) {
+  async execute({ requester, clientId, companyName, email, phone }: { requester: any; clientId: any; companyName?: any; email?: any; phone?: any }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a client');
     }

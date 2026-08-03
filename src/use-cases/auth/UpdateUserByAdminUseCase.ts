@@ -10,7 +10,7 @@ class UpdateUserByAdminUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, targetUserId, firstname, lastname, email, role, status }) {
+  async execute({ requester, targetUserId, firstname, lastname, email, role, status }: { requester: any; targetUserId: any; firstname?: any; lastname?: any; email?: any; role?: any; status?: any }) {
     if (!requester.isSuperAdmin()) {
       throw new Error("Only a SuperAdmin can edit another user's profile");
     }

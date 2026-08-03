@@ -11,7 +11,7 @@ class UpdateTrainingUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, trainingId, name, description, duration }) {
+  async execute({ requester, trainingId, name, description, duration }: { requester: any; trainingId: any; name: any; description?: any; duration?: any }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a training');
     }

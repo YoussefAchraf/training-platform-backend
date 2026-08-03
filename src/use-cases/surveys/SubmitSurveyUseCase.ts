@@ -11,7 +11,7 @@ class SubmitSurveyUseCase {
     this.generateReportUseCase = generateReportUseCase;
   }
 
-  async execute({ sessionId, attendeeId, instructorScore, npsScore, comments }) {
+  async execute({ sessionId, attendeeId, instructorScore, npsScore, comments }: { sessionId: any; attendeeId?: any; instructorScore: any; npsScore: any; comments?: any }) {
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) throw new Error('Training session not found');
     if (!session.instructorId) throw new Error('This session has no instructor assigned yet');
