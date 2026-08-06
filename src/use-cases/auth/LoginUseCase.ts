@@ -11,7 +11,18 @@ class LoginUseCase {
     this.refreshTokenStore = refreshTokenStore;
   }
 
-  async execute({ email, password }) {
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  async execute({ email, password, requireRole, excludeRole }: { email: any; password: any; requireRole?: string; excludeRole?: string }) {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
       throw new Error('Invalid credentials');
@@ -19,6 +30,13 @@ class LoginUseCase {
 
     const passwordMatches = await this.passwordHasher.compare(password, user.passwordHash);
     if (!passwordMatches) {
+      throw new Error('Invalid credentials');
+    }
+
+    if (requireRole && user.roleName !== requireRole) {
+      throw new Error('Invalid credentials');
+    }
+    if (excludeRole && user.roleName === excludeRole) {
       throw new Error('Invalid credentials');
     }
 
