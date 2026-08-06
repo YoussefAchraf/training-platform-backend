@@ -51,8 +51,15 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS providers (
     id          SERIAL PRIMARY KEY,
-    name        VARCHAR(150) UNIQUE NOT NULL,
+
+
+
+
+    name        VARCHAR(150) NOT NULL,
     description TEXT,
+
+
+    logo_url    VARCHAR(500),
     created_by  INTEGER REFERENCES users(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -160,6 +167,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 
+
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id            SERIAL PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint      TEXT NOT NULL UNIQUE,
+    p256dh        TEXT NOT NULL,
+    auth          TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
 INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor'), ('SuperAdmin')
 ON CONFLICT (name) DO NOTHING;
 
@@ -172,5 +191,19 @@ CREATE INDEX IF NOT EXISTS idx_providers_active ON providers(id) WHERE deleted_a
 CREATE INDEX IF NOT EXISTS idx_trainings_active ON trainings(id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_clients_active ON clients(id) WHERE deleted_at IS NULL;
 
+
+
+
+
+
+ALTER TABLE providers DROP CONSTRAINT IF EXISTS providers_name_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_name_active ON providers(name) WHERE deleted_at IS NULL;
+
+
+
+ALTER TABLE providers ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);
+
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);

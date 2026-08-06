@@ -13,8 +13,8 @@ class ProviderController {
 
   create = async (req, res) => {
     try {
-      const { name, description } = req.body;
-      const provider = await this.createProviderUseCase.execute({ requester: req.user, name, description });
+      const { name, description, logoUrl } = req.body;
+      const provider = await this.createProviderUseCase.execute({ requester: req.user, name, description, logoUrl });
       res.status(201).json(provider);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -32,12 +32,13 @@ class ProviderController {
 
   update = async (req, res) => {
     try {
-      const { name, description } = req.body;
+      const { name, description, logoUrl } = req.body;
       const provider = await this.updateProviderUseCase.execute({
         requester: req.user,
         providerId: Number(req.params.id),
         name,
         description,
+        logoUrl,
       });
       res.status(200).json(provider);
     } catch (err) {

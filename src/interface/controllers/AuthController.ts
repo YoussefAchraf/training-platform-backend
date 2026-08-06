@@ -9,7 +9,17 @@ class AuthController {
   updateUserByAdminUseCase: any;
   deactivateUserUseCase: any;
   updateOwnProfileUseCase: any;
+  tokenService: any;
+  listRolesUseCase: any;
+  setSessionCookies: any;
+  clearSessionCookies: any;
+  csrfCheckPasses: any;
 
+  
+  
+  
+  
+  
   constructor({
     signupUseCase,
     loginUseCase,
@@ -21,6 +31,11 @@ class AuthController {
     updateUserByAdminUseCase,
     deactivateUserUseCase,
     updateOwnProfileUseCase,
+    tokenService,
+    listRolesUseCase,
+    setSessionCookies,
+    clearSessionCookies,
+    csrfCheckPasses,
   }) {
     this.signupUseCase = signupUseCase;
     this.loginUseCase = loginUseCase;
@@ -32,6 +47,11 @@ class AuthController {
     this.updateUserByAdminUseCase = updateUserByAdminUseCase;
     this.deactivateUserUseCase = deactivateUserUseCase;
     this.updateOwnProfileUseCase = updateOwnProfileUseCase;
+    this.tokenService = tokenService;
+    this.listRolesUseCase = listRolesUseCase;
+    this.setSessionCookies = setSessionCookies;
+    this.clearSessionCookies = clearSessionCookies;
+    this.csrfCheckPasses = csrfCheckPasses;
   }
 
   signup = async (req, res) => {
@@ -44,34 +64,104 @@ class AuthController {
     }
   };
 
+  
+  
+  
+  
   login = async (req, res) => {
     try {
       const { email, password } = req.body;
-      const result = await this.loginUseCase.execute({ email, password });
-      res.status(200).json(result);
+      const { accessToken, refreshToken, user } = await this.loginUseCase.execute({
+        email,
+        password,
+        excludeRole: 'SuperAdmin',
+      });
+      this.setSessionCookies(res, { accessToken, refreshToken });
+      res.status(200).json({ user });
     } catch (err) {
       res.status(401).json({ error: err.message });
     }
   };
 
+  adminLogin = async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const { accessToken, refreshToken, user } = await this.loginUseCase.execute({
+        email,
+        password,
+        requireRole: 'SuperAdmin',
+      });
+      this.setSessionCookies(res, { accessToken, refreshToken });
+      res.status(200).json({ user });
+    } catch (err) {
+      res.status(401).json({ error: err.message });
+    }
+  };
+
+  
+  
+  
   refresh = async (req, res) => {
     try {
-      const { refreshToken } = req.body;
-      const result = await this.refreshTokenUseCase.execute({ refreshToken });
-      res.status(200).json(result);
+      if (!this.csrfCheckPasses(req)) {
+        res.status(403).json({ error: 'Invalid CSRF token' });
+        return;
+      }
+      const refreshToken = req.cookies?.refreshToken;
+      const { accessToken, refreshToken: newRefreshToken } = await this.refreshTokenUseCase.execute({
+        refreshToken,
+      });
+      this.setSessionCookies(res, { accessToken, refreshToken: newRefreshToken });
+      res.status(200).json({ message: 'Session refreshed' });
     } catch (err) {
+      this.clearSessionCookies(res);
       res.status(401).json({ error: err.message });
     }
   };
 
   logout = async (req, res) => {
     try {
-      const { refreshToken } = req.body;
+      const refreshToken = req.cookies?.refreshToken;
       const result = await this.logoutUseCase.execute({ refreshToken });
+      this.clearSessionCookies(res);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
+  };
+
+  
+  
+  
+  me = async (req, res) => {
+    res.status(200).json({ user: req.user ? req.user.toSafeJSON() : null });
+  };
+
+  
+  
+  
+  
+  listRoles = async (_req, res) => {
+    const roles = await this.listRolesUseCase.execute();
+    res.status(200).json(roles);
+  };
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  serviceToken = async (req, res) => {
+    const accessToken = this.tokenService.signAccessToken({
+      userId: req.user.id,
+      role: req.user.roleName,
+    });
+    res.status(200).json({ accessToken });
   };
 
   listPending = async (req, res) => {

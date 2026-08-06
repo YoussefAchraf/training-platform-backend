@@ -7,12 +7,17 @@ class CreateProviderUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, name, description }) {
+  async execute({ requester, name, description, logoUrl }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can add a provider');
     }
     if (!name || !name.trim()) {
       throw new Error('Provider name is required');
+    }
+
+    const trimmedLogoUrl = logoUrl && logoUrl.trim();
+    if (trimmedLogoUrl && !/^https?:\/\//i.test(trimmedLogoUrl)) {
+      throw new Error('Logo URL must start with http:// or https://');
     }
 
     const existing = await this.providerRepository.findByName(name);
@@ -23,6 +28,7 @@ class CreateProviderUseCase {
     const provider = await this.providerRepository.create({
       name: name.trim(),
       description,
+      logoUrl: trimmedLogoUrl || null,
       createdBy: requester.id,
     });
 
