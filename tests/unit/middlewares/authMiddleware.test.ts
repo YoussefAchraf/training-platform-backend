@@ -1,4 +1,5 @@
 import authMiddlewareFactory from '../../../src/interface/middlewares/authMiddleware';
+import { csrfCheckPasses } from '../../../src/infrastructure/security/CookieSessionService';
 
 function buildRes() {
   const res: any = {};
@@ -15,7 +16,7 @@ describe('authMiddleware', () => {
   it('rejects with 401 when there is no accessToken cookie', async () => {
     const tokenService = { verifyAccessToken: jest.fn() };
     const userRepository = { findById: jest.fn() };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = { cookies: {}, headers: {}, method: 'GET' };
     const res = buildRes();
     const next = jest.fn();
@@ -33,7 +34,7 @@ describe('authMiddleware', () => {
       }),
     };
     const userRepository = { findById: jest.fn() };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = { cookies: { accessToken: 'bad' }, headers: {}, method: 'GET' };
     const res = buildRes();
     const next = jest.fn();
@@ -47,7 +48,7 @@ describe('authMiddleware', () => {
   it('rejects with 401 when the user no longer exists or is not approved', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(null) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = { cookies: { accessToken: 'good' }, headers: {}, method: 'GET' };
     const res = buildRes();
     const next = jest.fn();
@@ -61,7 +62,7 @@ describe('authMiddleware', () => {
   it('calls next and sets req.user for a valid token and a GET request (CSRF exempt)', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(buildApprovedUser()) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = { cookies: { accessToken: 'good' }, headers: {}, method: 'GET' };
     const res = buildRes();
     const next = jest.fn();
@@ -76,7 +77,7 @@ describe('authMiddleware', () => {
   it('rejects a POST request with 403 when the CSRF header does not match the CSRF cookie', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(buildApprovedUser()) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = {
       cookies: { accessToken: 'good', csrfToken: 'abc' },
       headers: { 'x-csrf-token': 'wrong' },
@@ -94,7 +95,7 @@ describe('authMiddleware', () => {
   it('calls next for a POST request when the CSRF header matches the CSRF cookie', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(buildApprovedUser()) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = {
       cookies: { accessToken: 'good', csrfToken: 'abc' },
       headers: { 'x-csrf-token': 'abc' },
@@ -115,7 +116,7 @@ describe('authMiddleware', () => {
   it('authenticates a GET request via a Bearer header when there is no cookie', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(buildApprovedUser()) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = { cookies: {}, headers: { authorization: 'Bearer good' }, method: 'GET' };
     const res = buildRes();
     const next = jest.fn();
@@ -135,7 +136,7 @@ describe('authMiddleware', () => {
   it('authenticates a POST request via a Bearer header without requiring a CSRF header', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(buildApprovedUser()) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = { cookies: {}, headers: { authorization: 'Bearer good' }, method: 'POST' };
     const res = buildRes();
     const next = jest.fn();
@@ -149,7 +150,7 @@ describe('authMiddleware', () => {
   it('prefers the cookie over a Bearer header when both are present, and still enforces CSRF', async () => {
     const tokenService = { verifyAccessToken: jest.fn().mockReturnValue({ userId: 1 }) };
     const userRepository = { findById: jest.fn().mockResolvedValue(buildApprovedUser()) };
-    const middleware = authMiddlewareFactory({ tokenService, userRepository });
+    const middleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
     const req: any = {
       cookies: { accessToken: 'cookie-token', csrfToken: 'abc' },
       headers: { authorization: 'Bearer header-token', 'x-csrf-token': 'wrong' },

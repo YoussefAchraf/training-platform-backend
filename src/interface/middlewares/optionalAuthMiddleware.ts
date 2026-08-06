@@ -20,6 +20,7 @@ export default function optionalAuthMiddleware({ tokenService, userRepository })
     } catch (_err) {
       
       
+      req.user = undefined;
     }
     next();
   };

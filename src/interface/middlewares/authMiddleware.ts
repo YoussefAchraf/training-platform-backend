@@ -1,18 +1,20 @@
-import { csrfCheckPasses } from '../../infrastructure/security/CookieSessionService';
-
 function extractBearerToken(req): string | null {
   const header = req.headers.authorization || '';
   return header.startsWith('Bearer ') ? header.slice(7) : null;
 }
 
-export default function authMiddleware({ tokenService, userRepository }) {
+// csrfCheckPasses is injected rather than imported directly - this is the
+// interface layer, which isn't allowed to depend on infrastructure
+
+
+export default function authMiddleware({ tokenService, userRepository, csrfCheckPasses }) {
   return async function (req, res, next) {
     try {
-      // Two supported auth paths: the httpOnly session cookie (the browser
-      // frontend) or a Bearer token (non-browser, server-to-server callers
-      // that hold their own copy of a token - e.g. the n8n chatbot, which
-      // gets one from GET /auth/service-token and forwards it on every tool
-      // call it makes on a user's behalf). A Bearer header is never attached
+      
+      
+      
+      
+      
       
       
       

@@ -101,6 +101,7 @@ import { PushController } from './interface/controllers/PushController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
+import { setSessionCookies, clearSessionCookies, csrfCheckPasses } from './infrastructure/security/CookieSessionService';
 import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
@@ -291,6 +292,9 @@ function buildApp() {
     updateOwnProfileUseCase,
     tokenService,
     listRolesUseCase,
+    setSessionCookies,
+    clearSessionCookies,
+    csrfCheckPasses,
   });
   const adminController = new AdminController({ getAdminSessionsOverviewUseCase, getAuditLogUseCase });
   const providerController = new ProviderController({
@@ -341,7 +345,7 @@ function buildApp() {
   });
   const pushController = new PushController({ subscribeToPushUseCase, unsubscribeFromPushUseCase });
 
-  const authMiddleware = authMiddlewareFactory({ tokenService, userRepository });
+  const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
   const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
 
   const globalLimiter = createRateLimiter({
@@ -378,6 +382,13 @@ function buildApp() {
   
   app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
   app.use(express.json());
+  
+  
+  
+  
+  
+  
+  
   app.use(cookieParser());
   app.use(sanitizeMiddleware);
   app.use(globalLimiter);

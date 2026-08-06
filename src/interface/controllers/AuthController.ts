@@ -1,5 +1,3 @@
-import { setSessionCookies, clearSessionCookies, csrfCheckPasses } from '../../infrastructure/security/CookieSessionService';
-
 class AuthController {
   signupUseCase: any;
   loginUseCase: any;
@@ -13,7 +11,15 @@ class AuthController {
   updateOwnProfileUseCase: any;
   tokenService: any;
   listRolesUseCase: any;
+  setSessionCookies: any;
+  clearSessionCookies: any;
+  csrfCheckPasses: any;
 
+  
+  
+  
+  
+  
   constructor({
     signupUseCase,
     loginUseCase,
@@ -27,6 +33,9 @@ class AuthController {
     updateOwnProfileUseCase,
     tokenService,
     listRolesUseCase,
+    setSessionCookies,
+    clearSessionCookies,
+    csrfCheckPasses,
   }) {
     this.signupUseCase = signupUseCase;
     this.loginUseCase = loginUseCase;
@@ -40,6 +49,9 @@ class AuthController {
     this.updateOwnProfileUseCase = updateOwnProfileUseCase;
     this.tokenService = tokenService;
     this.listRolesUseCase = listRolesUseCase;
+    this.setSessionCookies = setSessionCookies;
+    this.clearSessionCookies = clearSessionCookies;
+    this.csrfCheckPasses = csrfCheckPasses;
   }
 
   signup = async (req, res) => {
@@ -64,7 +76,7 @@ class AuthController {
         password,
         excludeRole: 'SuperAdmin',
       });
-      setSessionCookies(res, { accessToken, refreshToken });
+      this.setSessionCookies(res, { accessToken, refreshToken });
       res.status(200).json({ user });
     } catch (err) {
       res.status(401).json({ error: err.message });
@@ -79,7 +91,7 @@ class AuthController {
         password,
         requireRole: 'SuperAdmin',
       });
-      setSessionCookies(res, { accessToken, refreshToken });
+      this.setSessionCookies(res, { accessToken, refreshToken });
       res.status(200).json({ user });
     } catch (err) {
       res.status(401).json({ error: err.message });
@@ -91,7 +103,7 @@ class AuthController {
   
   refresh = async (req, res) => {
     try {
-      if (!csrfCheckPasses(req)) {
+      if (!this.csrfCheckPasses(req)) {
         res.status(403).json({ error: 'Invalid CSRF token' });
         return;
       }
@@ -99,10 +111,10 @@ class AuthController {
       const { accessToken, refreshToken: newRefreshToken } = await this.refreshTokenUseCase.execute({
         refreshToken,
       });
-      setSessionCookies(res, { accessToken, refreshToken: newRefreshToken });
+      this.setSessionCookies(res, { accessToken, refreshToken: newRefreshToken });
       res.status(200).json({ message: 'Session refreshed' });
     } catch (err) {
-      clearSessionCookies(res);
+      this.clearSessionCookies(res);
       res.status(401).json({ error: err.message });
     }
   };
@@ -111,7 +123,7 @@ class AuthController {
     try {
       const refreshToken = req.cookies?.refreshToken;
       const result = await this.logoutUseCase.execute({ refreshToken });
-      clearSessionCookies(res);
+      this.clearSessionCookies(res);
       res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
