@@ -11,16 +11,22 @@ function mapRow(row) {
     description: row.description,
     duration: row.duration,
     createdBy: row.created_by,
+    creatorName: row.creator_name,
     createdAt: row.created_at,
   });
 }
 
 const SELECT_BASE = `
-  SELECT t.*, p.name AS provider_name
+  SELECT t.*, p.name AS provider_name, u.firstname || ' ' || u.lastname AS creator_name
   FROM trainings t
   JOIN providers p ON p.id = t.provider_id
+  LEFT JOIN users u ON u.id = t.created_by
   WHERE t.deleted_at IS NULL
 `;
+
+
+
+const CREATOR_NAME_RETURNING = `*, (SELECT firstname || ' ' || lastname FROM users WHERE id = created_by) AS creator_name`;
 
 class PgTrainingRepository extends ITrainingRepository {
   pool: any;
@@ -70,7 +76,7 @@ class PgTrainingRepository extends ITrainingRepository {
 
   async softDelete(id) {
     const { rows } = await this.pool.query(
-      `UPDATE trainings SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
+      `UPDATE trainings SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING ${CREATOR_NAME_RETURNING}`,
       [id]
     );
     return mapRow(rows[0]);

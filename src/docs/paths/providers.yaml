@@ -22,6 +22,7 @@
             properties:
               name: { type: string, example: Red Hat }
               description: { type: string }
+              logoUrl: { type: string, example: 'https://example.com/redhat-logo.svg' }
     responses:
       201: { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Provider' } } } }
       400: { description: Validation error or duplicate name, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

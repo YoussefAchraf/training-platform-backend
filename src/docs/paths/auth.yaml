@@ -32,7 +32,13 @@
 /auth/login:
   post:
     tags: [Auth]
-    summary: Log in and receive an access + refresh token pair
+    summary: Log in (Sales, Manager, Instructor) and receive an httpOnly session
+    description: >
+      SuperAdmin accounts cannot log in through this endpoint - a SuperAdmin's correct password is rejected with
+      the exact same "Invalid credentials" message a wrong password would produce, so the response never reveals
+      that an email belongs to a SuperAdmin. Use /auth/admin-login instead.
+      On success, sets three cookies: httpOnly accessToken, httpOnly refreshToken (scoped to /auth), and a
+      JS-readable csrfToken. No tokens are returned in the response body.
     security: []
     requestBody:
       required: true
@@ -46,22 +52,23 @@
               password: { type: string, format: password }
     responses:
       200:
-        description: OK
+        description: OK. Session cookies set via Set-Cookie.
         content:
           application/json:
             schema:
-              allOf:
-                - $ref: '#/components/schemas/AuthTokens'
-                - type: object
-                  properties: { user: { $ref: '#/components/schemas/User' } }
-      401: { description: 'Invalid credentials, pending, or rejected account', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+              type: object
+              properties: { user: { $ref: '#/components/schemas/User' } }
+      401: { description: 'Invalid credentials, SuperAdmin account, pending, or rejected account', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
       429: { description: Rate limited }
 
-/auth/refresh:
+/auth/admin-login:
   post:
     tags: [Auth]
-    summary: Exchange a refresh token for a new access + refresh token pair (rotation)
-    description: The presented refreshToken is revoked immediately, whether or not the call succeeds after that point.
+    summary: Log in as SuperAdmin
+    description: >
+      Only succeeds for SuperAdmin accounts - a correct password for a non-SuperAdmin account is rejected with the
+      same "Invalid credentials" message a wrong password would produce. Subject to a much stricter, dedicated
+      rate limit than /auth/login. Sets the same session cookies as /auth/login on success.
     security: []
     requestBody:
       required: true
@@ -69,27 +76,105 @@
         application/json:
           schema:
             type: object
-            required: [refreshToken]
-            properties: { refreshToken: { type: string } }
+            required: [email, password]
+            properties:
+              email: { type: string, format: email }
+              password: { type: string, format: password }
     responses:
-      200: { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AuthTokens' } } } }
-      401: { description: 'Invalid, expired, or already-used refresh token', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+      200:
+        description: OK. Session cookies set via Set-Cookie.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { user: { $ref: '#/components/schemas/User' } }
+      401: { description: 'Invalid credentials, non-SuperAdmin account, pending, or rejected account', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+      429: { description: Rate limited (much lower threshold than /auth/login) }
+
+/auth/refresh:
+  post:
+    tags: [Auth]
+    summary: Rotate the session using the httpOnly refreshToken cookie
+    description: >
+      Reads the refreshToken from its httpOnly cookie (not the request body). The presented refresh token is
+      revoked immediately, whether or not the call succeeds after that point. Requires a valid X-CSRF-Token
+      header (checked explicitly here since this route runs before/without authMiddleware, by design, so an
+      already-expired access token doesn't block refreshing).
+    security: []
+    parameters:
+      - { $ref: '#/components/parameters/CsrfHeader' }
+    responses:
+      200: { description: 'OK. New session cookies set via Set-Cookie.' }
+      401: { description: 'Invalid, expired, or already-used refresh token' }
+      403: { description: Missing/invalid CSRF token }
       429: { description: Rate limited }
 
 /auth/logout:
   post:
     tags: [Auth]
-    summary: Revoke a refresh token
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [refreshToken]
-            properties: { refreshToken: { type: string } }
+    summary: Revoke the current session
+    description: Reads the refreshToken from its httpOnly cookie and revokes it, then clears all session cookies.
+    parameters:
+      - { $ref: '#/components/parameters/CsrfHeader' }
     responses:
       200: { description: "Always succeeds if authenticated, even if the token was already invalid (doesn't leak validity)" }
+      401: { description: Missing/invalid access token }
+      403: { description: Missing/invalid CSRF token }
+
+/auth/me:
+  get:
+    tags: [Auth]
+    summary: Get the currently authenticated user
+    description: Used by the frontend on load to bootstrap session state from the httpOnly cookie (no tokens are readable client-side).
+    responses:
+      200:
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { user: { $ref: '#/components/schemas/User' } }
+      401: { description: Missing/invalid access token }
+
+/auth/service-token:
+  get:
+    tags: [Auth]
+    summary: Mint a short-lived bearer token for cross-origin service calls
+    description: >
+      The main session lives entirely in the httpOnly accessToken cookie, which by design a cross-origin service
+      (e.g. the chatbot's n8n webhook host) never receives. This returns an ordinary bearer JWT, identical in
+      shape/expiry to the cookie's, meant to be used immediately and held only in memory client-side (never
+      persisted to localStorage) for that one cross-origin call.
+    responses:
+      200:
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { accessToken: { type: string } }
+      401: { description: Missing/invalid access token }
+
+/auth/roles:
+  get:
+    tags: [Auth]
+    summary: List roles (id + name)
+    description: >
+      User responses expose roleId, not a role name string (see the User schema) - use this to resolve a roleId
+      back to a display name. Ids are whatever the roles table actually assigned them; do not assume a fixed
+      1..4 sequence.
+    responses:
+      200:
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer, example: 2 }
+                  name: { type: string, enum: ['Sales', 'Manager', 'Instructor', 'SuperAdmin'], example: 'Manager' }
       401: { description: Missing/invalid access token }
 
 /auth/users/pending:

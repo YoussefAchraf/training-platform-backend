@@ -18,7 +18,7 @@ class InstructorController {
 
   list = async (req, res) => {
     try {
-      const instructors = await this.listInstructorsUseCase.execute();
+      const instructors = await this.listInstructorsUseCase.execute({ requester: req.user });
       res.status(200).json(instructors);
     } catch (err) {
       res.status(400).json({ error: err.message });
