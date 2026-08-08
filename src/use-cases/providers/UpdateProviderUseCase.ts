@@ -11,9 +11,14 @@ class UpdateProviderUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, providerId, name, description }: { requester: any; providerId: any; name: any; description?: any }) {
+  async execute({ requester, providerId, name, description, logoUrl }: { requester: any; providerId: any; name: any; description?: any; logoUrl?: any }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a provider');
+    }
+
+    const trimmedLogoUrl = logoUrl && logoUrl.trim();
+    if (trimmedLogoUrl && !/^https?:\/\//i.test(trimmedLogoUrl)) {
+      throw new Error('Logo URL must start with http:// or https://');
     }
 
     const provider = await this.providerRepository.findById(providerId);
@@ -25,7 +30,7 @@ class UpdateProviderUseCase {
       throw new Error('You can only update a provider you created');
     }
 
-    const updated = await this.providerRepository.update(providerId, { name, description });
+    const updated = await this.providerRepository.update(providerId, { name, description, logoUrl: trimmedLogoUrl || null });
 
     await this.auditLogRepository.create({
       actorId: requester.id,

@@ -85,13 +85,18 @@ class User {
     return this.isSales() || this.isManager();
   }
 
+  
+  
+  
+  
+  
   toSafeJSON() {
     return {
       id: this.id,
       firstname: this.firstname,
       lastname: this.lastname,
       email: this.email,
-      role: this.roleName,
+      roleId: this.roleId,
       status: this.status,
     };
   }

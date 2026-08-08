@@ -6,6 +6,7 @@ function mapRow(row) {
   return new AuditLogEntry({
     id: row.id,
     actorId: row.actor_id,
+    actorName: row.actor_name,
     action: row.action,
     entityType: row.entity_type,
     entityId: row.entity_id,
@@ -46,21 +47,25 @@ class PgAuditLogRepository extends IAuditLogRepository {
     let i = 1;
 
     if (entityType) {
-      conditions.push(`entity_type = $${i++}`);
+      conditions.push(`a.entity_type = $${i++}`);
       params.push(entityType);
     }
     if (entityId !== undefined) {
-      conditions.push(`entity_id = $${i++}`);
+      conditions.push(`a.entity_id = $${i++}`);
       params.push(entityId);
     }
     if (excludeEntityTypes && excludeEntityTypes.length > 0) {
-      conditions.push(`entity_type NOT IN (${excludeEntityTypes.map(() => `$${i++}`).join(', ')})`);
+      conditions.push(`a.entity_type NOT IN (${excludeEntityTypes.map(() => `$${i++}`).join(', ')})`);
       params.push(...excludeEntityTypes);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const { rows } = await this.pool.query(
-      `SELECT * FROM audit_log ${where} ORDER BY created_at DESC LIMIT 200`,
+      `SELECT a.*, u.firstname || ' ' || u.lastname AS actor_name
+       FROM audit_log a
+       LEFT JOIN users u ON u.id = a.actor_id
+       ${where}
+       ORDER BY a.created_at DESC LIMIT 200`,
       params
     );
     return rows.map(mapRow);

@@ -24,5 +24,13 @@ export default function sessionRoutes({ sessionController, authMiddleware, requi
     sessionController.addAttendee
   );
 
+  
+  
+  
+  
+  
+  
+  router.get('/:id/attendees', authMiddleware, sessionController.listAttendees);
+
   return router;
 };

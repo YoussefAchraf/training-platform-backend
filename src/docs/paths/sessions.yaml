@@ -89,3 +89,20 @@
     responses:
       201: { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/SessionAttendee' } } } }
       403: { description: Not Sales or Manager }
+  get:
+    tags: [Sessions]
+    summary: List a session's attendees
+    description: >
+      Sales/Manager can view any session's attendees; an Instructor can only
+      view attendees of a session assigned to them.
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    responses:
+      200:
+        description: OK
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/SessionAttendee' }
+      400: { description: Not allowed to view this session's attendees, or the session does not exist }

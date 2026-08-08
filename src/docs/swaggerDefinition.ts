@@ -33,11 +33,41 @@ const definition = {
   ],
   components: {
     securitySchemes: {
+      cookieAuth: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'accessToken',
+        description:
+          'httpOnly session cookie set by /auth/login, /auth/admin-login, or /auth/refresh. Not readable/settable ' +
+          'from JavaScript or from this UI - authenticate via a real browser session with the API running behind ' +
+          'the configured CLIENT_URL origin.',
+      },
       bearerAuth: {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Access token returned by /auth/login or /auth/refresh.',
+        description:
+          'For non-browser, server-to-server callers only (e.g. the n8n chatbot, which obtains one via ' +
+          'GET /auth/service-token and forwards it on every call it makes on a user\'s behalf) - the browser ' +
+          'frontend uses cookieAuth instead. Not subject to the CSRF check below, since a Bearer header is never ' +
+          'attached automatically by a browser to a cross-site request the way a cookie is.',
+      },
+      csrfHeader: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-CSRF-Token',
+        description:
+          'Required on POST/PUT/PATCH/DELETE. Value must match the non-httpOnly csrfToken cookie set alongside ' +
+          'the session (double-submit pattern).',
+      },
+    },
+    parameters: {
+      CsrfHeader: {
+        name: 'X-CSRF-Token',
+        in: 'header',
+        required: true,
+        description: 'Must match the non-httpOnly csrfToken cookie set at login (double-submit pattern).',
+        schema: { type: 'string' },
       },
     },
     schemas: {
@@ -54,18 +84,12 @@ const definition = {
           firstname: { type: 'string', example: 'Jane' },
           lastname: { type: 'string', example: 'Doe' },
           email: { type: 'string', format: 'email', example: 'jane@example.com' },
-          role: { $ref: '#/components/schemas/Role' },
-          status: { $ref: '#/components/schemas/UserStatus' },
-        },
-      },
-      AuthTokens: {
-        type: 'object',
-        properties: {
-          accessToken: { type: 'string', description: 'Short-lived JWT, JWT_EXPIRES_IN (default 8h).' },
-          refreshToken: {
-            type: 'string',
-            description: 'Opaque, Redis-backed, revocable token, REFRESH_TOKEN_TTL_DAYS (default 30d). Rotated on every /auth/refresh call.',
+          roleId: {
+            type: 'integer',
+            example: 2,
+            description: 'FK into the roles table. The role name itself is intentionally not exposed here.',
           },
+          status: { $ref: '#/components/schemas/UserStatus' },
         },
       },
       Provider: {
@@ -74,6 +98,7 @@ const definition = {
           id: { type: 'integer', example: 1 },
           name: { type: 'string', example: 'Red Hat' },
           description: { type: 'string', nullable: true, example: 'Enterprise Linux' },
+          logoUrl: { type: 'string', nullable: true, example: 'https://example.com/redhat-logo.svg' },
           createdAt: { type: 'string', format: 'date-time' },
         },
       },
@@ -203,7 +228,7 @@ const definition = {
       },
     },
   },
-  security: [{ bearerAuth: [] }],
+  security: [{ cookieAuth: [] }, { bearerAuth: [] }],
   paths,
 };
 
