@@ -18,9 +18,19 @@ class AssignInstructorUseCase {
 
     const instructor = await this.instructorRepository.findById(instructorId);
     if (!instructor) throw new Error('Instructor not found');
+    if (instructor.status !== 'approved') {
+      throw new Error('This instructor is not an active, approved instructor');
+    }
 
     
     
+    
+    
+    const qualified = await this.instructorRepository.isQualifiedForTraining(instructorId, session.trainingId);
+    if (!qualified) {
+      throw new Error('This instructor is not marked as qualified for this session\'s training');
+    }
+
     return this.sessionRepository.assignInstructor(sessionId, instructorId);
   }
 }

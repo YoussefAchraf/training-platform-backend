@@ -6,9 +6,10 @@ class Training {
   description: any;
   duration: any;
   createdBy: any;
+  creatorName: any;
   createdAt: any;
 
-  constructor({ id, name, providerId, providerName, description, duration, createdBy, createdAt }: any) {
+  constructor({ id, name, providerId, providerName, description, duration, createdBy, creatorName, createdAt }: any) {
     this.id = id;
     this.name = name;
     this.providerId = providerId;
@@ -16,6 +17,7 @@ class Training {
     this.description = description;
     this.duration = duration;
     this.createdBy = createdBy;
+    this.creatorName = creatorName;
     this.createdAt = createdAt;
   }
 }

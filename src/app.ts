@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import { pool } from './infrastructure/database/connection';
 import { redis } from './infrastructure/cache/RedisClient';
@@ -13,6 +14,7 @@ import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
+import { WebPushService } from './infrastructure/services/WebPushService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -24,6 +26,8 @@ import { PgCalendarRepository } from './infrastructure/repositories/PgCalendarRe
 import { PgSurveyRepository } from './infrastructure/repositories/PgSurveyRepository';
 import { PgReportRepository } from './infrastructure/repositories/PgReportRepository';
 import { PgAuditLogRepository } from './infrastructure/repositories/PgAuditLogRepository';
+import { PgRoleRepository } from './infrastructure/repositories/PgRoleRepository';
+import { PgPushSubscriptionRepository } from './infrastructure/repositories/PgPushSubscriptionRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -35,6 +39,7 @@ import { ListAllUsersUseCase } from './use-cases/auth/ListAllUsersUseCase';
 import { UpdateUserByAdminUseCase } from './use-cases/auth/UpdateUserByAdminUseCase';
 import { DeactivateUserUseCase } from './use-cases/auth/DeactivateUserUseCase';
 import { UpdateOwnProfileUseCase } from './use-cases/auth/UpdateOwnProfileUseCase';
+import { ListRolesUseCase } from './use-cases/auth/ListRolesUseCase';
 import { GetAdminSessionsOverviewUseCase } from './use-cases/admin/GetAdminSessionsOverviewUseCase';
 import { GetAuditLogUseCase } from './use-cases/admin/GetAuditLogUseCase';
 
@@ -61,6 +66,7 @@ import { ListSessionsUseCase } from './use-cases/sessions/ListSessionsUseCase';
 import { AssignInstructorUseCase } from './use-cases/sessions/AssignInstructorUseCase';
 import { RespondToAssignmentUseCase } from './use-cases/sessions/RespondToAssignmentUseCase';
 import { AddAttendeeUseCase } from './use-cases/sessions/AddAttendeeUseCase';
+import { ListSessionAttendeesUseCase } from './use-cases/sessions/ListSessionAttendeesUseCase';
 import { UpdateSessionUseCase } from './use-cases/sessions/UpdateSessionUseCase';
 import { CancelSessionUseCase } from './use-cases/sessions/CancelSessionUseCase';
 
@@ -78,6 +84,9 @@ import { GenerateSurveyQRUseCase } from './use-cases/surveys/GenerateSurveyQRUse
 import { GetSurveySessionInfoUseCase } from './use-cases/surveys/GetSurveySessionInfoUseCase';
 import { SubmitSurveyUseCase } from './use-cases/surveys/SubmitSurveyUseCase';
 
+import { SubscribeToPushUseCase } from './use-cases/push/SubscribeToPushUseCase';
+import { UnsubscribeFromPushUseCase } from './use-cases/push/UnsubscribeFromPushUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
 import { ProviderController } from './interface/controllers/ProviderController';
@@ -88,8 +97,11 @@ import { SessionController } from './interface/controllers/SessionController';
 import { CalendarController } from './interface/controllers/CalendarController';
 import { ReportController } from './interface/controllers/ReportController';
 import { SurveyController } from './interface/controllers/SurveyController';
+import { PushController } from './interface/controllers/PushController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
+import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
+import { setSessionCookies, clearSessionCookies, csrfCheckPasses } from './infrastructure/security/CookieSessionService';
 import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
@@ -104,6 +116,7 @@ import sessionRoutes from './interface/routes/sessionRoutes';
 import calendarRoutes from './interface/routes/calendarRoutes';
 import reportRoutes from './interface/routes/reportRoutes';
 import surveyRoutes from './interface/routes/surveyRoutes';
+import pushRoutes from './interface/routes/pushRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
@@ -112,6 +125,7 @@ function buildApp() {
   const emailService = new EmailService();
   const qrCodeService = new QRCodeService();
   const pdfReportService = new PdfReportService();
+  const webPushService = new WebPushService();
 
   const userRepository = new PgUserRepository(pool);
   const providerRepository = new PgProviderRepository(pool);
@@ -123,6 +137,8 @@ function buildApp() {
   const surveyRepository = new PgSurveyRepository(pool);
   const reportRepository = new PgReportRepository(pool);
   const auditLogRepository = new PgAuditLogRepository(pool);
+  const roleRepository = new PgRoleRepository(pool);
+  const pushSubscriptionRepository = new PgPushSubscriptionRepository(pool);
 
   const signupUseCase = new SignupUseCase({
     userRepository,
@@ -145,6 +161,7 @@ function buildApp() {
   const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
   const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
   const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
+  const listRolesUseCase = new ListRolesUseCase({ roleRepository });
   const getAdminSessionsOverviewUseCase = new GetAdminSessionsOverviewUseCase({ sessionRepository });
   const getAuditLogUseCase = new GetAuditLogUseCase({ auditLogRepository });
 
@@ -211,6 +228,7 @@ function buildApp() {
   const assignInstructorUseCase = new AssignInstructorUseCase({ sessionRepository, instructorRepository });
   const respondToAssignmentUseCase = new RespondToAssignmentUseCase({ sessionRepository, instructorRepository });
   const addAttendeeUseCase = new AddAttendeeUseCase({ sessionRepository });
+  const listSessionAttendeesUseCase = new ListSessionAttendeesUseCase({ sessionRepository, instructorRepository });
   const updateSessionUseCase = new UpdateSessionUseCase({
     sessionRepository,
     reportRepository,
@@ -258,6 +276,9 @@ function buildApp() {
     generateReportUseCase,
   });
 
+  const subscribeToPushUseCase = new SubscribeToPushUseCase({ pushSubscriptionRepository, webPushService });
+  const unsubscribeFromPushUseCase = new UnsubscribeFromPushUseCase({ pushSubscriptionRepository });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -269,6 +290,11 @@ function buildApp() {
     updateUserByAdminUseCase,
     deactivateUserUseCase,
     updateOwnProfileUseCase,
+    tokenService,
+    listRolesUseCase,
+    setSessionCookies,
+    clearSessionCookies,
+    csrfCheckPasses,
   });
   const adminController = new AdminController({ getAdminSessionsOverviewUseCase, getAuditLogUseCase });
   const providerController = new ProviderController({
@@ -301,6 +327,7 @@ function buildApp() {
     assignInstructorUseCase,
     respondToAssignmentUseCase,
     addAttendeeUseCase,
+    listSessionAttendeesUseCase,
     updateSessionUseCase,
     cancelSessionUseCase,
   });
@@ -316,8 +343,10 @@ function buildApp() {
     getSurveySessionInfoUseCase,
     submitSurveyUseCase,
   });
+  const pushController = new PushController({ subscribeToPushUseCase, unsubscribeFromPushUseCase });
 
-  const authMiddleware = authMiddlewareFactory({ tokenService, userRepository });
+  const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
+  const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
 
   const globalLimiter = createRateLimiter({
     redisClient: redis,
@@ -332,13 +361,35 @@ function buildApp() {
     message: 'Too many auth attempts, please try again later.',
     prefix: 'auth',
   });
+  
+  
+  
+  
+  const adminLoginLimiter = createRateLimiter({
+    redisClient: redis,
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    message: 'Too many admin login attempts, please try again later.',
+    prefix: 'admin-login',
+  });
 
   const app = express();
   if (process.env.TRUST_PROXY === 'true') {
     app.set('trust proxy', 1);
   }
-  app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
+  
+  
+  
+  app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
   app.use(express.json());
+  
+  
+  
+  
+  
+  
+  
+  app.use(cookieParser());
   app.use(sanitizeMiddleware);
   app.use(globalLimiter);
 
@@ -347,7 +398,10 @@ function buildApp() {
   app.get('/api-docs.json', (_req, res) => res.json(swaggerSpec));
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-  app.use('/auth', authRoutes({ authController, authMiddleware, requireRole, authLimiter }));
+  app.use(
+    '/auth',
+    authRoutes({ authController, authMiddleware, optionalAuthMiddleware, requireRole, authLimiter, adminLoginLimiter }),
+  );
   app.use('/admin', adminRoutes({ authController, adminController, authMiddleware, requireRole }));
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
@@ -357,6 +411,7 @@ function buildApp() {
   app.use('/calendar', calendarRoutes({ calendarController, authMiddleware, requireRole }));
   app.use('/reports', reportRoutes({ reportController, authMiddleware, requireRole }));
   app.use('/survey', surveyRoutes({ surveyController, authMiddleware, requireRole }));
+  app.use('/push', pushRoutes({ pushController, authMiddleware }));
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {

@@ -5,10 +5,11 @@ class GetReportUseCase {
     this.reportRepository = reportRepository;
   }
 
+  
+  
+  
   async execute({ sessionId }) {
-    const report = await this.reportRepository.findBySessionId(sessionId);
-    if (!report) throw new Error('Report not yet generated for this session');
-    return report;
+    return this.reportRepository.findBySessionId(sessionId);
   }
 }
 
