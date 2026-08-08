@@ -26,6 +26,14 @@ services:
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}", "--appendonly", "yes"]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+
+
+
+
+
+
+    ports:
+      - "127.0.0.1:6380:6379"
     volumes:
       - redisdata:/data
     healthcheck:

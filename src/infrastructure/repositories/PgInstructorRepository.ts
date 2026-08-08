@@ -10,11 +10,12 @@ function mapRow(row) {
     firstname: row.firstname,
     lastname: row.lastname,
     email: row.email,
+    status: row.status,
   });
 }
 
 const SELECT_BASE = `
-  SELECT i.*, u.firstname, u.lastname, u.email
+  SELECT i.*, u.firstname, u.lastname, u.email, u.status
   FROM instructors i
   JOIN users u ON u.id = i.user_id
 `;
@@ -49,13 +50,28 @@ class PgInstructorRepository extends IInstructorRepository {
     return instructor;
   }
 
-  async listAll() {
-    const { rows } = await this.pool.query(`${SELECT_BASE} ORDER BY u.lastname ASC`);
+  
+  
+  
+  
+  
+  
+  async listAll({ includeAllStatuses = false }: { includeAllStatuses?: boolean } = {}) {
+    const where = includeAllStatuses ? '' : `WHERE u.status = 'approved'`;
+    const { rows } = await this.pool.query(`${SELECT_BASE} ${where} ORDER BY u.lastname ASC`);
     const instructors = rows.map(mapRow);
     for (const instructor of instructors) {
       instructor.skills = await this.getSkills(instructor.id);
     }
     return instructors;
+  }
+
+  async isQualifiedForTraining(instructorId, trainingId) {
+    const { rows } = await this.pool.query(
+      'SELECT 1 FROM instructor_skills WHERE instructor_id = $1 AND training_id = $2',
+      [instructorId, trainingId]
+    );
+    return rows.length > 0;
   }
 
   async updateBio(instructorId, bio) {

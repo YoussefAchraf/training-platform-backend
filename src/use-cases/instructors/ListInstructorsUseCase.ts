@@ -5,8 +5,8 @@ class ListInstructorsUseCase {
     this.instructorRepository = instructorRepository;
   }
 
-  async execute() {
-    return this.instructorRepository.listAll();
+  async execute({ requester }: { requester: any }) {
+    return this.instructorRepository.listAll({ includeAllStatuses: requester.isSuperAdmin() });
   }
 }
 
