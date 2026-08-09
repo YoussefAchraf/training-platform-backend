@@ -222,7 +222,11 @@ const definition = {
           sessionId: { type: 'integer' },
           pdfUrl: { type: 'string', nullable: true, description: 'Not yet implemented - always null today.' },
           averageScore: { type: 'string', example: '4.00' },
-          npsAverage: { type: 'string', example: '9.00' },
+          npsAverage: {
+            type: 'string',
+            description: 'Net Promoter Score, as a percentage from -100 to 100 (%promoters - %detractors).',
+            example: '42.00',
+          },
           generatedAt: { type: 'string', format: 'date-time' },
         },
       },

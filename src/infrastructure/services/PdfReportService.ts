@@ -23,7 +23,7 @@ class PdfReportService {
       doc.fontSize(14).text('Results');
       doc.fontSize(11);
       doc.text(`Average instructor score: ${report.averageScore ?? 'N/A'} / 5`);
-      doc.text(`Average NPS score: ${report.npsAverage ?? 'N/A'} / 10`);
+      doc.text(`NPS: ${report.npsAverage ?? 'N/A'}%`);
       doc.moveDown(2);
 
       doc.fontSize(9).fillColor('gray').text(`Generated: ${new Date(report.generatedAt).toLocaleString()}`);
