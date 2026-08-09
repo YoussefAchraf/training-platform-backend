@@ -344,7 +344,9 @@ components:
           example: "4.00"
         npsAverage:
           type: string
-          example: "9.00"
+          description: Net Promoter Score, as a percentage from -100 to 100 (%promoters -
+            %detractors).
+          example: "42.00"
         generatedAt:
           type: string
           format: date-time

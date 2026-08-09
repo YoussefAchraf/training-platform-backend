@@ -52,7 +52,13 @@ class PgSurveyRepository extends ISurveyRepository {
     const { rows } = await this.pool.query(
       `SELECT
          COALESCE(AVG(instructor_score), 0)::numeric(4,2) AS average_score,
-         COALESCE(AVG(nps_score), 0)::numeric(4,2) AS nps_average,
+         COALESCE(AVG(
+           CASE
+             WHEN nps_score <= 6 THEN -1
+             WHEN nps_score <= 8 THEN 0
+             ELSE 1
+           END
+         ) * 100, 0)::numeric(5,2) AS nps_average,
          COUNT(*)::int AS total_responses
        FROM surveys WHERE session_id = $1`,
       [sessionId]

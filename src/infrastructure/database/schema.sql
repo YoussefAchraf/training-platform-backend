@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS reports (
     session_id      INTEGER UNIQUE NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     pdf_url         VARCHAR(255),
     average_score   NUMERIC(4,2),
-    nps_average     NUMERIC(4,2),
+    nps_average     NUMERIC(5,2),
     generated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -207,3 +207,5 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+ALTER TABLE reports ALTER COLUMN nps_average TYPE NUMERIC(5,2);
