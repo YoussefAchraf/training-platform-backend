@@ -40,7 +40,8 @@ COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node package.json ecosystem.config.js ./
 
-RUN mkdir -p "$PM2_HOME" && chown -R node:node "$PM2_HOME"
+RUN mkdir -p "$PM2_HOME" && chown -R node:node "$PM2_HOME" \
+    && chgrp -R 0 "$PM2_HOME" && chmod -R g=u "$PM2_HOME"
 
 USER node
 
