@@ -30,8 +30,29 @@ function refreshTokenMaxAgeMs(): number {
   return days * 86_400_000;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function baseCookieOptions() {
-  return { httpOnly: true, secure: true, sameSite: 'none' as const, path: '/' };
+  const domain = process.env.COOKIE_DOMAIN;
+  return {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none' as const,
+    path: '/',
+    ...(domain ? { domain } : {}),
+  };
 }
 
 
@@ -59,13 +80,23 @@ function setSessionCookies(res, { accessToken, refreshToken }: { accessToken: st
     sameSite: 'none',
     path: '/',
     maxAge: refreshTokenMaxAgeMs(),
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
   });
 }
 
 function clearSessionCookies(res) {
   res.clearCookie(ACCESS_TOKEN_COOKIE, { ...baseCookieOptions() });
   res.clearCookie(REFRESH_TOKEN_COOKIE, { ...baseCookieOptions(), path: '/auth' });
-  res.clearCookie(CSRF_TOKEN_COOKIE, { httpOnly: false, secure: true, sameSite: 'none', path: '/' });
+  
+  
+  
+  res.clearCookie(CSRF_TOKEN_COOKIE, {
+    httpOnly: false,
+    secure: true,
+    sameSite: 'none',
+    path: '/',
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+  });
 }
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
