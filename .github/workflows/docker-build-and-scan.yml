@@ -85,6 +85,9 @@ jobs:
 
 
       - name: Checkout training-platform-gitops
+
+
+
         if: inputs.push
         uses: actions/checkout@v7
         with:
