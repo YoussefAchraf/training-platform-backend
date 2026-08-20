@@ -1,7 +1,7 @@
 
 
 
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 
 
@@ -21,7 +21,7 @@ RUN npm run build \
     && find dist -name '*.map' -delete
 
 
-FROM node:22-alpine AS prod-deps
+FROM node:26-alpine AS prod-deps
 WORKDIR /app
 RUN apk add --no-cache --virtual .build-deps python3 make g++
 COPY package.json package-lock.json ./
@@ -29,7 +29,7 @@ COPY scripts ./scripts
 RUN npm install --omit=dev && apk del .build-deps
 
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production \
     PM2_HOME=/app/.pm2
 WORKDIR /app
