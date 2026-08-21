@@ -75,6 +75,9 @@
   "overrides": {
     "pm2": {
       "js-yaml": "4.3.1"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
     }
   }
 }
