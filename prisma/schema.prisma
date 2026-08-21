@@ -3,6 +3,12 @@ generator client {
   output          = "../src/generated/prisma"
   previewFeatures = ["partialIndexes"]
   binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  // package.json has "type": "commonjs" - without this, the generator
+  // defaults to ESM output (uses import.meta.url), which ts-jest's
+  // CommonJS transform can't parse at all. Caught by actually running the
+  // test suite after wiring Prisma into app.ts, not by assuming the
+  // default was fine.
+  moduleFormat    = "cjs"
 }
 
 datasource db {
