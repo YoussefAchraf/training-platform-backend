@@ -29,6 +29,9 @@ const boundariesElements = [
   { type: 'use-cases', pattern: 'src/use-cases/**' },
   { type: 'infrastructure', pattern: 'src/infrastructure/**' },
   { type: 'domain', pattern: 'src/domain/**' },
+  
+  
+  { type: 'generated', pattern: 'src/generated/**' },
 ];
 
 export default tseslint.config(
@@ -36,7 +39,16 @@ export default tseslint.config(
     
     
     
-    ignores: ['dist/**', 'node_modules/**', 'docs/**', 'coverage/**', 'ecosystem.config.js', 'jest.config.js'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'docs/**',
+      'coverage/**',
+      'ecosystem.config.js',
+      'jest.config.js',
+      
+      'src/generated/**',
+    ],
   },
 
   js.configs.recommended,
@@ -136,7 +148,7 @@ export default tseslint.config(
             },
             {
               from: { element: { type: 'infrastructure' } },
-              allow: { to: { element: { type: ['domain', 'infrastructure'] } } },
+              allow: { to: { element: { type: ['domain', 'infrastructure', 'generated'] } } },
             },
             {
               from: { element: { type: 'interface' } },
