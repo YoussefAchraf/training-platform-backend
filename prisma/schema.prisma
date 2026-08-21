@@ -1,0 +1,232 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model audit_log {
+  id          Int      @id @default(autoincrement())
+  actor_id    Int?
+  action      String   @db.VarChar(20)
+  entity_type String   @db.VarChar(50)
+  entity_id   Int
+  before      Json?
+  after       Json?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users?   @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_audit_log_created_at")
+  @@index([entity_type, entity_id], map: "idx_audit_log_entity")
+}
+
+model calendar {
+  id                Int               @id @default(autoincrement())
+  session_id        Int
+  event_date        DateTime          @db.Timestamptz(6)
+  title             String            @db.VarChar(200)
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model clients {
+  id                Int                 @id @default(autoincrement())
+  company_name      String              @db.VarChar(150)
+  email             String?             @db.VarChar(150)
+  phone             String?             @db.VarChar(30)
+  created_by        Int?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  deleted_at        DateTime?           @db.Timestamptz(6)
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  training_sessions training_sessions[]
+
+  @@index([id], map: "idx_clients_active", where: raw("(deleted_at IS NULL)"))
+}
+
+model instructor_skills {
+  instructor_id Int
+  training_id   Int
+  instructors   instructors @relation(fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  trainings     trainings   @relation(fields: [training_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([instructor_id, training_id])
+}
+
+model instructors {
+  id                Int                 @id @default(autoincrement())
+  user_id           Int                 @unique
+  bio               String?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  instructor_skills instructor_skills[]
+  users             users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  surveys           surveys[]
+  training_sessions training_sessions[]
+}
+
+model providers {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique(map: "idx_providers_name_active", where: raw("(deleted_at IS NULL)")) @db.VarChar(150)
+  description String?
+  created_by  Int?
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime    @default(now()) @db.Timestamptz(6)
+  deleted_at  DateTime?   @db.Timestamptz(6)
+  logo_url    String?     @db.VarChar(500)
+  users       users?      @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trainings   trainings[]
+
+  @@index([id], map: "idx_providers_active", where: raw("(deleted_at IS NULL)"))
+}
+
+model push_subscriptions {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_push_subscriptions_user")
+}
+
+model reports {
+  id                Int               @id @default(autoincrement())
+  session_id        Int               @unique
+  pdf_url           String?           @db.VarChar(255)
+  average_score     Decimal?          @db.Decimal(4, 2)
+  nps_average       Decimal?          @db.Decimal(5, 2)
+  generated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model roles {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique @db.VarChar(50)
+  users users[]
+}
+
+model session_attendees {
+  id                Int               @id @default(autoincrement())
+  session_id        Int
+  name              String            @db.VarChar(150)
+  email             String?           @db.VarChar(150)
+  survey_submitted  Boolean           @default(false)
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  surveys           surveys[]
+
+  @@index([session_id], map: "idx_attendees_session")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model surveys {
+  id                Int                @id @default(autoincrement())
+  session_id        Int
+  instructor_id     Int
+  attendee_id       Int?
+  instructor_score  Int
+  nps_score         Int
+  comments          String?
+  submitted_at      DateTime           @default(now()) @db.Timestamptz(6)
+  session_attendees session_attendees? @relation(fields: [attendee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  instructors       instructors        @relation(fields: [instructor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  training_sessions training_sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_id], map: "idx_surveys_session")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model training_sessions {
+  id                Int                 @id @default(autoincrement())
+  training_id       Int
+  client_id         Int
+  instructor_id     Int?
+  start_date        DateTime            @db.Timestamptz(6)
+  end_date          DateTime            @db.Timestamptz(6)
+  session_status    session_status      @default(scheduled)
+  assignment_status assignment_status   @default(unassigned)
+  created_by        Int?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  calendar          calendar[]
+  reports           reports?
+  session_attendees session_attendees[]
+  surveys           surveys[]
+  clients           clients             @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  instructors       instructors?        @relation(fields: [instructor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  trainings         trainings           @relation(fields: [training_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([instructor_id], map: "idx_sessions_instructor")
+  @@index([session_status], map: "idx_sessions_status")
+}
+
+model trainings {
+  id                Int                 @id @default(autoincrement())
+  name              String              @db.VarChar(150)
+  provider_id       Int
+  description       String?
+  duration          Int?
+  created_by        Int?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  deleted_at        DateTime?           @db.Timestamptz(6)
+  instructor_skills instructor_skills[]
+  training_sessions training_sessions[]
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  providers         providers           @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([id], map: "idx_trainings_active", where: raw("(deleted_at IS NULL)"))
+}
+
+model users {
+  id                 Int                  @id @default(autoincrement())
+  firstname          String               @db.VarChar(100)
+  lastname           String               @db.VarChar(100)
+  email              String               @unique @db.VarChar(150)
+  password_hash      String               @db.VarChar(255)
+  role_id            Int
+  status             user_status          @default(pending)
+  approved_by        Int?
+  approved_at        DateTime?            @db.Timestamptz(6)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  audit_log          audit_log[]
+  clients            clients[]
+  instructors        instructors?
+  providers          providers[]
+  push_subscriptions push_subscriptions[]
+  training_sessions  training_sessions[]
+  trainings          trainings[]
+  users              users?               @relation("usersTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_users        users[]              @relation("usersTousers")
+  roles              roles                @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+enum assignment_status {
+  unassigned
+  pending
+  accepted
+  refused
+}
+
+enum session_status {
+  scheduled
+  ongoing
+  completed
+  cancelled
+}
+
+enum user_status {
+  pending
+  approved
+  rejected
+  deactivated
+}
