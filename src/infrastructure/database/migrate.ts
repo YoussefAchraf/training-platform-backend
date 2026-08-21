@@ -4,7 +4,12 @@ import path from 'path';
 import { Pool } from 'pg';
 
 async function migrate() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  
+  
+  
+  
+  const connectionString = process.env.MIGRATOR_DATABASE_URL || process.env.DATABASE_URL;
+  const pool = new Pool({ connectionString });
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 
   try {
