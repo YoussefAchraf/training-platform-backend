@@ -10,7 +10,7 @@ function mapRow(row) {
     email: row.email,
     passwordHash: row.password_hash,
     roleId: row.role_id,
-    roleName: row.role_name,
+    roleName: row.roles.name,
     status: row.status,
     approvedBy: row.approved_by,
     approvedAt: row.approved_at,
@@ -18,112 +18,111 @@ function mapRow(row) {
   });
 }
 
-const SELECT_BASE = `
-  SELECT u.*, r.name AS role_name
-  FROM users u
-  JOIN roles r ON r.id = u.role_id
-`;
+const ROLE_INCLUDE = { roles: { select: { name: true } } };
 
 class PgUserRepository extends IUserRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query(`${SELECT_BASE} WHERE u.id = $1`, [id]);
-    return mapRow(rows[0]);
+    const row = await this.prisma.users.findUnique({ where: { id }, include: ROLE_INCLUDE });
+    return mapRow(row);
   }
 
   async findByEmail(email) {
-    const { rows } = await this.pool.query(`${SELECT_BASE} WHERE u.email = $1`, [email]);
-    return mapRow(rows[0]);
+    const row = await this.prisma.users.findUnique({ where: { email }, include: ROLE_INCLUDE });
+    return mapRow(row);
   }
 
   async findRoleByName(roleName) {
-    const { rows } = await this.pool.query('SELECT * FROM roles WHERE name = $1', [roleName]);
-    return rows[0] || null;
+    return this.prisma.roles.findUnique({ where: { name: roleName } });
   }
 
   async create(user) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO users (firstname, lastname, email, password_hash, role_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [user.firstname, user.lastname, user.email, user.passwordHash, user.roleId, user.status]
-    );
-    return this.findById(rows[0].id);
+    const created = await this.prisma.users.create({
+      data: {
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        password_hash: user.passwordHash,
+        role_id: user.roleId,
+        status: user.status,
+      },
+    });
+    return this.findById(created.id);
   }
 
   async approve(userId, approvedByUserId) {
-    await this.pool.query(
-      `UPDATE users
-       SET status = 'approved', approved_by = $2, approved_at = now(), updated_at = now()
-       WHERE id = $1`,
-      [userId, approvedByUserId]
-    );
+    
+    
+    
+    
+    
+    await this.prisma.users.updateMany({
+      where: { id: userId },
+      data: { status: 'approved', approved_by: approvedByUserId, approved_at: new Date(), updated_at: new Date() },
+    });
     return this.findById(userId);
   }
 
   async reject(userId, approvedByUserId) {
-    await this.pool.query(
-      `UPDATE users
-       SET status = 'rejected', approved_by = $2, approved_at = now(), updated_at = now()
-       WHERE id = $1`,
-      [userId, approvedByUserId]
-    );
+    await this.prisma.users.updateMany({
+      where: { id: userId },
+      data: { status: 'rejected', approved_by: approvedByUserId, approved_at: new Date(), updated_at: new Date() },
+    });
     return this.findById(userId);
   }
 
   async listPending() {
-    const { rows } = await this.pool.query(`${SELECT_BASE} WHERE u.status = 'pending' ORDER BY u.created_at ASC`);
+    const rows = await this.prisma.users.findMany({
+      where: { status: 'pending' },
+      include: ROLE_INCLUDE,
+      orderBy: { created_at: 'asc' },
+    });
     return rows.map(mapRow);
   }
 
-
   async listApprovedManagers() {
-    const { rows } = await this.pool.query(
-      `${SELECT_BASE} WHERE r.name = 'Manager' AND u.status = 'approved'`
-    );
+    const rows = await this.prisma.users.findMany({
+      where: { status: 'approved', roles: { name: 'Manager' } },
+      include: ROLE_INCLUDE,
+    });
     return rows.map(mapRow);
   }
 
   async listAll() {
-    const { rows } = await this.pool.query(`${SELECT_BASE} ORDER BY u.created_at DESC`);
+    const rows = await this.prisma.users.findMany({ include: ROLE_INCLUDE, orderBy: { created_at: 'desc' } });
     return rows.map(mapRow);
   }
 
   async update(userId, fields) {
-    const { rows } = await this.pool.query(
-      `UPDATE users
-       SET firstname = COALESCE($2, firstname),
-           lastname = COALESCE($3, lastname),
-           email = COALESCE($4, email),
-           role_id = COALESCE($5, role_id),
-           status = COALESCE($6, status),
-           updated_at = now()
-       WHERE id = $1
-       RETURNING id`,
-      [
-        userId,
-        fields.firstname || null,
-        fields.lastname || null,
-        fields.email || null,
-        fields.roleId || null,
-        fields.status || null,
-      ]
-    );
-    return this.findById(rows[0].id);
+    const data: any = { updated_at: new Date() };
+    if (fields.firstname) data.firstname = fields.firstname;
+    if (fields.lastname) data.lastname = fields.lastname;
+    if (fields.email) data.email = fields.email;
+    if (fields.roleId) data.role_id = fields.roleId;
+    if (fields.status) data.status = fields.status;
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    const result = await this.prisma.users.updateMany({ where: { id: userId }, data });
+    if (result.count === 0) return null;
+    return this.findById(userId);
   }
 
   async countActiveSuperAdmins() {
-    const { rows } = await this.pool.query(
-      `SELECT COUNT(*)::int AS count FROM users u JOIN roles r ON r.id = u.role_id
-       WHERE r.name = 'SuperAdmin' AND u.status = 'approved'`
-    );
-    return rows[0].count;
+    return this.prisma.users.count({ where: { status: 'approved', roles: { name: 'SuperAdmin' } } });
   }
 }
 

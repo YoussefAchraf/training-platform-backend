@@ -1,12 +1,8 @@
 import 'dotenv/config';
-import { Pool } from 'pg';
+import { prismaClient } from '../src/infrastructure/database/prismaClient';
 import { PgUserRepository } from '../src/infrastructure/repositories/PgUserRepository';
 import { PasswordHasher } from '../src/infrastructure/security/PasswordHasher';
 import { User, ROLES, USER_STATUS } from '../src/domain/entities/User';
-
-
-
-
 
 async function seedSuperAdmin() {
   const { SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, SUPERADMIN_FIRSTNAME, SUPERADMIN_LASTNAME } = process.env;
@@ -26,8 +22,7 @@ async function seedSuperAdmin() {
     return;
   }
 
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const userRepository = new PgUserRepository(pool);
+  const userRepository = new PgUserRepository(prismaClient);
   const passwordHasher = new PasswordHasher();
 
   try {
@@ -60,7 +55,7 @@ async function seedSuperAdmin() {
     console.error('Failed to seed SuperAdmin:', err.message);
     process.exitCode = 1;
   } finally {
-    await pool.end();
+    await prismaClient.$disconnect();
   }
 }
 

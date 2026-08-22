@@ -7,79 +7,91 @@ function mapRow(row) {
     id: row.id,
     name: row.name,
     providerId: row.provider_id,
-    providerName: row.provider_name,
+    providerName: row.providers ? row.providers.name : undefined,
     description: row.description,
     duration: row.duration,
     createdBy: row.created_by,
-    creatorName: row.creator_name,
+    creatorName: row.users ? `${row.users.firstname} ${row.users.lastname}` : undefined,
     createdAt: row.created_at,
   });
 }
 
-const SELECT_BASE = `
-  SELECT t.*, p.name AS provider_name, u.firstname || ' ' || u.lastname AS creator_name
-  FROM trainings t
-  JOIN providers p ON p.id = t.provider_id
-  LEFT JOIN users u ON u.id = t.created_by
-  WHERE t.deleted_at IS NULL
-`;
-
-
-
-const CREATOR_NAME_RETURNING = `*, (SELECT firstname || ' ' || lastname FROM users WHERE id = created_by) AS creator_name`;
+const FULL_INCLUDE = {
+  providers: { select: { name: true } },
+  users: { select: { firstname: true, lastname: true } },
+};
 
 class PgTrainingRepository extends ITrainingRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create(training) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO trainings (name, provider_id, description, duration, created_by)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [training.name, training.providerId, training.description, training.duration, training.createdBy]
-    );
-    return this.findById(rows[0].id);
+    const created = await this.prisma.trainings.create({
+      data: {
+        name: training.name,
+        provider_id: training.providerId,
+        description: training.description,
+        duration: training.duration,
+        created_by: training.createdBy,
+      },
+    });
+    return this.findById(created.id);
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query(`${SELECT_BASE} AND t.id = $1`, [id]);
-    return mapRow(rows[0]);
+    const row = await this.prisma.trainings.findFirst({ where: { id, deleted_at: null }, include: FULL_INCLUDE });
+    return mapRow(row);
   }
 
   async listAll() {
-    const { rows } = await this.pool.query(`${SELECT_BASE} ORDER BY t.created_at DESC`);
+    const rows = await this.prisma.trainings.findMany({
+      where: { deleted_at: null },
+      include: FULL_INCLUDE,
+      orderBy: { created_at: 'desc' },
+    });
     return rows.map(mapRow);
   }
 
   async listByProvider(providerId) {
-    const { rows } = await this.pool.query(`${SELECT_BASE} AND t.provider_id = $1`, [providerId]);
+    const rows = await this.prisma.trainings.findMany({
+      where: { deleted_at: null, provider_id: providerId },
+      include: FULL_INCLUDE,
+    });
     return rows.map(mapRow);
   }
 
   async update(id, fields) {
-    await this.pool.query(
-      `UPDATE trainings
-       SET name = COALESCE($2, name),
-           description = COALESCE($3, description),
-           duration = COALESCE($4, duration),
-           updated_at = now()
-       WHERE id = $1 AND deleted_at IS NULL`,
-      [id, fields.name || null, fields.description || null, fields.duration ?? null]
-    );
+    const data: any = { updated_at: new Date() };
+    if (fields.name) data.name = fields.name;
+    if (fields.description) data.description = fields.description;
+    
+    
+    
+    if (fields.duration !== undefined && fields.duration !== null) data.duration = fields.duration;
+
+    await this.prisma.trainings.updateMany({ where: { id, deleted_at: null }, data });
     return this.findById(id);
   }
 
   async softDelete(id) {
-    const { rows } = await this.pool.query(
-      `UPDATE trainings SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING ${CREATOR_NAME_RETURNING}`,
-      [id]
-    );
-    return mapRow(rows[0]);
+    const result = await this.prisma.trainings.updateMany({
+      where: { id, deleted_at: null },
+      data: { deleted_at: new Date() },
+    });
+    if (result.count === 0) return null;
+    
+    
+    
+    
+    const row = await this.prisma.trainings.findUnique({
+      where: { id },
+      include: { users: { select: { firstname: true, lastname: true } } },
+    });
+    return mapRow(row);
   }
 }
 
