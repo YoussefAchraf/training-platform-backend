@@ -30,93 +30,98 @@ function mapAttendeeRow(row) {
 }
 
 class PgSessionRepository extends ISessionRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create(session) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO training_sessions
-         (training_id, client_id, instructor_id, start_date, end_date, session_status, assignment_status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
-        session.trainingId,
-        session.clientId,
-        session.instructorId || null,
-        session.startDate,
-        session.endDate,
-        session.sessionStatus || 'scheduled',
-        session.instructorId ? 'pending' : 'unassigned',
-        session.createdBy,
-      ]
-    );
-    return mapRow(rows[0]);
+    const row = await this.prisma.training_sessions.create({
+      data: {
+        training_id: session.trainingId,
+        client_id: session.clientId,
+        instructor_id: session.instructorId || null,
+        start_date: session.startDate,
+        end_date: session.endDate,
+        session_status: session.sessionStatus || 'scheduled',
+        assignment_status: session.instructorId ? 'pending' : 'unassigned',
+        created_by: session.createdBy,
+      },
+    });
+    return mapRow(row);
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query('SELECT * FROM training_sessions WHERE id = $1', [id]);
-    return mapRow(rows[0]);
+    const row = await this.prisma.training_sessions.findUnique({ where: { id } });
+    return mapRow(row);
   }
 
   async listAll() {
-    const { rows } = await this.pool.query('SELECT * FROM training_sessions ORDER BY start_date DESC');
+    const rows = await this.prisma.training_sessions.findMany({ orderBy: { start_date: 'desc' } });
     return rows.map(mapRow);
   }
 
   async listByInstructor(instructorId) {
-    const { rows } = await this.pool.query(
-      'SELECT * FROM training_sessions WHERE instructor_id = $1 ORDER BY start_date ASC',
-      [instructorId]
-    );
+    const rows = await this.prisma.training_sessions.findMany({
+      where: { instructor_id: instructorId },
+      orderBy: { start_date: 'asc' },
+    });
     return rows.map(mapRow);
   }
 
   async assignInstructor(sessionId, instructorId) {
-    const { rows } = await this.pool.query(
-      `UPDATE training_sessions
-       SET instructor_id = $2, assignment_status = 'pending', updated_at = now()
-       WHERE id = $1
-       RETURNING *`,
-      [sessionId, instructorId]
-    );
-    return mapRow(rows[0]);
+    
+    
+    
+    
+    
+    
+    const result = await this.prisma.training_sessions.updateMany({
+      where: { id: sessionId },
+      data: { instructor_id: instructorId, assignment_status: 'pending', updated_at: new Date() },
+    });
+    if (result.count === 0) return null;
+    return this.findById(sessionId);
   }
 
   async updateAssignmentStatus(sessionId, status) {
-    const { rows } = await this.pool.query(
-      `UPDATE training_sessions SET assignment_status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
-      [sessionId, status]
-    );
-    return mapRow(rows[0]);
+    const result = await this.prisma.training_sessions.updateMany({
+      where: { id: sessionId },
+      data: { assignment_status: status, updated_at: new Date() },
+    });
+    if (result.count === 0) return null;
+    return this.findById(sessionId);
   }
 
   async updateSessionStatus(sessionId, status) {
-    const { rows } = await this.pool.query(
-      `UPDATE training_sessions SET session_status = $2, updated_at = now() WHERE id = $1 RETURNING *`,
-      [sessionId, status]
-    );
-    return mapRow(rows[0]);
+    const result = await this.prisma.training_sessions.updateMany({
+      where: { id: sessionId },
+      data: { session_status: status, updated_at: new Date() },
+    });
+    if (result.count === 0) return null;
+    return this.findById(sessionId);
   }
 
   async update(sessionId, fields) {
-    const { rows } = await this.pool.query(
-      `UPDATE training_sessions
-       SET start_date = COALESCE($2, start_date),
-           end_date = COALESCE($3, end_date),
-           updated_at = now()
-       WHERE id = $1
-       RETURNING *`,
-      [sessionId, fields.startDate || null, fields.endDate || null]
-    );
-    return mapRow(rows[0]);
+    const data: any = { updated_at: new Date() };
+    if (fields.startDate) data.start_date = fields.startDate;
+    if (fields.endDate) data.end_date = fields.endDate;
+
+    const result = await this.prisma.training_sessions.updateMany({ where: { id: sessionId }, data });
+    if (result.count === 0) return null;
+    return this.findById(sessionId);
   }
 
   async listAllWithDetails() {
-    const { rows } = await this.pool.query(`
+    
+    
+    
+    
+    
+    
+    const rows = await this.prisma.$queryRaw<any[]>`
       SELECT
         ts.id,
         ts.training_id,
@@ -145,7 +150,7 @@ class PgSessionRepository extends ISessionRepository {
       LEFT JOIN users iu ON iu.id = i.user_id
       LEFT JOIN reports r ON r.session_id = ts.id
       ORDER BY ts.start_date DESC
-    `);
+    `;
 
     return rows.map((row) => ({
       id: row.id,
@@ -168,58 +173,62 @@ class PgSessionRepository extends ISessionRepository {
     }));
   }
 
-  
-  
   async listEndedWithoutReport(minutesAgo) {
-    const { rows } = await this.pool.query(
-      `SELECT ts.*
-       FROM training_sessions ts
-       LEFT JOIN reports r ON r.session_id = ts.id
-       WHERE r.id IS NULL
-         AND ts.end_date <= now() - ($1 || ' minutes')::interval
-       ORDER BY ts.end_date ASC`,
-      [minutesAgo]
-    );
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT ts.*
+      FROM training_sessions ts
+      LEFT JOIN reports r ON r.session_id = ts.id
+      WHERE r.id IS NULL
+        AND ts.end_date <= now() - (${minutesAgo}::text || ' minutes')::interval
+      ORDER BY ts.end_date ASC
+    `;
     return rows.map(mapRow);
   }
 
   async addAttendee(sessionId, attendee) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO session_attendees (session_id, name, email) VALUES ($1, $2, $3) RETURNING *`,
-      [sessionId, attendee.name, attendee.email || null]
-    );
-    return mapAttendeeRow(rows[0]);
+    const row = await this.prisma.session_attendees.create({
+      data: { session_id: sessionId, name: attendee.name, email: attendee.email || null },
+    });
+    return mapAttendeeRow(row);
   }
 
   async listAttendees(sessionId) {
-    const { rows } = await this.pool.query(
-      'SELECT * FROM session_attendees WHERE session_id = $1 ORDER BY name ASC',
-      [sessionId]
-    );
+    const rows = await this.prisma.session_attendees.findMany({
+      where: { session_id: sessionId },
+      orderBy: { name: 'asc' },
+    });
     return rows.map(mapAttendeeRow);
   }
 
   async findAttendeeById(attendeeId) {
-    const { rows } = await this.pool.query('SELECT * FROM session_attendees WHERE id = $1', [attendeeId]);
-    return mapAttendeeRow(rows[0]);
+    const row = await this.prisma.session_attendees.findUnique({ where: { id: attendeeId } });
+    return mapAttendeeRow(row);
   }
 
   async markAttendeeSurveySubmitted(attendeeId) {
-    const { rows } = await this.pool.query(
-      `UPDATE session_attendees SET survey_submitted = TRUE WHERE id = $1 RETURNING *`,
-      [attendeeId]
-    );
-    return mapAttendeeRow(rows[0]);
+    const result = await this.prisma.session_attendees.updateMany({
+      where: { id: attendeeId },
+      data: { survey_submitted: true },
+    });
+    if (result.count === 0) return null;
+    return this.findAttendeeById(attendeeId);
   }
 
-  
   async allAttendeesSubmitted(sessionId) {
-    const { rows } = await this.pool.query(
-      `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE survey_submitted) ::int AS submitted
-       FROM session_attendees WHERE session_id = $1`,
-      [sessionId]
-    );
-    const { total, submitted } = rows[0];
+    const total = await this.prisma.session_attendees.count({ where: { session_id: sessionId } });
+    const submitted = await this.prisma.session_attendees.count({
+      where: { session_id: sessionId, survey_submitted: true },
+    });
     return total > 0 && total === submitted;
   }
 }

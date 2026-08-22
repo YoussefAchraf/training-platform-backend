@@ -15,55 +15,75 @@ function mapRow(row) {
   });
 }
 
-class PgSurveyRepository extends ISurveyRepository {
-  pool: any;
 
-  constructor(pool) {
+
+
+
+
+
+function toFixedNumeric(value, decimals) {
+  if (value === null || value === undefined) return value;
+  return Number(value.toString()).toFixed(decimals);
+}
+
+class PgSurveyRepository extends ISurveyRepository {
+  prisma: any;
+
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create(survey) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO surveys (session_id, instructor_id, attendee_id, instructor_score, nps_score, comments)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [
-        survey.sessionId,
-        survey.instructorId,
-        survey.attendeeId || null,
-        survey.instructorScore,
-        survey.npsScore,
-        survey.comments || null,
-      ]
-    );
-    return mapRow(rows[0]);
+    const row = await this.prisma.surveys.create({
+      data: {
+        session_id: survey.sessionId,
+        instructor_id: survey.instructorId,
+        attendee_id: survey.attendeeId || null,
+        instructor_score: survey.instructorScore,
+        nps_score: survey.npsScore,
+        comments: survey.comments || null,
+      },
+    });
+    return mapRow(row);
   }
 
   async listBySession(sessionId) {
-    const { rows } = await this.pool.query(
-      'SELECT * FROM surveys WHERE session_id = $1 ORDER BY submitted_at ASC',
-      [sessionId]
-    );
+    const rows = await this.prisma.surveys.findMany({
+      where: { session_id: sessionId },
+      orderBy: { submitted_at: 'asc' },
+    });
     return rows.map(mapRow);
   }
 
   async getSessionAverages(sessionId) {
-    const { rows } = await this.pool.query(
-      `SELECT
-         COALESCE(AVG(instructor_score), 0)::numeric(4,2) AS average_score,
-         COALESCE(AVG(
-           CASE
-             WHEN nps_score <= 6 THEN -1
-             WHEN nps_score <= 8 THEN 0
-             ELSE 1
-           END
-         ) * 100, 0)::numeric(5,2) AS nps_average,
-         COUNT(*)::int AS total_responses
-       FROM surveys WHERE session_id = $1`,
-      [sessionId]
-    );
-    return rows[0];
+    
+    
+    
+    
+    
+    
+    const rows = await this.prisma.$queryRaw<
+      { average_score: unknown; nps_average: unknown; total_responses: unknown }[]
+    >`
+      SELECT
+        COALESCE(AVG(instructor_score), 0)::numeric(4,2) AS average_score,
+        COALESCE(AVG(
+          CASE
+            WHEN nps_score <= 6 THEN -1
+            WHEN nps_score <= 8 THEN 0
+            ELSE 1
+          END
+        ) * 100, 0)::numeric(5,2) AS nps_average,
+        COUNT(*)::int AS total_responses
+      FROM surveys WHERE session_id = ${sessionId}
+    `;
+    const row = rows[0];
+    return {
+      average_score: toFixedNumeric(row.average_score, 2),
+      nps_average: toFixedNumeric(row.nps_average, 2),
+      total_responses: Number(row.total_responses),
+    };
   }
 }
 

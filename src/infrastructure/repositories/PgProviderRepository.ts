@@ -9,84 +9,82 @@ function mapRow(row) {
     description: row.description,
     logoUrl: row.logo_url,
     createdBy: row.created_by,
-    creatorName: row.creator_name,
+    creatorName: row.users ? `${row.users.firstname} ${row.users.lastname}` : null,
     createdAt: row.created_at,
   });
 }
 
-
-
-
-const CREATOR_NAME_RETURNING = `*, (SELECT firstname || ' ' || lastname FROM users WHERE id = created_by) AS creator_name`;
+const CREATOR_INCLUDE = { users: { select: { firstname: true, lastname: true } } };
 
 class PgProviderRepository extends IProviderRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create(provider) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO providers (name, description, logo_url, created_by) VALUES ($1, $2, $3, $4) RETURNING ${CREATOR_NAME_RETURNING}`,
-      [provider.name, provider.description, provider.logoUrl || null, provider.createdBy]
-    );
-    return mapRow(rows[0]);
+    const row = await this.prisma.providers.create({
+      data: {
+        name: provider.name,
+        description: provider.description,
+        logo_url: provider.logoUrl || null,
+        created_by: provider.createdBy,
+      },
+      include: CREATOR_INCLUDE,
+    });
+    return mapRow(row);
   }
 
   async update(id, fields) {
-    const { rows } = await this.pool.query(
-      `UPDATE providers
-       SET name = COALESCE($2, name),
-           description = COALESCE($3, description),
-           logo_url = COALESCE($4, logo_url),
-           updated_at = now()
-       WHERE id = $1 AND deleted_at IS NULL
-       RETURNING ${CREATOR_NAME_RETURNING}`,
-      [id, fields.name || null, fields.description || null, fields.logoUrl || null]
-    );
-    return mapRow(rows[0]);
+    const data: any = { updated_at: new Date() };
+    if (fields.name) data.name = fields.name;
+    if (fields.description) data.description = fields.description;
+    if (fields.logoUrl) data.logo_url = fields.logoUrl;
+
+    
+    
+    
+    
+    
+    const result = await this.prisma.providers.updateMany({ where: { id, deleted_at: null }, data });
+    if (result.count === 0) return null;
+    return this.findById(id);
   }
 
   async softDelete(id) {
-    const { rows } = await this.pool.query(
-      `UPDATE providers SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL RETURNING ${CREATOR_NAME_RETURNING}`,
-      [id]
-    );
-    return mapRow(rows[0]);
+    const result = await this.prisma.providers.updateMany({
+      where: { id, deleted_at: null },
+      data: { deleted_at: new Date() },
+    });
+    if (result.count === 0) return null;
+    
+    
+    
+    const row = await this.prisma.providers.findUnique({ where: { id }, include: CREATOR_INCLUDE });
+    return mapRow(row);
   }
 
   async findById(id) {
-    const { rows } = await this.pool.query(
-      `SELECT p.*, u.firstname || ' ' || u.lastname AS creator_name
-       FROM providers p
-       LEFT JOIN users u ON u.id = p.created_by
-       WHERE p.id = $1 AND p.deleted_at IS NULL`,
-      [id]
-    );
-    return mapRow(rows[0]);
+    const row = await this.prisma.providers.findFirst({ where: { id, deleted_at: null }, include: CREATOR_INCLUDE });
+    return mapRow(row);
   }
 
   async findByName(name) {
-    const { rows } = await this.pool.query(
-      `SELECT p.*, u.firstname || ' ' || u.lastname AS creator_name
-       FROM providers p
-       LEFT JOIN users u ON u.id = p.created_by
-       WHERE p.name = $1 AND p.deleted_at IS NULL`,
-      [name]
-    );
-    return mapRow(rows[0]);
+    
+    
+    
+    const row = await this.prisma.providers.findFirst({ where: { name, deleted_at: null }, include: CREATOR_INCLUDE });
+    return mapRow(row);
   }
 
   async listAll() {
-    const { rows } = await this.pool.query(
-      `SELECT p.*, u.firstname || ' ' || u.lastname AS creator_name
-       FROM providers p
-       LEFT JOIN users u ON u.id = p.created_by
-       WHERE p.deleted_at IS NULL
-       ORDER BY p.name ASC`
-    );
+    const rows = await this.prisma.providers.findMany({
+      where: { deleted_at: null },
+      include: CREATOR_INCLUDE,
+      orderBy: { name: 'asc' },
+    });
     return rows.map(mapRow);
   }
 }
