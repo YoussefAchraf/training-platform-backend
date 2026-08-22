@@ -1,12 +1,24 @@
-import fs from 'fs';
-import path from 'path';
-import YAML from 'yaml';
+import { authRoutesDocs } from '../interface/routes/authRoutes';
+import { calendarRoutesDocs } from '../interface/routes/calendarRoutes';
+import { clientRoutesDocs } from '../interface/routes/clientRoutes';
+import { instructorRoutesDocs } from '../interface/routes/instructorRoutes';
+import { providerRoutesDocs } from '../interface/routes/providerRoutes';
+import { reportRoutesDocs } from '../interface/routes/reportRoutes';
+import { sessionRoutesDocs } from '../interface/routes/sessionRoutes';
+import { surveyRoutesDocs } from '../interface/routes/surveyRoutes';
+import { trainingRoutesDocs } from '../interface/routes/trainingRoutes';
 
-const pathsDir = path.join(__dirname, 'paths');
-const paths = fs.readdirSync(pathsDir).reduce((acc, file) => {
-  const parsed = YAML.parse(fs.readFileSync(path.join(pathsDir, file), 'utf8'));
-  return { ...acc, ...parsed };
-}, {});
+const paths = {
+  ...authRoutesDocs,
+  ...calendarRoutesDocs,
+  ...clientRoutesDocs,
+  ...instructorRoutesDocs,
+  ...providerRoutesDocs,
+  ...reportRoutesDocs,
+  ...sessionRoutesDocs,
+  ...surveyRoutesDocs,
+  ...trainingRoutesDocs,
+};
 
 const definition = {
   openapi: '3.0.3',

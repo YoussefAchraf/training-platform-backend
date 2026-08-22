@@ -1,5 +1,52 @@
 import { Router } from 'express';
 
+export const trainingRoutesDocs: Record<string, any> = {
+  '/trainings': {
+    get: {
+      tags: ['Trainings'],
+      summary: 'List trainings (e.g. RHCSA), optionally filtered by provider',
+      parameters: [{ name: 'providerId', in: 'query', required: false, schema: { type: 'integer' } }],
+      responses: {
+        200: {
+          description: 'OK',
+          content: {
+            'application/json': {
+              schema: { type: 'array', items: { $ref: '#/components/schemas/Training' } },
+            },
+          },
+        },
+      },
+    },
+    post: {
+      tags: ['Trainings'],
+      summary: 'Create a training under a provider',
+      description: 'Sales or Manager only.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['name', 'providerId'],
+              properties: {
+                name: { type: 'string', example: 'RHCSA' },
+                providerId: { type: 'integer' },
+                description: { type: 'string' },
+                duration: { type: 'integer', description: 'In hours or days, kept generic.' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        201: { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Training' } } } },
+        400: { description: 'Validation error or provider not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+        403: { description: 'Not Sales or Manager' },
+      },
+    },
+  },
+};
+
 export default function trainingRoutes({ trainingController, authMiddleware, requireRole }) {
   const router = Router();
 

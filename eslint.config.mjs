@@ -156,7 +156,10 @@ export default tseslint.config(
             },
             {
               from: { element: { type: 'docs' } },
-              allow: { to: { element: { type: 'docs' } } },
+              
+              
+              
+              allow: { to: { element: { type: ['docs', 'interface'] } } },
             },
             {
               from: { element: { type: 'composition-root' } },
