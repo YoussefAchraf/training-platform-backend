@@ -1,5 +1,88 @@
 import { Router } from 'express';
 
+export const instructorRoutesDocs: Record<string, any> = {
+  '/instructors': {
+    get: {
+      tags: ['Instructors'],
+      summary: 'List instructor profiles',
+      description: 'Sales or Manager only.',
+      responses: {
+        200: {
+          description: 'OK',
+          content: {
+            'application/json': {
+              schema: { type: 'array', items: { $ref: '#/components/schemas/Instructor' } },
+            },
+          },
+        },
+        403: { description: 'Not Sales or Manager' },
+      },
+    },
+  },
+  '/instructors/me': {
+    get: {
+      tags: ['Instructors'],
+      summary: 'Get my own instructor profile',
+      description: 'Instructor only.',
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Instructor' } } } },
+        403: { description: 'Not an Instructor' },
+      },
+    },
+    patch: {
+      tags: ['Instructors'],
+      summary: 'Update my own instructor profile (bio, trainings I can deliver)',
+      description: 'Instructor only.',
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                bio: { type: 'string' },
+                trainingIds: {
+                  type: 'array',
+                  items: { type: 'integer' },
+                  description: 'Full replacement list of trainings this instructor can deliver.',
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Instructor' } } } },
+        403: { description: 'Not an Instructor' },
+      },
+    },
+  },
+  '/instructors/{id}': {
+    patch: {
+      tags: ['Instructors'],
+      summary: "Update another instructor's profile",
+      description: 'Manager only.',
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                bio: { type: 'string' },
+                trainingIds: { type: 'array', items: { type: 'integer' } },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Instructor' } } } },
+        403: { description: 'Not a Manager' },
+      },
+    },
+  },
+};
+
 export default function instructorRoutes({ instructorController, authMiddleware, requireRole }) {
   const router = Router();
 
