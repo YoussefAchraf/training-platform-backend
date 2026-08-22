@@ -2,9 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
-import { prismaClient } from './infrastructure/database/prismaClient';
-import { redis } from './infrastructure/cache/RedisClient';
 import { swaggerSpec } from './docs/swaggerDefinition';
+import { redis } from './infrastructure/cache/RedisClient';
+import { prismaClient } from './infrastructure/database/prismaClient';
 
 import { PasswordHasher } from './infrastructure/security/PasswordHasher';
 import { TokenService } from './infrastructure/security/TokenService';

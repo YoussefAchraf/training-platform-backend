@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "prepare": "node scripts/setup-git-filters.js",
-    "build": "tsc && node -e \"const fs=require('fs'); fs.copyFileSync('src/infrastructure/database/schema.sql','dist/infrastructure/database/schema.sql'); fs.cpSync('src/docs/paths','dist/docs/paths',{recursive:true})\"",
+    "build": "tsc && node -e \"const fs=require('fs'); fs.copyFileSync('src/infrastructure/database/schema.sql','dist/infrastructure/database/schema.sql')\"",
     "start": "node dist/server.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
     "db:migrate": "ts-node src/infrastructure/database/migrate.ts",

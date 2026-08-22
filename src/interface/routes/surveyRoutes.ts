@@ -1,5 +1,70 @@
 import { Router } from 'express';
 
+export const surveyRoutesDocs: Record<string, any> = {
+  '/survey/{sessionId}/qr-code': {
+    get: {
+      tags: ['Survey'],
+      summary: 'Generate the survey QR code for a session',
+      description: "Instructor only, and only for their own session. Returns a PNG data URL pointing to the public survey form.",
+      parameters: [{ name: 'sessionId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/SurveyQR' } } } },
+        400: {
+          description: "Not this instructor's session",
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not an Instructor' },
+      },
+    },
+  },
+  '/survey/{sessionId}/form': {
+    get: {
+      tags: ['Survey'],
+      summary: 'Get the info an attendee sees before rating (what the QR code links to)',
+      security: [],
+      parameters: [{ name: 'sessionId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/SurveyInfo' } } } },
+        404: { description: 'Session not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+      },
+    },
+  },
+  '/survey/{sessionId}/submit': {
+    post: {
+      tags: ['Survey'],
+      summary: 'Submit a survey response',
+      description:
+        "Public - no auth (attendees aren't logged-in users). sessionId comes from the path and instructorId is filled in server-side from the session, so neither can be spoofed by the client. Auto-triggers report generation once every attendee on the session has submitted.\n",
+      security: [],
+      parameters: [{ name: 'sessionId', in: 'path', required: true, schema: { type: 'integer' } }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['instructorScore', 'npsScore'],
+              properties: {
+                attendeeId: { type: 'integer', nullable: true },
+                instructorScore: { type: 'integer', minimum: 0, maximum: 5 },
+                npsScore: { type: 'integer', minimum: 0, maximum: 10, description: 'Global/NPS score.' },
+                comments: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        201: { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Survey' } } } },
+        400: {
+          description: 'Session not found, no instructor assigned yet, or score out of range',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+      },
+    },
+  },
+};
+
 export default function surveyRoutes({ surveyController, authMiddleware, requireRole }) {
   const router = Router();
 
