@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
-import { pool } from './infrastructure/database/connection';
+import { prismaClient } from './infrastructure/database/prismaClient';
 import { redis } from './infrastructure/cache/RedisClient';
 import { swaggerSpec } from './docs/swaggerDefinition';
 
@@ -127,18 +127,18 @@ function buildApp() {
   const pdfReportService = new PdfReportService();
   const webPushService = new WebPushService();
 
-  const userRepository = new PgUserRepository(pool);
-  const providerRepository = new PgProviderRepository(pool);
-  const trainingRepository = new PgTrainingRepository(pool);
-  const clientRepository = new PgClientRepository(pool);
-  const instructorRepository = new PgInstructorRepository(pool);
-  const sessionRepository = new PgSessionRepository(pool);
-  const calendarRepository = new PgCalendarRepository(pool);
-  const surveyRepository = new PgSurveyRepository(pool);
-  const reportRepository = new PgReportRepository(pool);
-  const auditLogRepository = new PgAuditLogRepository(pool);
-  const roleRepository = new PgRoleRepository(pool);
-  const pushSubscriptionRepository = new PgPushSubscriptionRepository(pool);
+  const userRepository = new PgUserRepository(prismaClient);
+  const providerRepository = new PgProviderRepository(prismaClient);
+  const trainingRepository = new PgTrainingRepository(prismaClient);
+  const clientRepository = new PgClientRepository(prismaClient);
+  const instructorRepository = new PgInstructorRepository(prismaClient);
+  const sessionRepository = new PgSessionRepository(prismaClient);
+  const calendarRepository = new PgCalendarRepository(prismaClient);
+  const surveyRepository = new PgSurveyRepository(prismaClient);
+  const reportRepository = new PgReportRepository(prismaClient);
+  const auditLogRepository = new PgAuditLogRepository(prismaClient);
+  const roleRepository = new PgRoleRepository(prismaClient);
+  const pushSubscriptionRepository = new PgPushSubscriptionRepository(prismaClient);
 
   const signupUseCase = new SignupUseCase({
     userRepository,

@@ -12,54 +12,51 @@ function mapRow(row) {
 }
 
 class PgCalendarRepository extends ICalendarRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create(event) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO calendar (session_id, event_date, title) VALUES ($1, $2, $3) RETURNING *`,
-      [event.sessionId, event.eventDate, event.title]
-    );
-    return mapRow(rows[0]);
+    const row = await this.prisma.calendar.create({
+      data: { session_id: event.sessionId, event_date: event.eventDate, title: event.title },
+    });
+    return mapRow(row);
   }
 
-  
   async listGlobal() {
-    const { rows } = await this.pool.query(
-      `SELECT c.*
-       FROM calendar c
-       ORDER BY c.event_date ASC`
-    );
+    const rows = await this.prisma.calendar.findMany({ orderBy: { event_date: 'asc' } });
     return rows.map(mapRow);
   }
 
-  
   async listForInstructor(instructorId) {
-    const { rows } = await this.pool.query(
-      `SELECT c.*
-       FROM calendar c
-       JOIN training_sessions ts ON ts.id = c.session_id
-       WHERE ts.instructor_id = $1
-       ORDER BY c.event_date ASC`,
-      [instructorId]
-    );
+    const rows = await this.prisma.calendar.findMany({
+      where: { training_sessions: { instructor_id: instructorId } },
+      orderBy: { event_date: 'asc' },
+    });
     return rows.map(mapRow);
   }
 
   async update(eventId, changes) {
-    const { rows } = await this.pool.query(
-      `UPDATE calendar SET event_date = COALESCE($2, event_date), title = COALESCE($3, title) WHERE id = $1 RETURNING *`,
-      [eventId, changes.eventDate || null, changes.title || null]
-    );
-    return mapRow(rows[0]);
+    
+    
+    
+    
+    const data: any = {};
+    if (changes.eventDate) data.event_date = changes.eventDate;
+    if (changes.title) data.title = changes.title;
+
+    const row = await this.prisma.calendar.update({ where: { id: eventId }, data });
+    return mapRow(row);
   }
 
   async delete(eventId) {
-    await this.pool.query('DELETE FROM calendar WHERE id = $1', [eventId]);
+    
+    
+    
+    await this.prisma.calendar.deleteMany({ where: { id: eventId } });
     return true;
   }
 }

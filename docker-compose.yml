@@ -49,16 +49,40 @@ services:
 
 
 
+
+
+
+
+  provision-roles:
+    build:
+      context: .
+      target: build
+    command: ["npx", "ts-node", "scripts/provisionDbRoles.ts"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-training_platform}
+      APP_RUNTIME_DB_PASSWORD: ${APP_RUNTIME_DB_PASSWORD:?set APP_RUNTIME_DB_PASSWORD in .env}
+      APP_MIGRATOR_DB_PASSWORD: ${APP_MIGRATOR_DB_PASSWORD:?set APP_MIGRATOR_DB_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
   migrate:
     build:
       context: .
       target: build
     command: ["node", "dist/infrastructure/database/migrate.js"]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-training_platform}
+
+
+      MIGRATOR_DATABASE_URL: postgresql://app_migrator:${APP_MIGRATOR_DB_PASSWORD:?set APP_MIGRATOR_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-training_platform}
     depends_on:
       postgres:
         condition: service_healthy
+      provision-roles:
+        condition: service_completed_successfully
     networks:
       - internal
     restart: "no"
@@ -70,7 +94,9 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-training_platform}
+
+
+      DATABASE_URL: postgresql://app_runtime:${APP_RUNTIME_DB_PASSWORD:?set APP_RUNTIME_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-training_platform}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: 4000
     ports:

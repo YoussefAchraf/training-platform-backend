@@ -14,39 +14,28 @@ function mapRow(row) {
 }
 
 class PgPushSubscriptionRepository extends IPushSubscriptionRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
-  
-  
-  
   async create({ userId, endpoint, p256dh, auth }) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (endpoint) DO UPDATE SET user_id = $1, p256dh = $3, auth = $4
-       RETURNING *`,
-      [userId, endpoint, p256dh, auth]
-    );
-    return mapRow(rows[0]);
+    const row = await this.prisma.push_subscriptions.upsert({
+      where: { endpoint },
+      create: { user_id: userId, endpoint, p256dh, auth },
+      update: { user_id: userId, p256dh, auth },
+    });
+    return mapRow(row);
   }
 
-  
-  
-  
   async deleteByEndpointForUser(endpoint, userId) {
-    await this.pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1 AND user_id = $2', [endpoint, userId]);
+    await this.prisma.push_subscriptions.deleteMany({ where: { endpoint, user_id: userId } });
   }
 
   async listByUserId(userId) {
-    const { rows } = await this.pool.query(
-      'SELECT * FROM push_subscriptions WHERE user_id = $1',
-      [userId]
-    );
+    const rows = await this.prisma.push_subscriptions.findMany({ where: { user_id: userId } });
     return rows.map(mapRow);
   }
 }

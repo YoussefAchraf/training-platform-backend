@@ -17,58 +17,53 @@ function mapRow(row) {
 }
 
 class PgAuditLogRepository extends IAuditLogRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create({ actorId, action, entityType, entityId, before = null, after = null }) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, before, after)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [
-        actorId,
+    const row = await this.prisma.audit_log.create({
+      data: {
+        actor_id: actorId,
         action,
-        entityType,
-        entityId,
-        before ? JSON.stringify(before) : null,
-        after ? JSON.stringify(after) : null,
-      ]
-    );
-    return mapRow(rows[0]);
+        entity_type: entityType,
+        entity_id: entityId,
+        before: before ? before : null,
+        after: after ? after : null,
+      },
+    });
+    return mapRow(row);
   }
 
   async list({ entityType, entityId, excludeEntityTypes }: any = {}) {
-    const conditions = [];
-    const params = [];
-    let i = 1;
+    
+    
+    
+    
+    
+    const entityTypeFilter: any = {};
+    if (entityType) entityTypeFilter.equals = entityType;
+    if (excludeEntityTypes && excludeEntityTypes.length > 0) entityTypeFilter.notIn = excludeEntityTypes;
 
-    if (entityType) {
-      conditions.push(`a.entity_type = $${i++}`);
-      params.push(entityType);
-    }
-    if (entityId !== undefined) {
-      conditions.push(`a.entity_id = $${i++}`);
-      params.push(entityId);
-    }
-    if (excludeEntityTypes && excludeEntityTypes.length > 0) {
-      conditions.push(`a.entity_type NOT IN (${excludeEntityTypes.map(() => `$${i++}`).join(', ')})`);
-      params.push(...excludeEntityTypes);
-    }
+    const rows = await this.prisma.audit_log.findMany({
+      where: {
+        ...(Object.keys(entityTypeFilter).length > 0 ? { entity_type: entityTypeFilter } : {}),
+        ...(entityId !== undefined ? { entity_id: entityId } : {}),
+      },
+      include: { users: { select: { firstname: true, lastname: true } } },
+      orderBy: { created_at: 'desc' },
+      take: 200,
+    });
 
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const { rows } = await this.pool.query(
-      `SELECT a.*, u.firstname || ' ' || u.lastname AS actor_name
-       FROM audit_log a
-       LEFT JOIN users u ON u.id = a.actor_id
-       ${where}
-       ORDER BY a.created_at DESC LIMIT 200`,
-      params
+    return rows.map((row) =>
+      mapRow({
+        ...row,
+        actor_name: row.users ? `${row.users.firstname} ${row.users.lastname}` : null,
+      })
     );
-    return rows.map(mapRow);
   }
 }
 

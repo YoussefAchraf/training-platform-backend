@@ -1,44 +1,60 @@
 import { Report } from '../../domain/entities/Report';
 import { IReportRepository } from '../../domain/interfaces/IReportRepository';
 
+
+
+
+function toFixedNumeric(value, decimals) {
+  if (value === null || value === undefined) return value;
+  return Number(value.toString()).toFixed(decimals);
+}
+
 function mapRow(row) {
   if (!row) return null;
   return new Report({
     id: row.id,
     sessionId: row.session_id,
     pdfUrl: row.pdf_url,
-    averageScore: row.average_score,
-    npsAverage: row.nps_average,
+    averageScore: toFixedNumeric(row.average_score, 2),
+    npsAverage: toFixedNumeric(row.nps_average, 2),
     generatedAt: row.generated_at,
   });
 }
 
 class PgReportRepository extends IReportRepository {
-  pool: any;
+  prisma: any;
 
-  constructor(pool) {
+  constructor(prisma) {
     super();
-    this.pool = pool;
+    this.prisma = prisma;
   }
 
   async create(report) {
-    const { rows } = await this.pool.query(
-      `INSERT INTO reports (session_id, pdf_url, average_score, nps_average)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (session_id) DO UPDATE
-         SET pdf_url = EXCLUDED.pdf_url,
-             average_score = EXCLUDED.average_score,
-             nps_average = EXCLUDED.nps_average,
-             generated_at = now()
-       RETURNING *`,
-      [report.sessionId, report.pdfUrl || null, report.averageScore, report.npsAverage]
-    );
-    return mapRow(rows[0]);
+    
+    
+    
+    
+    const row = await this.prisma.reports.upsert({
+      where: { session_id: report.sessionId },
+      create: {
+        session_id: report.sessionId,
+        pdf_url: report.pdfUrl || null,
+        average_score: report.averageScore,
+        nps_average: report.npsAverage,
+      },
+      update: {
+        pdf_url: report.pdfUrl || null,
+        average_score: report.averageScore,
+        nps_average: report.npsAverage,
+        generated_at: new Date(),
+      },
+    });
+    return mapRow(row);
   }
 
   async findBySessionId(sessionId) {
-    const { rows } = await this.pool.query('SELECT * FROM reports WHERE session_id = $1', [sessionId]);
-    return mapRow(rows[0]);
+    const row = await this.prisma.reports.findUnique({ where: { session_id: sessionId } });
+    return mapRow(row);
   }
 }
 
