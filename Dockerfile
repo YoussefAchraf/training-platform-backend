@@ -16,8 +16,11 @@ RUN npm install && apk del .build-deps
 
 FROM deps AS build
 COPY tsconfig.json ./
+COPY prisma.config.ts ./
+COPY prisma ./prisma
 COPY src ./src
-RUN npm run build \
+RUN npx prisma generate \
+    && npm run build \
     && find dist -name '*.map' -delete
 
 
