@@ -1,16 +1,14 @@
 import request from 'supertest';
 import { buildApp } from '../../src/app';
 import { pool } from '../../src/infrastructure/database/connection';
+import { prismaClient } from '../../src/infrastructure/database/prismaClient';
 import { redis } from '../../src/infrastructure/cache/RedisClient';
-
-
-
-
 
 describe('app smoke tests', () => {
   const { app } = buildApp();
 
   afterAll(async () => {
+    await prismaClient.$disconnect();
     await pool.end();
     await redis.quit();
   });

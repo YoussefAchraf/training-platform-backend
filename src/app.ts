@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import { pool } from './infrastructure/database/connection';
+import { prismaClient } from './infrastructure/database/prismaClient';
 import { redis } from './infrastructure/cache/RedisClient';
 import { swaggerSpec } from './docs/swaggerDefinition';
 
@@ -137,7 +138,7 @@ function buildApp() {
   const surveyRepository = new PgSurveyRepository(pool);
   const reportRepository = new PgReportRepository(pool);
   const auditLogRepository = new PgAuditLogRepository(pool);
-  const roleRepository = new PgRoleRepository(pool);
+  const roleRepository = new PgRoleRepository(prismaClient);
   const pushSubscriptionRepository = new PgPushSubscriptionRepository(pool);
 
   const signupUseCase = new SignupUseCase({
