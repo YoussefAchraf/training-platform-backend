@@ -1,19 +1,23 @@
+import { adminRoutesDocs } from '../interface/routes/adminRoutes';
 import { authRoutesDocs } from '../interface/routes/authRoutes';
 import { calendarRoutesDocs } from '../interface/routes/calendarRoutes';
 import { clientRoutesDocs } from '../interface/routes/clientRoutes';
 import { instructorRoutesDocs } from '../interface/routes/instructorRoutes';
 import { providerRoutesDocs } from '../interface/routes/providerRoutes';
+import { pushRoutesDocs } from '../interface/routes/pushRoutes';
 import { reportRoutesDocs } from '../interface/routes/reportRoutes';
 import { sessionRoutesDocs } from '../interface/routes/sessionRoutes';
 import { surveyRoutesDocs } from '../interface/routes/surveyRoutes';
 import { trainingRoutesDocs } from '../interface/routes/trainingRoutes';
 
 const paths = {
+  ...adminRoutesDocs,
   ...authRoutesDocs,
   ...calendarRoutesDocs,
   ...clientRoutesDocs,
   ...instructorRoutesDocs,
   ...providerRoutesDocs,
+  ...pushRoutesDocs,
   ...reportRoutesDocs,
   ...sessionRoutesDocs,
   ...surveyRoutesDocs,
@@ -42,6 +46,8 @@ const definition = {
     { name: 'Calendar' },
     { name: 'Survey' },
     { name: 'Reports' },
+    { name: 'Admin' },
+    { name: 'Push' },
   ],
   components: {
     securitySchemes: {
@@ -88,7 +94,9 @@ const definition = {
         properties: { error: { type: 'string', example: 'Invalid credentials' } },
       },
       Role: { type: 'string', enum: ['Sales', 'Manager', 'Instructor'] },
-      UserStatus: { type: 'string', enum: ['pending', 'approved', 'rejected'] },
+      
+      
+      UserStatus: { type: 'string', enum: ['pending', 'approved', 'rejected', 'deactivated'] },
       User: {
         type: 'object',
         properties: {
@@ -240,6 +248,54 @@ const definition = {
             example: '42.00',
           },
           generatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      AuditLogEntry: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          actorId: { type: 'integer' },
+          actorName: { type: 'string', example: 'Jane Doe' },
+          action: { type: 'string', example: 'update' },
+          entityType: { type: 'string', example: 'Provider' },
+          entityId: { type: 'integer' },
+          before: { type: 'object', nullable: true, description: 'Entity state before the change, or null for a create.' },
+          after: { type: 'object', nullable: true, description: 'Entity state after the change, or null for a delete.' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      PushSubscription: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          userId: { type: 'integer' },
+          endpoint: { type: 'string', example: 'https://fcm.googleapis.com/fcm/send/...' },
+          p256dh: { type: 'string' },
+          auth: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      AdminSessionOverview: {
+        type: 'object',
+        description: 'Denormalized session view for the SuperAdmin dashboard - joins in names instead of just FK ids.',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          trainingId: { type: 'integer' },
+          trainingName: { type: 'string' },
+          clientId: { type: 'integer' },
+          clientCompanyName: { type: 'string' },
+          instructorId: { type: 'integer', nullable: true },
+          instructorName: { type: 'string', nullable: true },
+          startDate: { type: 'string', format: 'date-time' },
+          endDate: { type: 'string', format: 'date-time' },
+          sessionStatus: { $ref: '#/components/schemas/SessionStatus' },
+          assignmentStatus: { $ref: '#/components/schemas/AssignmentStatus' },
+          createdBy: { type: 'integer', nullable: true },
+          creatorName: { type: 'string', nullable: true },
+          creatorEmail: { type: 'string', nullable: true },
+          attendeeCount: { type: 'integer' },
+          attendeeSurveysSubmitted: { type: 'integer' },
+          hasReport: { type: 'boolean' },
         },
       },
     },

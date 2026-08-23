@@ -48,6 +48,55 @@ export const sessionRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/sessions/{id}': {
+    patch: {
+      tags: ['Sessions'],
+      summary: 'Update a training session (dates only)',
+      description:
+        'Sales or Manager only, and only for a session you created (SuperAdmin can update any). Rejected once the session already has a survey or report attached.',
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                startDate: { type: 'string', format: 'date-time' },
+                endDate: { type: 'string', format: 'date-time' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/TrainingSession' } } } },
+        400: {
+          description:
+            'Session not found, not the creator, endDate not after startDate, or the session already has a survey/report',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not Sales or Manager' },
+      },
+    },
+  },
+  '/sessions/{id}/cancel': {
+    post: {
+      tags: ['Sessions'],
+      summary: 'Cancel a training session',
+      description:
+        'Sales or Manager only, and only for a session you created (SuperAdmin can cancel any). Rejected if already cancelled, or if the session already has a survey or report attached.',
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/TrainingSession' } } } },
+        400: {
+          description:
+            'Session not found, not the creator, already cancelled, or the session already has a survey/report',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not Sales or Manager' },
+      },
+    },
+  },
   '/sessions/{id}/assign-instructor': {
     post: {
       tags: ['Sessions'],
