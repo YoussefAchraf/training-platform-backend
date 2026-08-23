@@ -231,6 +231,7 @@ function buildApp() {
   const listSessionAttendeesUseCase = new ListSessionAttendeesUseCase({ sessionRepository, instructorRepository });
   const updateSessionUseCase = new UpdateSessionUseCase({
     sessionRepository,
+    calendarRepository,
     reportRepository,
     surveyRepository,
     auditLogRepository,

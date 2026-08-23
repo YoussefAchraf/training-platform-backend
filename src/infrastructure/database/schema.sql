@@ -30,6 +30,12 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE training_duration_unit AS ENUM ('days', 'hours');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS roles (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(50) UNIQUE NOT NULL
@@ -67,15 +73,16 @@ CREATE TABLE IF NOT EXISTS providers (
 );
 
 CREATE TABLE IF NOT EXISTS trainings (
-    id          SERIAL PRIMARY KEY,
-    name        VARCHAR(150) NOT NULL,
-    provider_id INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
-    description TEXT,
-    duration    INTEGER,
-    created_by  INTEGER REFERENCES users(id),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(150) NOT NULL,
+    provider_id   INTEGER NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    description   TEXT,
+    duration      INTEGER,
+    duration_unit training_duration_unit,
+    created_by    INTEGER REFERENCES users(id),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at    TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS clients (
@@ -131,6 +138,7 @@ CREATE TABLE IF NOT EXISTS calendar (
     id          SERIAL PRIMARY KEY,
     session_id  INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
     event_date  TIMESTAMPTZ NOT NULL,
+    end_date    TIMESTAMPTZ,
     title       VARCHAR(200) NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -202,6 +210,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_name_active ON providers(name) W
 
 
 ALTER TABLE providers ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);
+
+ALTER TABLE trainings ADD COLUMN IF NOT EXISTS duration_unit training_duration_unit;
+
+ALTER TABLE calendar ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;
+
+UPDATE calendar
+SET end_date = training_sessions.end_date
+FROM training_sessions
+WHERE calendar.session_id = training_sessions.id
+  AND calendar.end_date IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);

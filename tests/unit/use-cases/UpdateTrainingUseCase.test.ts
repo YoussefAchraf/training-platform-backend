@@ -104,4 +104,35 @@ describe('UpdateTrainingUseCase', () => {
       useCase.execute({ requester: buildRequester(), trainingId: 5, name: 'New' })
     ).resolves.toBeDefined();
   });
+
+  it('rejects a durationUnit that is not "days" or "hours"', async () => {
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), trainingId: 5, durationUnit: 'weeks' })
+    ).rejects.toThrow('durationUnit must be "days" or "hours"');
+    expect(trainingRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts "days" and "hours" as valid durationUnit values and passes them through', async () => {
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), trainingId: 5, duration: 3, durationUnit: 'days' });
+
+    expect(trainingRepository.update).toHaveBeenCalledWith(
+      5,
+      expect.objectContaining({ duration: 3, durationUnit: 'days' })
+    );
+  });
+
+  it('allows omitting duration/durationUnit entirely (unrelated field update)', async () => {
+    const { trainingRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateTrainingUseCase({ trainingRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), trainingId: 5, name: 'New' })
+    ).resolves.toBeDefined();
+  });
 });

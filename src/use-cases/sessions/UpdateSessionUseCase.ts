@@ -1,13 +1,15 @@
 class UpdateSessionUseCase {
   sessionRepository: any;
+  calendarRepository: any;
   reportRepository: any;
   surveyRepository: any;
   auditLogRepository: any;
   userRepository: any;
   emailService: any;
 
-  constructor({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService }) {
+  constructor({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService }) {
     this.sessionRepository = sessionRepository;
+    this.calendarRepository = calendarRepository;
     this.reportRepository = reportRepository;
     this.surveyRepository = surveyRepository;
     this.auditLogRepository = auditLogRepository;
@@ -46,6 +48,14 @@ class UpdateSessionUseCase {
     }
 
     const updated = await this.sessionRepository.update(sessionId, { startDate, endDate });
+
+    
+    
+    
+    await this.calendarRepository.updateBySessionId(sessionId, {
+      eventDate: nextStartDate,
+      endDate: nextEndDate,
+    });
 
     await this.auditLogRepository.create({
       actorId: requester.id,

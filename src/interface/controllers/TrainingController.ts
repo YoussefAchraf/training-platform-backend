@@ -13,13 +13,14 @@ class TrainingController {
 
   create = async (req, res) => {
     try {
-      const { name, providerId, description, duration } = req.body;
+      const { name, providerId, description, duration, durationUnit } = req.body;
       const training = await this.createTrainingUseCase.execute({
         requester: req.user,
         name,
         providerId,
         description,
         duration,
+        durationUnit,
       });
       res.status(201).json(training);
     } catch (err) {
@@ -39,13 +40,14 @@ class TrainingController {
 
   update = async (req, res) => {
     try {
-      const { name, description, duration } = req.body;
+      const { name, description, duration, durationUnit } = req.body;
       const training = await this.updateTrainingUseCase.execute({
         requester: req.user,
         trainingId: Number(req.params.id),
         name,
         description,
         duration,
+        durationUnit,
       });
       res.status(200).json(training);
     } catch (err) {

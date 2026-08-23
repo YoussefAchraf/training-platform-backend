@@ -7,6 +7,7 @@ function mapRow(row) {
     id: row.id,
     sessionId: row.session_id,
     eventDate: row.event_date,
+    endDate: row.end_date,
     title: row.title,
   });
 }
@@ -21,7 +22,12 @@ class PgCalendarRepository extends ICalendarRepository {
 
   async create(event) {
     const row = await this.prisma.calendar.create({
-      data: { session_id: event.sessionId, event_date: event.eventDate, title: event.title },
+      data: {
+        session_id: event.sessionId,
+        event_date: event.eventDate,
+        end_date: event.endDate,
+        title: event.title,
+      },
     });
     return mapRow(row);
   }
@@ -46,10 +52,19 @@ class PgCalendarRepository extends ICalendarRepository {
     
     const data: any = {};
     if (changes.eventDate) data.event_date = changes.eventDate;
+    if (changes.endDate) data.end_date = changes.endDate;
     if (changes.title) data.title = changes.title;
 
     const row = await this.prisma.calendar.update({ where: { id: eventId }, data });
     return mapRow(row);
+  }
+
+  async updateBySessionId(sessionId, changes) {
+    const data: any = {};
+    if (changes.eventDate) data.event_date = changes.eventDate;
+    if (changes.endDate) data.end_date = changes.endDate;
+
+    await this.prisma.calendar.updateMany({ where: { session_id: sessionId }, data });
   }
 
   async delete(eventId) {

@@ -11,9 +11,12 @@ class UpdateTrainingUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, trainingId, name, description, duration }: { requester: any; trainingId: any; name: any; description?: any; duration?: any }) {
+  async execute({ requester, trainingId, name, description, duration, durationUnit }: { requester: any; trainingId: any; name: any; description?: any; duration?: any; durationUnit?: any }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a training');
+    }
+    if (durationUnit !== undefined && durationUnit !== null && durationUnit !== 'days' && durationUnit !== 'hours') {
+      throw new Error('durationUnit must be "days" or "hours"');
     }
 
     const training = await this.trainingRepository.findById(trainingId);
@@ -25,7 +28,7 @@ class UpdateTrainingUseCase {
       throw new Error('You can only update a training you created');
     }
 
-    const updated = await this.trainingRepository.update(trainingId, { name, description, duration });
+    const updated = await this.trainingRepository.update(trainingId, { name, description, duration, durationUnit });
 
     await this.auditLogRepository.create({
       actorId: requester.id,

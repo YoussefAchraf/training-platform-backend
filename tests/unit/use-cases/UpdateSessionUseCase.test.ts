@@ -24,6 +24,7 @@ function buildRepos() {
       findById: jest.fn().mockResolvedValue(session),
       update: jest.fn().mockResolvedValue({ ...session, startDate: '2026-09-02T09:00:00Z' }),
     },
+    calendarRepository: { updateBySessionId: jest.fn() },
     reportRepository: { findBySessionId: jest.fn().mockResolvedValue(null) },
     surveyRepository: { listBySession: jest.fn().mockResolvedValue([]) },
     auditLogRepository: { create: jest.fn() },
@@ -40,8 +41,8 @@ function buildRepos() {
 
 describe('UpdateSessionUseCase', () => {
   it('rejects a requester who cannot manage the catalog and is not SuperAdmin', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ canManageCatalog: () => false }), sessionId: 5 })
@@ -49,9 +50,9 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('rejects a session that does not exist', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     sessionRepository.findById.mockResolvedValue(null);
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 999 })
@@ -59,8 +60,8 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('rejects a requester who did not create the session', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester({ id: 2 }), sessionId: 5 })
@@ -68,9 +69,9 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('rejects editing a session that already has a report', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     reportRepository.findBySessionId.mockResolvedValue({ id: 1, sessionId: 5 });
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-02T09:00:00Z' })
@@ -78,9 +79,9 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('rejects editing a session that already has a survey', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     surveyRepository.listBySession.mockResolvedValue([{ id: 1 }]);
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-02T09:00:00Z' })
@@ -88,8 +89,8 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('rejects an endDate that is not after startDate', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({
@@ -102,8 +103,8 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('allows the creator to update dates and writes an audit log entry', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-01T10:00:00Z' });
 
@@ -113,10 +114,41 @@ describe('UpdateSessionUseCase', () => {
     );
   });
 
+  it('keeps the calendar row in sync with the resolved start/end dates', async () => {
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-01T10:00:00Z' });
+
+    
+    
+    expect(calendarRepository.updateBySessionId).toHaveBeenCalledWith(5, {
+      eventDate: '2026-09-01T10:00:00Z',
+      endDate: '2026-09-01T17:00:00Z',
+    });
+  });
+
+  it('syncs the calendar row using both dates when both are provided', async () => {
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({
+      requester: buildRequester(),
+      sessionId: 5,
+      startDate: '2026-09-03T09:00:00Z',
+      endDate: '2026-09-05T09:00:00Z',
+    });
+
+    expect(calendarRepository.updateBySessionId).toHaveBeenCalledWith(5, {
+      eventDate: '2026-09-03T09:00:00Z',
+      endDate: '2026-09-05T09:00:00Z',
+    });
+  });
+
   it('allows a SuperAdmin to edit a session with an existing report, bypassing both ownership and the guard', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     reportRepository.findBySessionId.mockResolvedValue({ id: 1, sessionId: 5 });
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({
@@ -128,8 +160,8 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('notifies approved managers except the acting user', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-01T10:00:00Z' });
 
@@ -140,9 +172,9 @@ describe('UpdateSessionUseCase', () => {
   });
 
   it('still returns the updated session even if sending the manager notification fails', async () => {
-    const { sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     emailService.sendRecordChangedNotification.mockRejectedValue(new Error('connect ECONNREFUSED'));
-    const useCase = new UpdateSessionUseCase({ sessionRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-01T10:00:00Z' })
