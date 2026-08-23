@@ -17,11 +17,11 @@ class UpdateGlobalCalendarUseCase {
     this.calendarRepository = calendarRepository;
   }
 
-  async execute({ requester, eventId, eventDate, title }) {
+  async execute({ requester, eventId, eventDate, endDate, title }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can update the global calendar');
     }
-    return this.calendarRepository.update(eventId, { eventDate, title });
+    return this.calendarRepository.update(eventId, { eventDate, endDate, title });
   }
 }
 
