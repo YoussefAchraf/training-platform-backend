@@ -26,7 +26,11 @@ export const calendarRoutesDocs: Record<string, any> = {
           'application/json': {
             schema: {
               type: 'object',
-              properties: { eventDate: { type: 'string', format: 'date-time' }, title: { type: 'string' } },
+              properties: {
+                eventDate: { type: 'string', format: 'date-time' },
+                endDate: { type: 'string', format: 'date-time' },
+                title: { type: 'string' },
+              },
             },
           },
         },

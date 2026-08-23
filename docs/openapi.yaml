@@ -21,6 +21,8 @@ tags:
   - name: Calendar
   - name: Survey
   - name: Reports
+  - name: Admin
+  - name: Push
 components:
   securitySchemes:
     cookieAuth:
@@ -76,6 +78,7 @@ components:
         - pending
         - approved
         - rejected
+        - deactivated
     User:
       type: object
       properties:
@@ -140,7 +143,11 @@ components:
         duration:
           type: integer
           nullable: true
-          description: In hours or days, kept generic.
+          description: A count of days or hours - see durationUnit.
+        durationUnit:
+          allOf:
+            - $ref: "#/components/schemas/TrainingDurationUnit"
+          nullable: true
         createdBy:
           type: integer
           nullable: true
@@ -182,6 +189,11 @@ components:
         - pending
         - accepted
         - refused
+    TrainingDurationUnit:
+      type: string
+      enum:
+        - days
+        - hours
     TrainingSession:
       type: object
       properties:
@@ -266,6 +278,10 @@ components:
         eventDate:
           type: string
           format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
         title:
           type: string
           example: RHCSA - Acme Corp
@@ -350,10 +366,259 @@ components:
         generatedAt:
           type: string
           format: date-time
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        actorId:
+          type: integer
+        actorName:
+          type: string
+          example: Jane Doe
+        action:
+          type: string
+          example: update
+        entityType:
+          type: string
+          example: Provider
+        entityId:
+          type: integer
+        before:
+          type: object
+          nullable: true
+          description: Entity state before the change, or null for a create.
+        after:
+          type: object
+          nullable: true
+          description: Entity state after the change, or null for a delete.
+        createdAt:
+          type: string
+          format: date-time
+    PushSubscription:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        userId:
+          type: integer
+        endpoint:
+          type: string
+          example: https://fcm.googleapis.com/fcm/send/...
+        p256dh:
+          type: string
+        auth:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    AdminSessionOverview:
+      type: object
+      description: Denormalized session view for the SuperAdmin dashboard - joins in
+        names instead of just FK ids.
+      properties:
+        id:
+          type: integer
+          example: 1
+        trainingId:
+          type: integer
+        trainingName:
+          type: string
+        clientId:
+          type: integer
+        clientCompanyName:
+          type: string
+        instructorId:
+          type: integer
+          nullable: true
+        instructorName:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        sessionStatus:
+          $ref: "#/components/schemas/SessionStatus"
+        assignmentStatus:
+          $ref: "#/components/schemas/AssignmentStatus"
+        createdBy:
+          type: integer
+          nullable: true
+        creatorName:
+          type: string
+          nullable: true
+        creatorEmail:
+          type: string
+          nullable: true
+        attendeeCount:
+          type: integer
+        attendeeSurveysSubmitted:
+          type: integer
+        hasReport:
+          type: boolean
 security:
   - cookieAuth: []
   - bearerAuth: []
 paths:
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: List every user, any status
+      description: SuperAdmin only. Unlike GET /auth/users/pending, includes
+        approved/rejected/deactivated users too.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          description: Not a SuperAdmin
+  /admin/users/{id}:
+    patch:
+      tags:
+        - Admin
+      summary: Edit another user's profile, role, or status
+      description: SuperAdmin only. Refuses to change the role or status of the last
+        remaining active SuperAdmin, to avoid locking everyone out.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstname:
+                  type: string
+                lastname:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum:
+                    - Sales
+                    - Manager
+                    - Instructor
+                    - SuperAdmin
+                status:
+                  $ref: "#/components/schemas/UserStatus"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error, user not found, or would leave zero active
+            SuperAdmins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a SuperAdmin
+    delete:
+      tags:
+        - Admin
+      summary: Deactivate a user
+      description: SuperAdmin only. Soft delete (status becomes "deactivated") - also
+        revokes every refresh token the user currently holds. Refuses to
+        deactivate the last remaining active SuperAdmin.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: User not found, already deactivated, or is the last remaining
+            active SuperAdmin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a SuperAdmin
+  /admin/sessions:
+    get:
+      tags:
+        - Admin
+      summary: Full training-session overview with training/client/instructor/creator
+        names and attendee counts
+      description: SuperAdmin only.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminSessionOverview"
+        "403":
+          description: Not a SuperAdmin
+  /admin/audit-log:
+    get:
+      tags:
+        - Admin
+      summary: List audit log entries
+      description: Manager or SuperAdmin. A Manager never sees entityType=User entries
+        (and gets a 400 if they explicitly filter for them) - only a SuperAdmin
+        can view changes made to user accounts. Capped at the 200 most recent
+        entries.
+      parameters:
+        - name: entityType
+          in: query
+          required: false
+          schema:
+            type: string
+          example: Provider
+        - name: entityId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+        "400":
+          description: A Manager explicitly filtered for entityType=User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a Manager or SuperAdmin
   /auth/signup:
     post:
       tags:
@@ -560,6 +825,31 @@ paths:
                     $ref: "#/components/schemas/User"
         "401":
           description: Missing/invalid access token
+    patch:
+      tags:
+        - Auth
+      summary: Update my own profile (firstname/lastname only)
+      description: Response body is the updated User object directly, not wrapped in {
+        user }, unlike GET /auth/me.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstname:
+                  type: string
+                lastname:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing/invalid access token
   /auth/service-token:
     get:
       tags:
@@ -717,6 +1007,9 @@ paths:
                 eventDate:
                   type: string
                   format: date-time
+                endDate:
+                  type: string
+                  format: date-time
                 title:
                   type: string
       responses:
@@ -806,6 +1099,69 @@ paths:
                 $ref: "#/components/schemas/Client"
         "400":
           description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /clients/{id}:
+    patch:
+      tags:
+        - Clients
+      summary: Update a client
+      description: Sales or Manager only, and only for a client you created
+        (SuperAdmin can update any).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                companyName:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "400":
+          description: Validation error, client not found, or not the creator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+    delete:
+      tags:
+        - Clients
+      summary: Delete a client
+      description: Sales or Manager only, and only for a client you created
+        (SuperAdmin can delete any). Soft delete.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Client not found, or not the creator
           content:
             application/json:
               schema:
@@ -956,6 +1312,146 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Not Sales or Manager
+  /providers/{id}:
+    patch:
+      tags:
+        - Providers
+      summary: Update a provider
+      description: Sales or Manager only, and only for a provider you created
+        (SuperAdmin can update any).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                logoUrl:
+                  type: string
+                  example: https://example.com/redhat-logo.svg
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Provider"
+        "400":
+          description: Validation error, provider not found, or not the creator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+    delete:
+      tags:
+        - Providers
+      summary: Delete a provider
+      description: Sales or Manager only, and only for a provider you created
+        (SuperAdmin can delete any). Soft delete.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Provider not found, or not the creator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /push/subscribe:
+    post:
+      tags:
+        - Push
+      summary: Register a browser push subscription for the current user
+      description: "Best-effort: also immediately sends a confirmation push
+        notification; a failure there does not fail the request."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - endpoint
+                - keys
+              properties:
+                endpoint:
+                  type: string
+                  example: https://fcm.googleapis.com/fcm/send/...
+                keys:
+                  type: object
+                  required:
+                    - p256dh
+                    - auth
+                  properties:
+                    p256dh:
+                      type: string
+                    auth:
+                      type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushSubscription"
+        "400":
+          description: endpoint or keys missing/invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /push/unsubscribe:
+    post:
+      tags:
+        - Push
+      summary: Remove a browser push subscription for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - endpoint
+              properties:
+                endpoint:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Unsubscribed
+        "400":
+          description: endpoint missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /reports/{sessionId}:
     get:
       tags:
@@ -981,6 +1477,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /reports/{sessionId}/pdf:
+    get:
+      tags:
+        - Reports
+      summary: Download a session's report as a PDF
+      description: Sales, Manager, or Instructor.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Report not yet generated for this session, or session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /reports/{sessionId}/generate:
     post:
       tags:
@@ -998,8 +1520,8 @@ paths:
           schema:
             type: integer
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           content:
             application/json:
               schema:
@@ -1058,6 +1580,78 @@ paths:
                 $ref: "#/components/schemas/TrainingSession"
         "400":
           description: Validation error, or endDate not after startDate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /sessions/{id}:
+    patch:
+      tags:
+        - Sessions
+      summary: Update a training session (dates only)
+      description: Sales or Manager only, and only for a session you created
+        (SuperAdmin can update any). Rejected once the session already has a
+        survey or report attached.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startDate:
+                  type: string
+                  format: date-time
+                endDate:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSession"
+        "400":
+          description: Session not found, not the creator, endDate not after startDate, or
+            the session already has a survey/report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /sessions/{id}/cancel:
+    post:
+      tags:
+        - Sessions
+      summary: Cancel a training session
+      description: Sales or Manager only, and only for a session you created
+        (SuperAdmin can cancel any). Rejected if already cancelled, or if the
+        session already has a survey or report attached.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSession"
+        "400":
+          description: Session not found, not the creator, already cancelled, or the
+            session already has a survey/report
           content:
             application/json:
               schema:
@@ -1195,8 +1789,8 @@ paths:
                 items:
                   $ref: "#/components/schemas/SessionAttendee"
         "400":
-          description: Not allowed to view this session's attendees
-          or the session does not exist: null
+          description: Not allowed to view this session's attendees, or the session does
+            not exist
   /survey/{sessionId}/qr-code:
     get:
       tags:
@@ -1348,7 +1942,9 @@ paths:
                   type: string
                 duration:
                   type: integer
-                  description: In hours or days, kept generic.
+                  description: A count of days or hours - see durationUnit.
+                durationUnit:
+                  $ref: "#/components/schemas/TrainingDurationUnit"
       responses:
         "201":
           description: Created
@@ -1358,6 +1954,72 @@ paths:
                 $ref: "#/components/schemas/Training"
         "400":
           description: Validation error or provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+  /trainings/{id}:
+    patch:
+      tags:
+        - Trainings
+      summary: Update a training
+      description: Sales or Manager only, and only for a training you created
+        (SuperAdmin can update any).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                duration:
+                  type: integer
+                  description: A count of days or hours - see durationUnit.
+                durationUnit:
+                  $ref: "#/components/schemas/TrainingDurationUnit"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Training"
+        "400":
+          description: Validation error, training not found, or not the creator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales or Manager
+    delete:
+      tags:
+        - Trainings
+      summary: Delete a training
+      description: Sales or Manager only, and only for a training you created
+        (SuperAdmin can delete any). Soft delete.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Training not found, or not the creator
           content:
             application/json:
               schema:

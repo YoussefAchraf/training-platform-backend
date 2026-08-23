@@ -40,6 +40,7 @@ class CreateSessionUseCase {
     await this.calendarRepository.create({
       sessionId: session.id,
       eventDate: startDate,
+      endDate,
       title: `${training.name} - ${client.companyName}`,
     });
 

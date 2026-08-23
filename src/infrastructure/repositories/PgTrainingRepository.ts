@@ -10,6 +10,7 @@ function mapRow(row) {
     providerName: row.providers ? row.providers.name : undefined,
     description: row.description,
     duration: row.duration,
+    durationUnit: row.duration_unit,
     createdBy: row.created_by,
     creatorName: row.users ? `${row.users.firstname} ${row.users.lastname}` : undefined,
     createdAt: row.created_at,
@@ -36,6 +37,7 @@ class PgTrainingRepository extends ITrainingRepository {
         provider_id: training.providerId,
         description: training.description,
         duration: training.duration,
+        duration_unit: training.durationUnit,
         created_by: training.createdBy,
       },
     });
@@ -72,6 +74,7 @@ class PgTrainingRepository extends ITrainingRepository {
     
     
     if (fields.duration !== undefined && fields.duration !== null) data.duration = fields.duration;
+    if (fields.durationUnit !== undefined && fields.durationUnit !== null) data.duration_unit = fields.durationUnit;
 
     await this.prisma.trainings.updateMany({ where: { id, deleted_at: null }, data });
     return this.findById(id);

@@ -27,11 +27,12 @@ class CalendarController {
 
   updateGlobal = async (req, res) => {
     try {
-      const { eventDate, title } = req.body;
+      const { eventDate, endDate, title } = req.body;
       const event = await this.updateGlobalCalendarUseCase.execute({
         requester: req.user,
         eventId: Number(req.params.id),
         eventDate,
+        endDate,
         title,
       });
       res.status(200).json(event);

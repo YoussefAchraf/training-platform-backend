@@ -130,7 +130,8 @@ const definition = {
           providerId: { type: 'integer', example: 1 },
           providerName: { type: 'string', example: 'Red Hat' },
           description: { type: 'string', nullable: true },
-          duration: { type: 'integer', nullable: true, description: 'In hours or days, kept generic.' },
+          duration: { type: 'integer', nullable: true, description: 'A count of days or hours - see durationUnit.' },
+          durationUnit: { allOf: [{ $ref: '#/components/schemas/TrainingDurationUnit' }], nullable: true },
           createdBy: { type: 'integer', nullable: true },
           createdAt: { type: 'string', format: 'date-time' },
         },
@@ -148,6 +149,7 @@ const definition = {
       },
       SessionStatus: { type: 'string', enum: ['scheduled', 'ongoing', 'completed', 'cancelled'] },
       AssignmentStatus: { type: 'string', enum: ['unassigned', 'pending', 'accepted', 'refused'] },
+      TrainingDurationUnit: { type: 'string', enum: ['days', 'hours'] },
       TrainingSession: {
         type: 'object',
         properties: {
@@ -198,6 +200,7 @@ const definition = {
           id: { type: 'integer', example: 1 },
           sessionId: { type: 'integer' },
           eventDate: { type: 'string', format: 'date-time' },
+          endDate: { type: 'string', format: 'date-time', nullable: true },
           title: { type: 'string', example: 'RHCSA - Acme Corp' },
         },
       },

@@ -5,6 +5,7 @@ class ICalendarRepository {
   async listGlobal(): Promise<any> { notImplemented('ICalendarRepository', 'listGlobal'); }
   async listForInstructor(instructorId): Promise<any> { notImplemented('ICalendarRepository', 'listForInstructor'); }
   async update(eventId, changes): Promise<any> { notImplemented('ICalendarRepository', 'update'); }
+  async updateBySessionId(sessionId, changes): Promise<any> { notImplemented('ICalendarRepository', 'updateBySessionId'); }
   async delete(eventId): Promise<any> { notImplemented('ICalendarRepository', 'delete'); }
 }
 
