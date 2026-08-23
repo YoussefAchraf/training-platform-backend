@@ -16,6 +16,24 @@ export const reportRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/reports/{sessionId}/pdf': {
+    get: {
+      tags: ['Reports'],
+      summary: "Download a session's report as a PDF",
+      description: 'Sales, Manager, or Instructor.',
+      parameters: [{ name: 'sessionId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: {
+          description: 'OK',
+          content: { 'application/pdf': { schema: { type: 'string', format: 'binary' } } },
+        },
+        404: {
+          description: 'Report not yet generated for this session, or session not found',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+      },
+    },
+  },
   '/reports/{sessionId}/generate': {
     post: {
       tags: ['Reports'],
@@ -24,7 +42,9 @@ export const reportRoutesDocs: Record<string, any> = {
         'Sales or Manager only. Normally unnecessary - a report auto-generates once every attendee submits a survey, or via the scheduled job REPORT_AUTO_GENERATE_AFTER_MINUTES after the session ends (default 60 minutes).\n',
       parameters: [{ name: 'sessionId', in: 'path', required: true, schema: { type: 'integer' } }],
       responses: {
-        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/Report' } } } },
+        
+        
+        201: { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/Report' } } } },
         403: { description: 'Not Sales or Manager' },
       },
     },

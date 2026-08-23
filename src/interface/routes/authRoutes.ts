@@ -153,6 +153,25 @@ export const authRoutesDocs: Record<string, any> = {
         401: { description: 'Missing/invalid access token' },
       },
     },
+    patch: {
+      tags: ['Auth'],
+      summary: 'Update my own profile (firstname/lastname only)',
+      description: 'Response body is the updated User object directly, not wrapped in { user }, unlike GET /auth/me.',
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: { firstname: { type: 'string' }, lastname: { type: 'string' } },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/User' } } } },
+        401: { description: 'Missing/invalid access token' },
+      },
+    },
   },
   '/auth/service-token': {
     get: {
