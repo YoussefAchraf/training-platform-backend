@@ -15,6 +15,7 @@ import { ReportSchedulerService } from './infrastructure/services/ReportSchedule
 import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
+import { AttendeeFileParserService } from './infrastructure/services/AttendeeFileParserService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -69,6 +70,8 @@ import { AddAttendeeUseCase } from './use-cases/sessions/AddAttendeeUseCase';
 import { ListSessionAttendeesUseCase } from './use-cases/sessions/ListSessionAttendeesUseCase';
 import { UpdateSessionUseCase } from './use-cases/sessions/UpdateSessionUseCase';
 import { CancelSessionUseCase } from './use-cases/sessions/CancelSessionUseCase';
+import { BulkImportAttendeesUseCase } from './use-cases/sessions/BulkImportAttendeesUseCase';
+import { MarkAttendanceUseCase } from './use-cases/sessions/MarkAttendanceUseCase';
 
 import {
   ListGlobalCalendarUseCase,
@@ -105,6 +108,7 @@ import { setSessionCookies, clearSessionCookies, csrfCheckPasses } from './infra
 import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
+import uploadAttendeesFile from './interface/middlewares/uploadMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
 import adminRoutes from './interface/routes/adminRoutes';
@@ -126,6 +130,7 @@ function buildApp() {
   const qrCodeService = new QRCodeService();
   const pdfReportService = new PdfReportService();
   const webPushService = new WebPushService();
+  const attendeeFileParserService = new AttendeeFileParserService();
 
   const userRepository = new PgUserRepository(prismaClient);
   const providerRepository = new PgProviderRepository(prismaClient);
@@ -225,7 +230,14 @@ function buildApp() {
     auditLogRepository,
   });
   const listSessionsUseCase = new ListSessionsUseCase({ sessionRepository, instructorRepository });
-  const assignInstructorUseCase = new AssignInstructorUseCase({ sessionRepository, instructorRepository });
+  const assignInstructorUseCase = new AssignInstructorUseCase({
+    sessionRepository,
+    instructorRepository,
+    trainingRepository,
+    emailService,
+    webPushService,
+    pushSubscriptionRepository,
+  });
   const respondToAssignmentUseCase = new RespondToAssignmentUseCase({ sessionRepository, instructorRepository });
   const addAttendeeUseCase = new AddAttendeeUseCase({ sessionRepository });
   const listSessionAttendeesUseCase = new ListSessionAttendeesUseCase({ sessionRepository, instructorRepository });
@@ -246,6 +258,8 @@ function buildApp() {
     userRepository,
     emailService,
   });
+  const bulkImportAttendeesUseCase = new BulkImportAttendeesUseCase({ sessionRepository, attendeeFileParserService });
+  const markAttendanceUseCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
   const updateGlobalCalendarUseCase = new UpdateGlobalCalendarUseCase({ calendarRepository });
@@ -331,6 +345,8 @@ function buildApp() {
     listSessionAttendeesUseCase,
     updateSessionUseCase,
     cancelSessionUseCase,
+    bulkImportAttendeesUseCase,
+    markAttendanceUseCase,
   });
   const calendarController = new CalendarController({
     listGlobalCalendarUseCase,
@@ -408,7 +424,7 @@ function buildApp() {
   app.use('/trainings', trainingRoutes({ trainingController, authMiddleware, requireRole }));
   app.use('/clients', clientRoutes({ clientController, authMiddleware, requireRole }));
   app.use('/instructors', instructorRoutes({ instructorController, authMiddleware, requireRole }));
-  app.use('/sessions', sessionRoutes({ sessionController, authMiddleware, requireRole }));
+  app.use('/sessions', sessionRoutes({ sessionController, authMiddleware, requireRole, uploadAttendeesFile }));
   app.use('/calendar', calendarRoutes({ calendarController, authMiddleware, requireRole }));
   app.use('/reports', reportRoutes({ reportController, authMiddleware, requireRole }));
   app.use('/survey', surveyRoutes({ surveyController, authMiddleware, requireRole }));

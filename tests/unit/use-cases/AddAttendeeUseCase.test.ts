@@ -10,8 +10,13 @@ function buildRequester(overrides: Record<string, any> = {}) {
 function buildRepos() {
   return {
     sessionRepository: {
-      findById: jest.fn().mockResolvedValue({ id: 5 }),
+      findById: jest.fn().mockResolvedValue({
+        id: 5,
+        startDate: '2026-09-01T09:00:00Z',
+        endDate: '2026-09-01T17:00:00Z',
+      }),
       addAttendee: jest.fn().mockResolvedValue({ id: 1, sessionId: 5, name: 'Attendee', email: 'a@b.com' }),
+      findOverlappingAttendeeSession: jest.fn().mockResolvedValue(null),
     },
   };
 }
@@ -55,13 +60,25 @@ describe('AddAttendeeUseCase', () => {
     expect(sessionRepository.addAttendee).not.toHaveBeenCalled();
   });
 
-  it('allows a missing (optional) email', async () => {
+  it('allows a missing (optional) email, and skips the overlap check entirely', async () => {
     const { sessionRepository } = buildRepos();
     const useCase = new AddAttendeeUseCase({ sessionRepository });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5, name: 'Attendee' })
     ).resolves.toBeDefined();
+    expect(sessionRepository.findOverlappingAttendeeSession).not.toHaveBeenCalled();
+  });
+
+  it('rejects an attendee already registered in another session that overlaps this one', async () => {
+    const { sessionRepository } = buildRepos();
+    sessionRepository.findOverlappingAttendeeSession.mockResolvedValue({ id: 7 });
+    const useCase = new AddAttendeeUseCase({ sessionRepository });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), sessionId: 5, name: 'Attendee', email: 'a@b.com' })
+    ).rejects.toThrow('already registered in another session that overlaps');
+    expect(sessionRepository.addAttendee).not.toHaveBeenCalled();
   });
 
   it('registers the attendee when the email is valid', async () => {
@@ -71,5 +88,11 @@ describe('AddAttendeeUseCase', () => {
     await useCase.execute({ requester: buildRequester(), sessionId: 5, name: '  Attendee  ', email: 'a@b.com' });
 
     expect(sessionRepository.addAttendee).toHaveBeenCalledWith(5, { name: 'Attendee', email: 'a@b.com' });
+    expect(sessionRepository.findOverlappingAttendeeSession).toHaveBeenCalledWith({
+      email: 'a@b.com',
+      sessionId: 5,
+      startDate: '2026-09-01T09:00:00Z',
+      endDate: '2026-09-01T17:00:00Z',
+    });
   });
 });

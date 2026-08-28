@@ -16,6 +16,10 @@ class ISessionRepository {
   async findAttendeeById(attendeeId): Promise<any> { notImplemented('ISessionRepository', 'findAttendeeById'); }
   async markAttendeeSurveySubmitted(attendeeId): Promise<any> { notImplemented('ISessionRepository', 'markAttendeeSurveySubmitted'); }
   async allAttendeesSubmitted(sessionId): Promise<any> { notImplemented('ISessionRepository', 'allAttendeesSubmitted'); }
+  async findConflictingSessionForTraining(trainingId, startDate): Promise<any> { notImplemented('ISessionRepository', 'findConflictingSessionForTraining'); }
+  async findOverlappingAttendeeSession(params): Promise<any> { notImplemented('ISessionRepository', 'findOverlappingAttendeeSession'); }
+  async addAttendeesBulk(sessionId, attendees): Promise<any> { notImplemented('ISessionRepository', 'addAttendeesBulk'); }
+  async markAttendeeStatus(attendeeId, status): Promise<any> { notImplemented('ISessionRepository', 'markAttendeeStatus'); }
 }
 
 export { ISessionRepository };

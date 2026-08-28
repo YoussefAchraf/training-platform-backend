@@ -63,6 +63,21 @@ class EmailService {
     });
   }
 
+  async sendInstructorAssignedEmail(toEmail, firstname, { trainingName, startDate, sessionUrl }) {
+    const when = startDate ? new Date(startDate).toLocaleString() : undefined;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: toEmail,
+      subject: `You've been assigned to teach ${trainingName}`,
+      html: `
+        <p>Hi ${firstname},</p>
+        <p>You've been assigned to deliver <strong>${trainingName}</strong>${when ? ` on <strong>${when}</strong>` : ''}.</p>
+        <p><a href="${sessionUrl}">View the session and respond</a></p>
+      `,
+    });
+  }
+
   async sendRecordChangedNotification(managerEmails, { actor, action, entityType, entityId, label }) {
     if (!managerEmails || managerEmails.length === 0) {
       return;
