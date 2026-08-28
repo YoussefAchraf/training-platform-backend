@@ -37,10 +37,6 @@ class AssignInstructorUseCase {
       throw new Error('This instructor is not an active, approved instructor');
     }
 
-
-
-
-
     const qualified = await this.instructorRepository.isQualifiedForTraining(instructorId, session.trainingId);
     if (!qualified) {
       throw new Error('This instructor is not marked as qualified for this session\'s training');
@@ -48,56 +44,40 @@ class AssignInstructorUseCase {
 
     const assigned = await this.sessionRepository.assignInstructor(sessionId, instructorId);
 
-    
-    
-    
-    try {
-      await this.notifyInstructor(session, instructor);
-    } catch (_err) {
-      
-    }
+    await this.notifyInstructor(session, instructor).catch(() => undefined);
 
     return assigned;
   }
 
   async notifyInstructor(session, instructor) {
     const training = await this.trainingRepository.findById(session.trainingId);
-    
-    
-    
-    
-    
     const sessionPath = `/sessions/${session.id}`;
     const sessionUrl = `${process.env.CLIENT_URL}${sessionPath}`;
 
-    try {
-      await this.emailService.sendInstructorAssignedEmail(instructor.email, instructor.firstname, {
+    await this.emailService
+      .sendInstructorAssignedEmail(instructor.email, instructor.firstname, {
         trainingName: training ? training.name : 'a training session',
         startDate: session.startDate,
         sessionUrl,
-      });
-    } catch (_err) {
-      
-    }
+      })
+      .catch(() => undefined);
 
-    try {
-      const subscriptions = await this.pushSubscriptionRepository.listByUserId(instructor.userId);
-      for (const subscription of subscriptions) {
-        try {
-          await this.webPushService.send(subscription, {
+    const subscriptions = await this.pushSubscriptionRepository.listByUserId(instructor.userId);
+    await Promise.all(
+      subscriptions.map((subscription) =>
+        this.webPushService
+          .send(subscription, {
             title: 'New session assigned',
             body: `You've been assigned to teach ${training ? training.name : 'a session'}.`,
             url: sessionPath,
-          });
-        } catch (err: any) {
-          if (err.expired) {
-            await this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, instructor.userId);
-          }
-        }
-      }
-    } catch (_err) {
-      
-    }
+          })
+          .catch((err: any) => {
+            if (err.expired) {
+              return this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, instructor.userId);
+            }
+          })
+      )
+    );
   }
 }
 
