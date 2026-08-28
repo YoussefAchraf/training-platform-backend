@@ -173,6 +173,7 @@ const definition = {
           name: { type: 'string', example: 'Alice Attendee' },
           email: { type: 'string', nullable: true },
           surveySubmitted: { type: 'boolean' },
+          attendanceStatus: { type: 'string', enum: ['pending', 'present', 'absent'] },
         },
       },
       InstructorSkill: {

@@ -36,6 +36,12 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE attendance_status AS ENUM ('pending', 'present', 'absent');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS roles (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(50) UNIQUE NOT NULL
@@ -214,6 +220,9 @@ ALTER TABLE providers ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);
 ALTER TABLE trainings ADD COLUMN IF NOT EXISTS duration_unit training_duration_unit;
 
 ALTER TABLE calendar ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;
+
+ALTER TABLE session_attendees ADD COLUMN IF NOT EXISTS attendance_status attendance_status NOT NULL DEFAULT 'pending';
+CREATE INDEX IF NOT EXISTS idx_attendees_email ON session_attendees (LOWER(email));
 
 UPDATE calendar
 SET end_date = training_sessions.end_date

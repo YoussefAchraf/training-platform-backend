@@ -16,6 +16,18 @@ class AddAttendeeUseCase {
     if (!name || !name.trim()) throw new Error('Attendee name is required');
     if (email && !isValidEmail(email)) throw new Error('email must be a valid email address');
 
+    if (email) {
+      const conflict = await this.sessionRepository.findOverlappingAttendeeSession({
+        email,
+        sessionId,
+        startDate: session.startDate,
+        endDate: session.endDate,
+      });
+      if (conflict) {
+        throw new Error('This attendee is already registered in another session that overlaps this one');
+      }
+    }
+
     return this.sessionRepository.addAttendee(sessionId, { name: name.trim(), email });
   }
 }

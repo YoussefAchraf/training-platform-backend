@@ -28,6 +28,11 @@ class CreateSessionUseCase {
       throw new Error('endDate must be after startDate');
     }
 
+    const conflict = await this.sessionRepository.findConflictingSessionForTraining(trainingId, startDate);
+    if (conflict) {
+      throw new Error('Another session for this training already starts at the exact same time');
+    }
+
     const session = await this.sessionRepository.create({
       trainingId,
       clientId,

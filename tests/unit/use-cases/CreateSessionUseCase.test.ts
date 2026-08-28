@@ -13,6 +13,7 @@ function buildRepos() {
   return {
     sessionRepository: {
       create: jest.fn().mockResolvedValue({ id: 5, trainingId: 1, clientId: 1 }),
+      findConflictingSessionForTraining: jest.fn().mockResolvedValue(null),
     },
     trainingRepository: {
       findById: jest.fn().mockResolvedValue({ id: 1, name: 'RHCSA' }),
@@ -77,5 +78,38 @@ describe('CreateSessionUseCase', () => {
     expect(auditLogRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ actorId: 1, action: 'create', entityType: 'Session', entityId: 5 })
     );
+  });
+
+  it('rejects when another session for the same training already starts at the exact same time', async () => {
+    const { sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository } = buildRepos();
+    sessionRepository.findConflictingSessionForTraining.mockResolvedValue({ id: 9, trainingId: 1 });
+    const useCase = new CreateSessionUseCase({ sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository });
+
+    await expect(
+      useCase.execute({
+        requester: buildRequester(),
+        trainingId: 1,
+        clientId: 1,
+        startDate: '2026-09-01T09:00:00Z',
+        endDate: '2026-09-01T17:00:00Z',
+      })
+    ).rejects.toThrow('already starts at the exact same time');
+    expect(sessionRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('allows the same training to run again on the same day at a different time', async () => {
+    const { sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository } = buildRepos();
+    const useCase = new CreateSessionUseCase({ sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository });
+
+    await expect(
+      useCase.execute({
+        requester: buildRequester(),
+        trainingId: 1,
+        clientId: 1,
+        startDate: '2026-09-01T13:00:00Z',
+        endDate: '2026-09-01T17:00:00Z',
+      })
+    ).resolves.toBeDefined();
+    expect(sessionRepository.findConflictingSessionForTraining).toHaveBeenCalledWith(1, '2026-09-01T13:00:00Z');
   });
 });
