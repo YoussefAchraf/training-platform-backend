@@ -178,16 +178,95 @@ export const sessionRoutesDocs: Record<string, any> = {
             },
           },
         },
-        
-        
-        
+
+
+
         400: { description: "Not allowed to view this session's attendees, or the session does not exist" },
+      },
+    },
+  },
+  '/sessions/{id}/attendees/import': {
+    post: {
+      tags: ['Sessions'],
+      summary: 'Bulk-import attendees from a spreadsheet',
+      description:
+        'Sales or Manager only. Upload a .xlsx or .csv file with a header row containing a "Name" column and an optional "Email" column. Rows are imported best-effort: a row is skipped (with a reason) rather than failing the whole file if the name is missing, the email is invalid, the email is duplicated within the file, or the attendee is already registered in a different session that overlaps this one in time.',
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: 'OK',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  importedCount: { type: 'integer' },
+                  skippedCount: { type: 'integer' },
+                  attendees: { type: 'array', items: { $ref: '#/components/schemas/SessionAttendee' } },
+                  skipped: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        row: { type: 'integer' },
+                        name: { type: 'string', nullable: true },
+                        email: { type: 'string', nullable: true },
+                        reason: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: 'No file uploaded, unsupported file type, unreadable file, or session does not exist',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not Sales or Manager' },
+      },
+    },
+  },
+  '/sessions/{id}/attendees/{attendeeId}/attendance': {
+    patch: {
+      tags: ['Sessions'],
+      summary: "Mark an attendee's attendance",
+      description:
+        'The session\'s assigned Instructor, or Sales/Manager/SuperAdmin, can mark an attendee Present or Absent.',
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+        { name: 'attendeeId', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['present', 'absent'] } } },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionAttendee' } } } },
+        400: {
+          description: 'Invalid status, session/attendee not found, or attendee does not belong to this session',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not the assigned Instructor, and not Sales/Manager' },
       },
     },
   },
 };
 
-export default function sessionRoutes({ sessionController, authMiddleware, requireRole }) {
+export default function sessionRoutes({ sessionController, authMiddleware, requireRole, uploadAttendeesFile }) {
   const router = Router();
 
   router.get('/', authMiddleware, sessionController.list);
@@ -211,13 +290,24 @@ export default function sessionRoutes({ sessionController, authMiddleware, requi
     sessionController.addAttendee
   );
 
-  
-  
-  
-  
-  
-  
+
+
   router.get('/:id/attendees', authMiddleware, sessionController.listAttendees);
+
+  router.post(
+    '/:id/attendees/import',
+    authMiddleware,
+    requireRole(['Sales', 'Manager']),
+    uploadAttendeesFile,
+    sessionController.importAttendees
+  );
+
+  router.patch(
+    '/:id/attendees/:attendeeId/attendance',
+    authMiddleware,
+    requireRole(['Sales', 'Manager', 'Instructor']),
+    sessionController.markAttendance
+  );
 
   return router;
 };

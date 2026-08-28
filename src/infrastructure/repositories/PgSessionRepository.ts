@@ -26,6 +26,7 @@ function mapAttendeeRow(row) {
     name: row.name,
     email: row.email,
     surveySubmitted: row.survey_submitted,
+    attendanceStatus: row.attendance_status,
   });
 }
 
@@ -230,6 +231,49 @@ class PgSessionRepository extends ISessionRepository {
       where: { session_id: sessionId, survey_submitted: true },
     });
     return total > 0 && total === submitted;
+  }
+
+  async findConflictingSessionForTraining(trainingId, startDate) {
+    const row = await this.prisma.training_sessions.findFirst({
+      where: {
+        training_id: trainingId,
+        start_date: new Date(startDate),
+        session_status: { not: 'cancelled' },
+      },
+    });
+    return mapRow(row);
+  }
+
+  async findOverlappingAttendeeSession({ email, sessionId, startDate, endDate }) {
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT ts.id, ts.start_date, ts.end_date, ts.training_id
+      FROM session_attendees sa
+      JOIN training_sessions ts ON ts.id = sa.session_id
+      WHERE LOWER(sa.email) = LOWER(${email})
+        AND sa.session_id != ${sessionId}
+        AND ts.session_status != 'cancelled'
+        AND ts.start_date < ${new Date(endDate)}
+        AND ${new Date(startDate)} < ts.end_date
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  async addAttendeesBulk(sessionId, attendees) {
+    if (!attendees.length) return [];
+    const rows = await this.prisma.session_attendees.createManyAndReturn({
+      data: attendees.map((a) => ({ session_id: sessionId, name: a.name, email: a.email || null })),
+    });
+    return rows.map(mapAttendeeRow);
+  }
+
+  async markAttendeeStatus(attendeeId, status) {
+    const result = await this.prisma.session_attendees.updateMany({
+      where: { id: attendeeId },
+      data: { attendance_status: status },
+    });
+    if (result.count === 0) return null;
+    return this.findAttendeeById(attendeeId);
   }
 }
 
