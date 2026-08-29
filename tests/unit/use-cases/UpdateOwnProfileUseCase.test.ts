@@ -30,4 +30,18 @@ describe('UpdateOwnProfileUseCase', () => {
       })
     );
   });
+
+  it('marks the tour as seen without writing an audit log entry', async () => {
+    const userRepository = {
+      update: jest.fn().mockResolvedValue({ toSafeJSON: () => ({ id: 1, firstname: 'Old', lastname: 'Name', hasSeenTour: true }) }),
+    };
+    const auditLogRepository = { create: jest.fn() };
+    const useCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
+
+    const result = await useCase.execute({ requester: buildRequester(), hasSeenTour: true });
+
+    expect(userRepository.update).toHaveBeenCalledWith(1, { firstname: undefined, lastname: undefined, hasSeenTour: true });
+    expect(result).toEqual({ id: 1, firstname: 'Old', lastname: 'Name', hasSeenTour: true });
+    expect(auditLogRepository.create).not.toHaveBeenCalled();
+  });
 });

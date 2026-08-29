@@ -110,6 +110,10 @@ const definition = {
             description: 'FK into the roles table. The role name itself is intentionally not exposed here.',
           },
           status: { $ref: '#/components/schemas/UserStatus' },
+          hasSeenTour: {
+            type: 'boolean',
+            description: 'Whether this account has already had the guided-tour dashboard auto-launch.',
+          },
         },
       },
       Provider: {

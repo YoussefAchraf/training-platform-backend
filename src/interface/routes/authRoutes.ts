@@ -155,14 +155,19 @@ export const authRoutesDocs: Record<string, any> = {
     },
     patch: {
       tags: ['Auth'],
-      summary: 'Update my own profile (firstname/lastname only)',
-      description: 'Response body is the updated User object directly, not wrapped in { user }, unlike GET /auth/me.',
+      summary: 'Update my own profile (firstname/lastname), or mark the guided tour as seen',
+      description:
+        'Response body is the updated User object directly, not wrapped in { user }, unlike GET /auth/me. Passing hasSeenTour: true (typically fired the moment the dashboard auto-launches its guided tour) does not create an audit-log entry - only firstname/lastname edits do.\n',
       requestBody: {
         content: {
           'application/json': {
             schema: {
               type: 'object',
-              properties: { firstname: { type: 'string' }, lastname: { type: 'string' } },
+              properties: {
+                firstname: { type: 'string' },
+                lastname: { type: 'string' },
+                hasSeenTour: { type: 'boolean' },
+              },
             },
           },
         },

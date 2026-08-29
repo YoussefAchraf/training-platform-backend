@@ -240,8 +240,13 @@ class AuthController {
 
   updateMe = async (req, res) => {
     try {
-      const { firstname, lastname } = req.body;
-      const user = await this.updateOwnProfileUseCase.execute({ requester: req.user, firstname, lastname });
+      const { firstname, lastname, hasSeenTour } = req.body;
+      const user = await this.updateOwnProfileUseCase.execute({
+        requester: req.user,
+        firstname,
+        lastname,
+        hasSeenTour,
+      });
       res.status(200).json(user);
     } catch (err) {
       res.status(400).json({ error: err.message });
