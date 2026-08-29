@@ -7,19 +7,34 @@ class UpdateOwnProfileUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, firstname, lastname }: { requester: any; firstname?: any; lastname?: any }) {
+  async execute({
+    requester,
+    firstname,
+    lastname,
+    hasSeenTour,
+  }: {
+    requester: any;
+    firstname?: any;
+    lastname?: any;
+    hasSeenTour?: boolean;
+  }) {
     const before = requester.toSafeJSON();
 
-    const updated = await this.userRepository.update(requester.id, { firstname, lastname });
+    const updated = await this.userRepository.update(requester.id, { firstname, lastname, hasSeenTour });
 
-    await this.auditLogRepository.create({
-      actorId: requester.id,
-      action: 'update',
-      entityType: 'User',
-      entityId: requester.id,
-      before,
-      after: updated.toSafeJSON(),
-    });
+    
+    
+    
+    if (firstname !== undefined || lastname !== undefined) {
+      await this.auditLogRepository.create({
+        actorId: requester.id,
+        action: 'update',
+        entityType: 'User',
+        entityId: requester.id,
+        before,
+        after: updated.toSafeJSON(),
+      });
+    }
 
     return updated.toSafeJSON();
   }

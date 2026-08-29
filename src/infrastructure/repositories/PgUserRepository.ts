@@ -14,6 +14,7 @@ function mapRow(row) {
     status: row.status,
     approvedBy: row.approved_by,
     approvedAt: row.approved_at,
+    hasSeenTour: row.has_seen_tour,
     createdAt: row.created_at,
   });
 }
@@ -106,6 +107,7 @@ class PgUserRepository extends IUserRepository {
     if (fields.email) data.email = fields.email;
     if (fields.roleId) data.role_id = fields.roleId;
     if (fields.status) data.status = fields.status;
+    if (fields.hasSeenTour !== undefined) data.has_seen_tour = fields.hasSeenTour;
 
     
     

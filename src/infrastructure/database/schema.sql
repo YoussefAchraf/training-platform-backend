@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
     status          user_status NOT NULL DEFAULT 'pending',
     approved_by     INTEGER REFERENCES users(id),
     approved_at     TIMESTAMPTZ,
+    has_seen_tour   BOOLEAN NOT NULL DEFAULT false,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -225,3 +226,5 @@ CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(use
 ALTER TABLE reports ALTER COLUMN nps_average TYPE NUMERIC(5,2);
 
 UPDATE training_sessions SET assignment_status = 'accepted' WHERE assignment_status = 'pending';
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAULT false;
