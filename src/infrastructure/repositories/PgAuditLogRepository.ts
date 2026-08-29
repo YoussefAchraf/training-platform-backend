@@ -38,20 +38,21 @@ class PgAuditLogRepository extends IAuditLogRepository {
     return mapRow(row);
   }
 
-  async list({ entityType, entityId, excludeEntityTypes }: any = {}) {
-    
-    
-    
-    
-    
+  async list({ entityType, entityId, excludeEntityTypes, startDate, endDate, roleName }: any = {}) {
     const entityTypeFilter: any = {};
     if (entityType) entityTypeFilter.equals = entityType;
     if (excludeEntityTypes && excludeEntityTypes.length > 0) entityTypeFilter.notIn = excludeEntityTypes;
+
+    const createdAtFilter: any = {};
+    if (startDate) createdAtFilter.gte = new Date(startDate);
+    if (endDate) createdAtFilter.lte = new Date(endDate);
 
     const rows = await this.prisma.audit_log.findMany({
       where: {
         ...(Object.keys(entityTypeFilter).length > 0 ? { entity_type: entityTypeFilter } : {}),
         ...(entityId !== undefined ? { entity_id: entityId } : {}),
+        ...(Object.keys(createdAtFilter).length > 0 ? { created_at: createdAtFilter } : {}),
+        ...(roleName ? { users: { roles: { name: roleName } } } : {}),
       },
       include: { users: { select: { firstname: true, lastname: true } } },
       orderBy: { created_at: 'desc' },

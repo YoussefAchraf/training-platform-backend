@@ -55,7 +55,7 @@ describe('PgSessionRepository (Prisma, real database)', () => {
 
     const assigned = await repo.assignInstructor(sessionId, instructorId);
     expect(assigned.instructorId).toBe(instructorId);
-    expect(assigned.assignmentStatus).toBe('pending');
+    expect(assigned.assignmentStatus).toBe('accepted');
 
     
     const missing = await repo.assignInstructor(999999999, instructorId);
@@ -98,6 +98,8 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
   const repo = new PgSessionRepository(prismaClient);
   const marker = `session-guard-test-${Date.now()}`;
   let userId: number;
+  let instructorId: number;
+  let otherInstructorId: number;
   let providerId: number;
   let trainingId: number;
   let otherTrainingId: number;
@@ -110,6 +112,13 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
       data: { firstname: 'Guard', lastname: 'Tester', email: `${marker}@example.com`, password_hash: 'x', role_id: role.id },
     });
     userId = user.id;
+    const instructor = await prismaClient.instructors.create({ data: { user_id: userId } });
+    instructorId = instructor.id;
+    const otherUser = await prismaClient.users.create({
+      data: { firstname: 'Guard', lastname: 'Other', email: `${marker}-other@example.com`, password_hash: 'x', role_id: role.id },
+    });
+    const otherInstructor = await prismaClient.instructors.create({ data: { user_id: otherUser.id } });
+    otherInstructorId = otherInstructor.id;
     const provider = await prismaClient.providers.create({ data: { name: marker } });
     providerId = provider.id;
     const training = await prismaClient.trainings.create({ data: { name: marker, provider_id: providerId } });
@@ -126,7 +135,8 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
     await prismaClient.trainings.deleteMany({ where: { id: { in: [trainingId, otherTrainingId] } } });
     await prismaClient.providers.delete({ where: { id: providerId } });
     await prismaClient.clients.delete({ where: { id: clientId } });
-    await prismaClient.users.delete({ where: { id: userId } });
+    await prismaClient.instructors.deleteMany({ where: { id: { in: [instructorId, otherInstructorId] } } });
+    await prismaClient.users.deleteMany({ where: { email: { in: [`${marker}@example.com`, `${marker}-other@example.com`] } } });
   });
 
   async function createSession({ startDate, endDate, trainingId: forTrainingId = trainingId }: any) {
@@ -224,6 +234,66 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
       sessionId: sessionA.id,
       startDate: sessionA.startDate,
       endDate: sessionA.endDate,
+    });
+    expect(conflict).toBeNull();
+  });
+
+  it('finds a conflict for an instructor already assigned at the exact same start time', async () => {
+    const start = new Date('2031-04-01T10:00:00Z');
+    const sessionA = await createSession({ startDate: start, endDate: new Date('2031-04-01T11:00:00Z') });
+    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-01T12:00:00Z') });
+    await repo.assignInstructor(sessionA.id, instructorId);
+
+    const conflict = await repo.findConflictingSessionForInstructor({
+      instructorId,
+      sessionId: sessionB.id,
+      startDate: start,
+    });
+    expect(conflict?.id).toBe(sessionA.id);
+  });
+
+  it('does not conflict when a different instructor is engaged at that exact start time', async () => {
+    const start = new Date('2031-04-02T10:00:00Z');
+    const sessionA = await createSession({ startDate: start, endDate: new Date('2031-04-02T11:00:00Z') });
+    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-02T12:00:00Z') });
+    await repo.assignInstructor(sessionA.id, otherInstructorId);
+
+    const conflict = await repo.findConflictingSessionForInstructor({
+      instructorId,
+      sessionId: sessionB.id,
+      startDate: start,
+    });
+    expect(conflict).toBeNull();
+  });
+
+  
+  
+  
+  
+  it('does not conflict for the same instructor when only the duration overlaps, not the start time', async () => {
+    const sessionA = await createSession({ startDate: new Date('2031-04-03T09:00:00Z'), endDate: new Date('2031-04-03T11:00:00Z') });
+    const sessionB = await createSession({ startDate: new Date('2031-04-03T10:00:00Z'), endDate: new Date('2031-04-03T12:00:00Z') });
+    await repo.assignInstructor(sessionA.id, instructorId);
+
+    const conflict = await repo.findConflictingSessionForInstructor({
+      instructorId,
+      sessionId: sessionB.id,
+      startDate: sessionB.startDate,
+    });
+    expect(conflict).toBeNull();
+  });
+
+  it('ignores a cancelled session when checking instructor start-time conflicts', async () => {
+    const start = new Date('2031-04-04T10:00:00Z');
+    const sessionA = await createSession({ startDate: start, endDate: new Date('2031-04-04T11:00:00Z') });
+    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-04T12:00:00Z') });
+    await repo.assignInstructor(sessionA.id, instructorId);
+    await repo.updateSessionStatus(sessionA.id, 'cancelled');
+
+    const conflict = await repo.findConflictingSessionForInstructor({
+      instructorId,
+      sessionId: sessionB.id,
+      startDate: start,
     });
     expect(conflict).toBeNull();
   });

@@ -11,8 +11,15 @@ function buildRequester(overrides: Record<string, any> = {}) {
 function buildRepos() {
   return {
     sessionRepository: {
-      findById: jest.fn().mockResolvedValue({ id: 5, trainingId: 3, startDate: '2026-01-01T10:00:00.000Z' }),
+      findById: jest.fn().mockResolvedValue({
+        id: 5,
+        trainingId: 3,
+        startDate: '2026-01-01T10:00:00.000Z',
+        endDate: '2026-01-01T17:00:00.000Z',
+      }),
       assignInstructor: jest.fn().mockResolvedValue({ id: 5, instructorId: 9 }),
+      findConflictingSessionForInstructor: jest.fn().mockResolvedValue(null),
+      listAttendees: jest.fn().mockResolvedValue([{ id: 1, sessionId: 5, name: 'Jane' }]),
     },
     instructorRepository: {
       findById: jest.fn().mockResolvedValue({
@@ -82,6 +89,50 @@ describe('AssignInstructorUseCase', () => {
       useCase.execute({ requester: buildRequester({ isManager: () => true }), sessionId: 5, instructorId: 9 })
     ).rejects.toThrow('not marked as qualified');
     expect(repos.sessionRepository.assignInstructor).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the session has no attendees yet', async () => {
+    const repos = buildRepos();
+    repos.sessionRepository.listAttendees.mockResolvedValue([]);
+    const useCase = new AssignInstructorUseCase(repos);
+
+    await expect(
+      useCase.execute({ requester: buildRequester({ isManager: () => true }), sessionId: 5, instructorId: 9 })
+    ).rejects.toThrow('Add at least one attendee');
+    expect(repos.sessionRepository.assignInstructor).not.toHaveBeenCalled();
+  });
+
+  it('rejects an instructor already engaged in another session at the exact same start time', async () => {
+    const repos = buildRepos();
+    repos.sessionRepository.findConflictingSessionForInstructor.mockResolvedValue({ id: 7 });
+    const useCase = new AssignInstructorUseCase(repos);
+
+    await expect(
+      useCase.execute({ requester: buildRequester({ isManager: () => true }), sessionId: 5, instructorId: 9 })
+    ).rejects.toThrow('already engaged in another session');
+    expect(repos.sessionRepository.assignInstructor).not.toHaveBeenCalled();
+  });
+
+  it('checks the instructor-conflict guard against the exact session start time', async () => {
+    const repos = buildRepos();
+    const useCase = new AssignInstructorUseCase(repos);
+
+    await useCase.execute({ requester: buildRequester({ isManager: () => true }), sessionId: 5, instructorId: 9 });
+
+    expect(repos.sessionRepository.findConflictingSessionForInstructor).toHaveBeenCalledWith({
+      instructorId: 9,
+      sessionId: 5,
+      startDate: '2026-01-01T10:00:00.000Z',
+    });
+  });
+
+  it('allows assigning the instructor to a different session on the same day at a different time', async () => {
+    const repos = buildRepos();
+    const useCase = new AssignInstructorUseCase(repos);
+
+    await expect(
+      useCase.execute({ requester: buildRequester({ isManager: () => true }), sessionId: 5, instructorId: 9 })
+    ).resolves.toBeDefined();
   });
 
   describe('notifying the assigned instructor', () => {

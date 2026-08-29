@@ -2,7 +2,6 @@ class SessionController {
   createSessionUseCase: any;
   listSessionsUseCase: any;
   assignInstructorUseCase: any;
-  respondToAssignmentUseCase: any;
   addAttendeeUseCase: any;
   listSessionAttendeesUseCase: any;
   updateSessionUseCase: any;
@@ -14,7 +13,6 @@ class SessionController {
     createSessionUseCase,
     listSessionsUseCase,
     assignInstructorUseCase,
-    respondToAssignmentUseCase,
     addAttendeeUseCase,
     listSessionAttendeesUseCase,
     updateSessionUseCase,
@@ -25,7 +23,6 @@ class SessionController {
     this.createSessionUseCase = createSessionUseCase;
     this.listSessionsUseCase = listSessionsUseCase;
     this.assignInstructorUseCase = assignInstructorUseCase;
-    this.respondToAssignmentUseCase = respondToAssignmentUseCase;
     this.addAttendeeUseCase = addAttendeeUseCase;
     this.listSessionAttendeesUseCase = listSessionAttendeesUseCase;
     this.updateSessionUseCase = updateSessionUseCase;
@@ -66,20 +63,6 @@ class SessionController {
         requester: req.user,
         sessionId: Number(req.params.id),
         instructorId,
-      });
-      res.status(200).json(session);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
-    }
-  };
-
-  respond = async (req, res) => {
-    try {
-      const { decision } = req.body; 
-      const session = await this.respondToAssignmentUseCase.execute({
-        requester: req.user,
-        sessionId: Number(req.params.id),
-        decision,
       });
       res.status(200).json(session);
     } catch (err) {

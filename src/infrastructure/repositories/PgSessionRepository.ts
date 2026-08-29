@@ -81,7 +81,7 @@ class PgSessionRepository extends ISessionRepository {
     
     const result = await this.prisma.training_sessions.updateMany({
       where: { id: sessionId },
-      data: { instructor_id: instructorId, assignment_status: 'pending', updated_at: new Date() },
+      data: { instructor_id: instructorId, assignment_status: 'accepted', updated_at: new Date() },
     });
     if (result.count === 0) return null;
     return this.findById(sessionId);
@@ -257,6 +257,18 @@ class PgSessionRepository extends ISessionRepository {
       LIMIT 1
     `;
     return rows[0] ?? null;
+  }
+
+  async findConflictingSessionForInstructor({ instructorId, sessionId, startDate }) {
+    const row = await this.prisma.training_sessions.findFirst({
+      where: {
+        instructor_id: instructorId,
+        id: { not: sessionId },
+        session_status: { not: 'cancelled' },
+        start_date: new Date(startDate),
+      },
+    });
+    return mapRow(row);
   }
 
   async addAttendeesBulk(sessionId, attendees) {

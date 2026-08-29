@@ -20,6 +20,7 @@ class ISessionRepository {
   async findOverlappingAttendeeSession(params): Promise<any> { notImplemented('ISessionRepository', 'findOverlappingAttendeeSession'); }
   async addAttendeesBulk(sessionId, attendees): Promise<any> { notImplemented('ISessionRepository', 'addAttendeesBulk'); }
   async markAttendeeStatus(attendeeId, status): Promise<any> { notImplemented('ISessionRepository', 'markAttendeeStatus'); }
+  async findConflictingSessionForInstructor(params): Promise<any> { notImplemented('ISessionRepository', 'findConflictingSessionForInstructor'); }
 }
 
 export { ISessionRepository };

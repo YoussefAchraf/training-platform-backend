@@ -101,7 +101,8 @@ export const sessionRoutesDocs: Record<string, any> = {
     post: {
       tags: ['Sessions'],
       summary: 'Assign a session to an instructor',
-      description: 'Manager only (Sales cannot). Resets assignmentStatus to "pending" so the instructor can accept/refuse.',
+      description:
+        'Manager only (Sales cannot). The session must already have at least one attendee. Assignment is immediate and final (assignmentStatus is set straight to "accepted" - there is no accept/refuse step). Rejected if the instructor is already assigned to a different session at the exact same start time (a different start time on the same day is fine).',
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
       requestBody: {
         required: true,
@@ -113,31 +114,12 @@ export const sessionRoutesDocs: Record<string, any> = {
       },
       responses: {
         200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/TrainingSession' } } } },
-        403: { description: 'Not a Manager' },
-      },
-    },
-  },
-  '/sessions/{id}/respond': {
-    post: {
-      tags: ['Sessions'],
-      summary: 'Accept or refuse an assigned session',
-      description: 'Instructor only, and only for a session assigned to them.',
-      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: { type: 'object', required: ['decision'], properties: { decision: { type: 'string', enum: ['accept', 'refuse'] } } },
-          },
-        },
-      },
-      responses: {
-        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/TrainingSession' } } } },
         400: {
-          description: 'Session not assigned to this instructor',
+          description:
+            'No attendees yet, instructor not found/not approved/not qualified, or already engaged in another session at the same start time',
           content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
         },
-        403: { description: 'Not an Instructor' },
+        403: { description: 'Not a Manager' },
       },
     },
   },
@@ -240,8 +222,7 @@ export const sessionRoutesDocs: Record<string, any> = {
     patch: {
       tags: ['Sessions'],
       summary: "Mark an attendee's attendance",
-      description:
-        'The session\'s assigned Instructor, or Sales/Manager/SuperAdmin, can mark an attendee Present or Absent.',
+      description: "Only the session's assigned Instructor can mark an attendee Present or Absent.",
       parameters: [
         { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
         { name: 'attendeeId', in: 'path', required: true, schema: { type: 'integer' } },
@@ -260,7 +241,7 @@ export const sessionRoutesDocs: Record<string, any> = {
           description: 'Invalid status, session/attendee not found, or attendee does not belong to this session',
           content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
         },
-        403: { description: 'Not the assigned Instructor, and not Sales/Manager' },
+        403: { description: 'Not the assigned Instructor' },
       },
     },
   },
@@ -280,8 +261,6 @@ export default function sessionRoutes({ sessionController, authMiddleware, requi
     requireRole(['Manager']),
     sessionController.assignInstructor
   );
-
-  router.post('/:id/respond', authMiddleware, requireRole(['Instructor']), sessionController.respond);
 
   router.post(
     '/:id/attendees',
