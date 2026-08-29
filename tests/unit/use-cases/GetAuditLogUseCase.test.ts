@@ -23,7 +23,43 @@ describe('GetAuditLogUseCase', () => {
 
     await useCase.execute({ requester: buildRequester({ isSuperAdmin: () => true }), entityType: 'User' });
 
-    expect(auditLogRepository.list).toHaveBeenCalledWith({ entityType: 'User', entityId: undefined });
+    expect(auditLogRepository.list).toHaveBeenCalledWith({
+      entityType: 'User',
+      entityId: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      roleName: undefined,
+    });
+  });
+
+  it('passes date-range and role filters through to the repository', async () => {
+    const auditLogRepository = { list: jest.fn().mockResolvedValue([]) };
+    const useCase = new GetAuditLogUseCase({ auditLogRepository });
+
+    await useCase.execute({
+      requester: buildRequester({ isSuperAdmin: () => true }),
+      startDate: '2026-01-01T00:00:00.000Z',
+      endDate: '2026-01-31T23:59:59.000Z',
+      roleName: 'Instructor',
+    });
+
+    expect(auditLogRepository.list).toHaveBeenCalledWith({
+      entityType: undefined,
+      entityId: undefined,
+      startDate: '2026-01-01T00:00:00.000Z',
+      endDate: '2026-01-31T23:59:59.000Z',
+      roleName: 'Instructor',
+    });
+  });
+
+  it('rejects an unrecognized roleName filter', async () => {
+    const auditLogRepository = { list: jest.fn() };
+    const useCase = new GetAuditLogUseCase({ auditLogRepository });
+
+    await expect(
+      useCase.execute({ requester: buildRequester({ isSuperAdmin: () => true }), roleName: 'Astronaut' })
+    ).rejects.toThrow('roleName must be one of');
+    expect(auditLogRepository.list).not.toHaveBeenCalled();
   });
 
   it('rejects a Manager explicitly requesting User entity entries', async () => {
@@ -45,6 +81,9 @@ describe('GetAuditLogUseCase', () => {
     expect(auditLogRepository.list).toHaveBeenCalledWith({
       entityType: undefined,
       entityId: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      roleName: undefined,
       excludeEntityTypes: ['User'],
     });
   });

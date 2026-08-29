@@ -1,17 +1,5 @@
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 DO $$ BEGIN
     CREATE TYPE user_status AS ENUM ('pending', 'approved', 'rejected', 'deactivated');
 EXCEPTION
@@ -209,7 +197,6 @@ CREATE INDEX IF NOT EXISTS idx_clients_active ON clients(id) WHERE deleted_at IS
 
 
 
-
 ALTER TABLE providers DROP CONSTRAINT IF EXISTS providers_name_key;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_providers_name_active ON providers(name) WHERE deleted_at IS NULL;
 
@@ -236,3 +223,5 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 
 ALTER TABLE reports ALTER COLUMN nps_average TYPE NUMERIC(5,2);
+
+UPDATE training_sessions SET assignment_status = 'accepted' WHERE assignment_status = 'pending';

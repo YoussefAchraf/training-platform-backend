@@ -31,6 +31,11 @@ class AssignInstructorUseCase {
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) throw new Error('Training session not found');
 
+    const attendees = await this.sessionRepository.listAttendees(sessionId);
+    if (!attendees || attendees.length === 0) {
+      throw new Error('Add at least one attendee before assigning an instructor');
+    }
+
     const instructor = await this.instructorRepository.findById(instructorId);
     if (!instructor) throw new Error('Instructor not found');
     if (instructor.status !== 'approved') {
@@ -40,6 +45,15 @@ class AssignInstructorUseCase {
     const qualified = await this.instructorRepository.isQualifiedForTraining(instructorId, session.trainingId);
     if (!qualified) {
       throw new Error('This instructor is not marked as qualified for this session\'s training');
+    }
+
+    const conflict = await this.sessionRepository.findConflictingSessionForInstructor({
+      instructorId,
+      sessionId,
+      startDate: session.startDate,
+    });
+    if (conflict) {
+      throw new Error('This instructor is already engaged in another session at that exact start time');
     }
 
     const assigned = await this.sessionRepository.assignInstructor(sessionId, instructorId);

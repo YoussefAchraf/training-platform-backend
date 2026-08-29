@@ -84,6 +84,15 @@ export const adminRoutesDocs: Record<string, any> = {
       parameters: [
         { name: 'entityType', in: 'query', required: false, schema: { type: 'string' }, example: 'Provider' },
         { name: 'entityId', in: 'query', required: false, schema: { type: 'integer' } },
+        { name: 'startDate', in: 'query', required: false, schema: { type: 'string', format: 'date-time' }, description: 'Only entries created at or after this instant' },
+        { name: 'endDate', in: 'query', required: false, schema: { type: 'string', format: 'date-time' }, description: 'Only entries created at or before this instant' },
+        {
+          name: 'roleName',
+          in: 'query',
+          required: false,
+          schema: { type: 'string', enum: ['Sales', 'Manager', 'Instructor', 'SuperAdmin'] },
+          description: "Only entries whose actor holds this role",
+        },
       ],
       responses: {
         200: {

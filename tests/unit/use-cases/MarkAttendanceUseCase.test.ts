@@ -23,13 +23,15 @@ function buildRepos(session: any = { id: 5, instructorId: 9 }) {
   };
 }
 
+const assignedInstructor = () => buildRequester({ isInstructor: () => true });
+
 describe('MarkAttendanceUseCase', () => {
   it('rejects an invalid status value', async () => {
     const { sessionRepository, instructorRepository } = buildRepos();
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ canManageCatalog: () => true }), sessionId: 5, attendeeId: 1, status: 'late' })
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 1, status: 'late' })
     ).rejects.toThrow('status must be "present" or "absent"');
     expect(sessionRepository.findById).not.toHaveBeenCalled();
   });
@@ -40,7 +42,7 @@ describe('MarkAttendanceUseCase', () => {
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ canManageCatalog: () => true }), sessionId: 5, attendeeId: 1, status: 'present' })
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 1, status: 'present' })
     ).rejects.toThrow('Training session not found');
   });
 
@@ -49,8 +51,8 @@ describe('MarkAttendanceUseCase', () => {
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ isInstructor: () => true }), sessionId: 5, attendeeId: 1, status: 'present' })
-    ).rejects.toThrow('not allowed');
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 1, status: 'present' })
+    ).rejects.toThrow('Only the assigned Instructor');
     expect(sessionRepository.markAttendeeStatus).not.toHaveBeenCalled();
   });
 
@@ -60,17 +62,17 @@ describe('MarkAttendanceUseCase', () => {
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ isInstructor: () => true }), sessionId: 5, attendeeId: 1, status: 'present' })
-    ).rejects.toThrow('not allowed');
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 1, status: 'present' })
+    ).rejects.toThrow('Only the assigned Instructor');
   });
 
-  it('rejects a requester who is neither catalog-manager, SuperAdmin, nor the assigned Instructor', async () => {
+  it('rejects a requester who is not an Instructor at all', async () => {
     const { sessionRepository, instructorRepository } = buildRepos();
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
       useCase.execute({ requester: buildRequester(), sessionId: 5, attendeeId: 1, status: 'present' })
-    ).rejects.toThrow('not allowed');
+    ).rejects.toThrow('Only the assigned Instructor');
   });
 
   it('allows the assigned Instructor to mark their own session\'s attendee', async () => {
@@ -78,27 +80,29 @@ describe('MarkAttendanceUseCase', () => {
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ isInstructor: () => true }), sessionId: 5, attendeeId: 1, status: 'present' })
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 1, status: 'present' })
     ).resolves.toBeDefined();
     expect(sessionRepository.markAttendeeStatus).toHaveBeenCalledWith(1, 'present');
   });
 
-  it('allows Sales/Manager (canManageCatalog) to mark attendance on any session', async () => {
+  it('rejects Sales/Manager (canManageCatalog) - only the instructor can mark attendance now', async () => {
     const { sessionRepository, instructorRepository } = buildRepos();
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
       useCase.execute({ requester: buildRequester({ canManageCatalog: () => true }), sessionId: 5, attendeeId: 1, status: 'absent' })
-    ).resolves.toBeDefined();
+    ).rejects.toThrow('Only the assigned Instructor');
+    expect(sessionRepository.markAttendeeStatus).not.toHaveBeenCalled();
   });
 
-  it('allows a SuperAdmin to mark attendance on any session', async () => {
+  it('rejects a SuperAdmin - only the instructor can mark attendance now', async () => {
     const { sessionRepository, instructorRepository } = buildRepos();
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
       useCase.execute({ requester: buildRequester({ isSuperAdmin: () => true }), sessionId: 5, attendeeId: 1, status: 'present' })
-    ).resolves.toBeDefined();
+    ).rejects.toThrow('Only the assigned Instructor');
+    expect(sessionRepository.markAttendeeStatus).not.toHaveBeenCalled();
   });
 
   it('rejects marking an attendee that belongs to a different session (IDOR guard)', async () => {
@@ -107,7 +111,7 @@ describe('MarkAttendanceUseCase', () => {
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ canManageCatalog: () => true }), sessionId: 5, attendeeId: 1, status: 'present' })
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 1, status: 'present' })
     ).rejects.toThrow('Attendee not found for this session');
     expect(sessionRepository.markAttendeeStatus).not.toHaveBeenCalled();
   });
@@ -118,7 +122,7 @@ describe('MarkAttendanceUseCase', () => {
     const useCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
 
     await expect(
-      useCase.execute({ requester: buildRequester({ canManageCatalog: () => true }), sessionId: 5, attendeeId: 404, status: 'present' })
+      useCase.execute({ requester: assignedInstructor(), sessionId: 5, attendeeId: 404, status: 'present' })
     ).rejects.toThrow('Attendee not found for this session');
   });
 });
