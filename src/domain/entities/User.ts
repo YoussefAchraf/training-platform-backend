@@ -33,6 +33,7 @@ class User {
   status: any;
   approvedBy: any;
   approvedAt: any;
+  hasSeenTour: any;
   createdAt: any;
 
   constructor({
@@ -46,6 +47,7 @@ class User {
     status = USER_STATUS.PENDING,
     approvedBy = null,
     approvedAt = null,
+    hasSeenTour = false,
     createdAt,
   }: any) {
     this.id = id;
@@ -58,6 +60,7 @@ class User {
     this.status = status;
     this.approvedBy = approvedBy;
     this.approvedAt = approvedAt;
+    this.hasSeenTour = hasSeenTour;
     this.createdAt = createdAt;
   }
 
@@ -98,6 +101,7 @@ class User {
       email: this.email,
       roleId: this.roleId,
       status: this.status,
+      hasSeenTour: this.hasSeenTour,
     };
   }
 }
