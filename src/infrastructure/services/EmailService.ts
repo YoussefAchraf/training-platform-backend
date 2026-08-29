@@ -73,7 +73,7 @@ class EmailService {
       html: `
         <p>Hi ${firstname},</p>
         <p>You've been assigned to deliver <strong>${trainingName}</strong>${when ? ` on <strong>${when}</strong>` : ''}.</p>
-        <p><a href="${sessionUrl}">View the session and respond</a></p>
+        <p><a href="${sessionUrl}">View the session details</a></p>
       `,
     });
   }

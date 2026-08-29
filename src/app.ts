@@ -65,7 +65,6 @@ import { UpdateInstructorByManagerUseCase } from './use-cases/instructors/Update
 import { CreateSessionUseCase } from './use-cases/sessions/CreateSessionUseCase';
 import { ListSessionsUseCase } from './use-cases/sessions/ListSessionsUseCase';
 import { AssignInstructorUseCase } from './use-cases/sessions/AssignInstructorUseCase';
-import { RespondToAssignmentUseCase } from './use-cases/sessions/RespondToAssignmentUseCase';
 import { AddAttendeeUseCase } from './use-cases/sessions/AddAttendeeUseCase';
 import { ListSessionAttendeesUseCase } from './use-cases/sessions/ListSessionAttendeesUseCase';
 import { UpdateSessionUseCase } from './use-cases/sessions/UpdateSessionUseCase';
@@ -238,7 +237,6 @@ function buildApp() {
     webPushService,
     pushSubscriptionRepository,
   });
-  const respondToAssignmentUseCase = new RespondToAssignmentUseCase({ sessionRepository, instructorRepository });
   const addAttendeeUseCase = new AddAttendeeUseCase({ sessionRepository });
   const listSessionAttendeesUseCase = new ListSessionAttendeesUseCase({ sessionRepository, instructorRepository });
   const updateSessionUseCase = new UpdateSessionUseCase({
@@ -340,7 +338,6 @@ function buildApp() {
     createSessionUseCase,
     listSessionsUseCase,
     assignInstructorUseCase,
-    respondToAssignmentUseCase,
     addAttendeeUseCase,
     listSessionAttendeesUseCase,
     updateSessionUseCase,

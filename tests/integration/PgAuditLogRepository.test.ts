@@ -8,9 +8,11 @@ describe('PgAuditLogRepository (Prisma, real database)', () => {
   const repository = new PgAuditLogRepository(prismaClient);
   const marker = `audit-log-test-${Date.now()}`;
   let testUserId: number;
+  let testUserRoleName: string;
 
   beforeAll(async () => {
     const role = await prismaClient.roles.findFirstOrThrow();
+    testUserRoleName = role.name;
     const user = await prismaClient.users.create({
       data: {
         firstname: 'Audit',
@@ -63,5 +65,40 @@ describe('PgAuditLogRepository (Prisma, real database)', () => {
     expect(excluded).toHaveLength(0);
 
     await prismaClient.audit_log.deleteMany({ where: { entity_type: 'User', actor_id: testUserId } });
+  });
+
+  it('filters by roleName via the actor\'s role', async () => {
+    await repository.create({ actorId: testUserId, action: 'create', entityType: marker, entityId: 3 });
+
+    const matching = await repository.list({ entityType: marker, roleName: testUserRoleName });
+    expect(matching.some((r) => r.entityId === 3)).toBe(true);
+
+    const nonMatchingRole = testUserRoleName === 'SuperAdmin' ? 'Sales' : 'SuperAdmin';
+    const nonMatching = await repository.list({ entityType: marker, roleName: nonMatchingRole });
+    expect(nonMatching.some((r) => r.entityId === 3)).toBe(false);
+  });
+
+  it('filters by a created_at date range', async () => {
+    const created = await repository.create({ actorId: testUserId, action: 'create', entityType: marker, entityId: 4 });
+    const createdAt = new Date(created.createdAt);
+
+    const within = await repository.list({
+      entityType: marker,
+      startDate: new Date(createdAt.getTime() - 60000).toISOString(),
+      endDate: new Date(createdAt.getTime() + 60000).toISOString(),
+    });
+    expect(within.some((r) => r.entityId === 4)).toBe(true);
+
+    const before = await repository.list({
+      entityType: marker,
+      endDate: new Date(createdAt.getTime() - 60000).toISOString(),
+    });
+    expect(before.some((r) => r.entityId === 4)).toBe(false);
+
+    const after = await repository.list({
+      entityType: marker,
+      startDate: new Date(createdAt.getTime() + 60000).toISOString(),
+    });
+    expect(after.some((r) => r.entityId === 4)).toBe(false);
   });
 });

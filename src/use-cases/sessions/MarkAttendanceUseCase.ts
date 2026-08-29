@@ -17,14 +17,12 @@ class MarkAttendanceUseCase {
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) throw new Error('Training session not found');
 
-    if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
-      if (!requester.isInstructor()) {
-        throw new Error('You are not allowed to mark attendance for this session');
-      }
-      const instructorProfile = await this.instructorRepository.findByUserId(requester.id);
-      if (!instructorProfile || session.instructorId !== instructorProfile.id) {
-        throw new Error('You are not allowed to mark attendance for this session');
-      }
+    if (!requester.isInstructor()) {
+      throw new Error('Only the assigned Instructor can mark attendance for this session');
+    }
+    const instructorProfile = await this.instructorRepository.findByUserId(requester.id);
+    if (!instructorProfile || session.instructorId !== instructorProfile.id) {
+      throw new Error('Only the assigned Instructor can mark attendance for this session');
     }
 
     const attendee = await this.sessionRepository.findAttendeeById(attendeeId);
