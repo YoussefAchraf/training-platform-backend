@@ -165,6 +165,7 @@ const definition = {
           endDate: { type: 'string', format: 'date-time' },
           sessionStatus: { $ref: '#/components/schemas/SessionStatus' },
           assignmentStatus: { $ref: '#/components/schemas/AssignmentStatus' },
+          includeWeekends: { type: 'boolean', description: 'Whether Saturday/Sunday count as real training days for this session.' },
           createdBy: { type: 'integer', nullable: true },
           createdAt: { type: 'string', format: 'date-time' },
         },

@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS training_sessions (
     end_date            TIMESTAMPTZ NOT NULL,
     session_status      session_status NOT NULL DEFAULT 'scheduled',
     assignment_status   assignment_status NOT NULL DEFAULT 'unassigned',
+    include_weekends    BOOLEAN NOT NULL DEFAULT false,
     created_by          INTEGER REFERENCES users(id),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -228,3 +229,5 @@ ALTER TABLE reports ALTER COLUMN nps_average TYPE NUMERIC(5,2);
 UPDATE training_sessions SET assignment_status = 'accepted' WHERE assignment_status = 'pending';
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS include_weekends BOOLEAN NOT NULL DEFAULT false;

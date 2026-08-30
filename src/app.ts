@@ -273,6 +273,7 @@ function buildApp() {
     sessionRepository,
     trainingRepository,
     clientRepository,
+    instructorRepository,
     pdfReportService,
   });
   const generateSurveyQRUseCase = new GenerateSurveyQRUseCase({

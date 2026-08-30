@@ -13,6 +13,7 @@ function mapRow(row) {
     endDate: row.end_date,
     sessionStatus: row.session_status,
     assignmentStatus: row.assignment_status,
+    includeWeekends: row.include_weekends,
     createdBy: row.created_by,
     createdAt: row.created_at,
   });
@@ -48,6 +49,7 @@ class PgSessionRepository extends ISessionRepository {
         end_date: session.endDate,
         session_status: session.sessionStatus || 'scheduled',
         assignment_status: session.instructorId ? 'pending' : 'unassigned',
+        include_weekends: session.includeWeekends || false,
         created_by: session.createdBy,
       },
     });

@@ -13,7 +13,7 @@ class CreateSessionUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, trainingId, clientId, startDate, endDate }) {
+  async execute({ requester, trainingId, clientId, startDate, endDate, includeWeekends = false }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can create a training session');
     }
@@ -39,6 +39,7 @@ class CreateSessionUseCase {
       instructorId: null,
       startDate,
       endDate,
+      includeWeekends,
       createdBy: requester.id,
     });
 

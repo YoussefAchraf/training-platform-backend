@@ -1,6 +1,8 @@
 import { CalendarEvent } from '../../domain/entities/CalendarEvent';
 import { ICalendarRepository } from '../../domain/interfaces/ICalendarRepository';
 
+const SESSION_INCLUDE = { training_sessions: { select: { include_weekends: true } } };
+
 function mapRow(row) {
   if (!row) return null;
   return new CalendarEvent({
@@ -9,6 +11,7 @@ function mapRow(row) {
     eventDate: row.event_date,
     endDate: row.end_date,
     title: row.title,
+    includeWeekends: row.training_sessions?.include_weekends ?? false,
   });
 }
 
@@ -33,13 +36,17 @@ class PgCalendarRepository extends ICalendarRepository {
   }
 
   async listGlobal() {
-    const rows = await this.prisma.calendar.findMany({ orderBy: { event_date: 'asc' } });
+    const rows = await this.prisma.calendar.findMany({
+      include: SESSION_INCLUDE,
+      orderBy: { event_date: 'asc' },
+    });
     return rows.map(mapRow);
   }
 
   async listForInstructor(instructorId) {
     const rows = await this.prisma.calendar.findMany({
       where: { training_sessions: { instructor_id: instructorId } },
+      include: SESSION_INCLUDE,
       orderBy: { event_date: 'asc' },
     });
     return rows.map(mapRow);
@@ -55,7 +62,7 @@ class PgCalendarRepository extends ICalendarRepository {
     if (changes.endDate) data.end_date = changes.endDate;
     if (changes.title) data.title = changes.title;
 
-    const row = await this.prisma.calendar.update({ where: { id: eventId }, data });
+    const row = await this.prisma.calendar.update({ where: { id: eventId }, data, include: SESSION_INCLUDE });
     return mapRow(row);
   }
 

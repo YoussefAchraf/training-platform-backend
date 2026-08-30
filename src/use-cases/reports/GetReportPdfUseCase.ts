@@ -3,13 +3,15 @@ class GetReportPdfUseCase {
   sessionRepository: any;
   trainingRepository: any;
   clientRepository: any;
+  instructorRepository: any;
   pdfReportService: any;
 
-  constructor({ reportRepository, sessionRepository, trainingRepository, clientRepository, pdfReportService }) {
+  constructor({ reportRepository, sessionRepository, trainingRepository, clientRepository, instructorRepository, pdfReportService }) {
     this.reportRepository = reportRepository;
     this.sessionRepository = sessionRepository;
     this.trainingRepository = trainingRepository;
     this.clientRepository = clientRepository;
+    this.instructorRepository = instructorRepository;
     this.pdfReportService = pdfReportService;
   }
 
@@ -26,8 +28,10 @@ class GetReportPdfUseCase {
 
     const training = await this.trainingRepository.findById(session.trainingId);
     const client = await this.clientRepository.findById(session.clientId);
+    const instructor = session.instructorId ? await this.instructorRepository.findById(session.instructorId) : null;
+    const attendees = await this.sessionRepository.listAttendees(sessionId);
 
-    return this.pdfReportService.generateReportPdf({ session, training, client, report });
+    return this.pdfReportService.generateReportPdf({ session, training, client, instructor, attendees, report });
   }
 }
 

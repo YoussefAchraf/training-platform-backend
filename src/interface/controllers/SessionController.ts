@@ -36,13 +36,14 @@ class SessionController {
 
   create = async (req, res) => {
     try {
-      const { trainingId, clientId, startDate, endDate } = req.body;
+      const { trainingId, clientId, startDate, endDate, includeWeekends } = req.body;
       const session = await this.createSessionUseCase.execute({
         requester: req.user,
         trainingId,
         clientId,
         startDate,
         endDate,
+        includeWeekends,
       });
       res.status(201).json(session);
     } catch (err) {
