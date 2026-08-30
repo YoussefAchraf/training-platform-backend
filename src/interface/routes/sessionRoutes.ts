@@ -20,7 +20,8 @@ export const sessionRoutesDocs: Record<string, any> = {
     post: {
       tags: ['Sessions'],
       summary: 'Create a training session',
-      description: 'Sales or Manager only. Also creates the matching global calendar entry.',
+      description:
+        'Sales, Manager, or SuperAdmin only. Also creates the matching global calendar entry. includeWeekends (default false) is only meaningful for a multi-day session - it records whether Saturday/Sunday count as real training days, so the calendar can correctly show the session as occupying (or skipping) those days.\n',
       requestBody: {
         required: true,
         content: {
@@ -33,6 +34,7 @@ export const sessionRoutesDocs: Record<string, any> = {
                 clientId: { type: 'integer' },
                 startDate: { type: 'string', format: 'date-time' },
                 endDate: { type: 'string', format: 'date-time' },
+                includeWeekends: { type: 'boolean', default: false },
               },
             },
           },
@@ -44,7 +46,7 @@ export const sessionRoutesDocs: Record<string, any> = {
           description: 'Validation error, or endDate not after startDate',
           content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
         },
-        403: { description: 'Not Sales or Manager' },
+        403: { description: 'Not Sales, Manager, or SuperAdmin' },
       },
     },
   },

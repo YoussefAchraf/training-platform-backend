@@ -85,7 +85,7 @@ class User {
   }
 
   canManageCatalog() {
-    return this.isSales() || this.isManager();
+    return this.isSales() || this.isManager() || this.isSuperAdmin();
   }
 
   
