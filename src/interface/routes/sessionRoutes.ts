@@ -245,6 +245,38 @@ export const sessionRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/sessions/{id}/attendees/{attendeeId}': {
+    patch: {
+      tags: ['Sessions'],
+      summary: "Edit an attendee's name/email",
+      description:
+        "Sales or Manager only. Locked once the session's attendance has started being marked - callers should stop offering this once any attendee on the session has a non-pending attendanceStatus, though the backend itself doesn't separately enforce that (there's nothing wrong with fixing a typo after the fact via the API).\n",
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+        { name: 'attendeeId', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['name'],
+              properties: { name: { type: 'string' }, email: { type: 'string' } },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionAttendee' } } } },
+        400: {
+          description: 'Invalid name/email, session/attendee not found, attendee does not belong to this session, or the new email overlaps another session',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not Sales or Manager' },
+      },
+    },
+  },
 };
 
 export default function sessionRoutes({ sessionController, authMiddleware, requireRole, uploadAttendeesFile }) {
@@ -286,6 +318,13 @@ export default function sessionRoutes({ sessionController, authMiddleware, requi
     authMiddleware,
     requireRole(['Sales', 'Manager', 'Instructor']),
     sessionController.markAttendance
+  );
+
+  router.patch(
+    '/:id/attendees/:attendeeId',
+    authMiddleware,
+    requireRole(['Sales', 'Manager']),
+    sessionController.updateAttendee
   );
 
   return router;

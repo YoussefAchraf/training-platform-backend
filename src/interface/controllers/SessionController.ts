@@ -8,6 +8,7 @@ class SessionController {
   cancelSessionUseCase: any;
   bulkImportAttendeesUseCase: any;
   markAttendanceUseCase: any;
+  updateAttendeeUseCase: any;
 
   constructor({
     createSessionUseCase,
@@ -19,6 +20,7 @@ class SessionController {
     cancelSessionUseCase,
     bulkImportAttendeesUseCase,
     markAttendanceUseCase,
+    updateAttendeeUseCase,
   }) {
     this.createSessionUseCase = createSessionUseCase;
     this.listSessionsUseCase = listSessionsUseCase;
@@ -29,6 +31,7 @@ class SessionController {
     this.cancelSessionUseCase = cancelSessionUseCase;
     this.bulkImportAttendeesUseCase = bulkImportAttendeesUseCase;
     this.markAttendanceUseCase = markAttendanceUseCase;
+    this.updateAttendeeUseCase = updateAttendeeUseCase;
   }
 
   create = async (req, res) => {
@@ -145,6 +148,22 @@ class SessionController {
         sessionId: Number(req.params.id),
         attendeeId: Number(req.params.attendeeId),
         status,
+      });
+      res.status(200).json(attendee);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  updateAttendee = async (req, res) => {
+    try {
+      const { name, email } = req.body;
+      const attendee = await this.updateAttendeeUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+        attendeeId: Number(req.params.attendeeId),
+        name,
+        email,
       });
       res.status(200).json(attendee);
     } catch (err) {
