@@ -21,6 +21,7 @@ class TrainingSession {
   endDate: any;
   sessionStatus: any;
   assignmentStatus: any;
+  includeWeekends: any;
   createdBy: any;
   createdAt: any;
 
@@ -33,6 +34,7 @@ class TrainingSession {
     endDate,
     sessionStatus = SESSION_STATUS.SCHEDULED,
     assignmentStatus = ASSIGNMENT_STATUS.UNASSIGNED,
+    includeWeekends = false,
     createdBy,
     createdAt,
   }: any) {
@@ -44,6 +46,7 @@ class TrainingSession {
     this.endDate = endDate;
     this.sessionStatus = sessionStatus;
     this.assignmentStatus = assignmentStatus;
+    this.includeWeekends = includeWeekends;
     this.createdBy = createdBy;
     this.createdAt = createdAt;
   }
