@@ -103,12 +103,13 @@ class SessionController {
 
   update = async (req, res) => {
     try {
-      const { startDate, endDate } = req.body;
+      const { startDate, endDate, includeWeekends } = req.body;
       const session = await this.updateSessionUseCase.execute({
         requester: req.user,
         sessionId: Number(req.params.id),
         startDate,
         endDate,
+        includeWeekends,
       });
       res.status(200).json(session);
     } catch (err) {

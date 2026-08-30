@@ -111,6 +111,7 @@ class PgSessionRepository extends ISessionRepository {
     const data: any = { updated_at: new Date() };
     if (fields.startDate) data.start_date = fields.startDate;
     if (fields.endDate) data.end_date = fields.endDate;
+    if (fields.includeWeekends !== undefined) data.include_weekends = fields.includeWeekends;
 
     const result = await this.prisma.training_sessions.updateMany({ where: { id: sessionId }, data });
     if (result.count === 0) return null;
