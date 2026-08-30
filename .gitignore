@@ -5,7 +5,6 @@ npm-debug.log
 dist/
 coverage/
 *.tsbuildinfo
-README.md
 CI-CD-DEVSECOPS-PLAN.md
 REBUILD-PLAN.md
 PRISMA-MIGRATION-PLAN.md
