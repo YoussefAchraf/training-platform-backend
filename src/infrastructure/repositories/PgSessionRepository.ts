@@ -299,6 +299,10 @@ class PgSessionRepository extends ISessionRepository {
     if (result.count === 0) return null;
     return this.findAttendeeById(attendeeId);
   }
+
+  async deleteAttendee(attendeeId) {
+    await this.prisma.session_attendees.deleteMany({ where: { id: attendeeId } });
+  }
 }
 
 export { PgSessionRepository };

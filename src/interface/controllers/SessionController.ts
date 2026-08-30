@@ -9,6 +9,7 @@ class SessionController {
   bulkImportAttendeesUseCase: any;
   markAttendanceUseCase: any;
   updateAttendeeUseCase: any;
+  deleteAttendeeUseCase: any;
 
   constructor({
     createSessionUseCase,
@@ -21,6 +22,7 @@ class SessionController {
     bulkImportAttendeesUseCase,
     markAttendanceUseCase,
     updateAttendeeUseCase,
+    deleteAttendeeUseCase,
   }) {
     this.createSessionUseCase = createSessionUseCase;
     this.listSessionsUseCase = listSessionsUseCase;
@@ -32,6 +34,7 @@ class SessionController {
     this.bulkImportAttendeesUseCase = bulkImportAttendeesUseCase;
     this.markAttendanceUseCase = markAttendanceUseCase;
     this.updateAttendeeUseCase = updateAttendeeUseCase;
+    this.deleteAttendeeUseCase = deleteAttendeeUseCase;
   }
 
   create = async (req, res) => {
@@ -168,6 +171,19 @@ class SessionController {
         email,
       });
       res.status(200).json(attendee);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  removeAttendee = async (req, res) => {
+    try {
+      await this.deleteAttendeeUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+        attendeeId: Number(req.params.attendeeId),
+      });
+      res.status(204).send();
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
