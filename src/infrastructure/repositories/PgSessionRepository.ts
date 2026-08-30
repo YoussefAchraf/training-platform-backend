@@ -289,6 +289,15 @@ class PgSessionRepository extends ISessionRepository {
     if (result.count === 0) return null;
     return this.findAttendeeById(attendeeId);
   }
+
+  async updateAttendee(attendeeId, { name, email }) {
+    const result = await this.prisma.session_attendees.updateMany({
+      where: { id: attendeeId },
+      data: { name, email: email || null },
+    });
+    if (result.count === 0) return null;
+    return this.findAttendeeById(attendeeId);
+  }
 }
 
 export { PgSessionRepository };
