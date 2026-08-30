@@ -55,7 +55,7 @@ export const sessionRoutesDocs: Record<string, any> = {
       tags: ['Sessions'],
       summary: 'Update a training session (dates only)',
       description:
-        'Sales or Manager only, and only for a session you created (SuperAdmin can update any). Rejected once the session already has a survey or report attached.',
+        'Sales, Manager, or SuperAdmin only, and only for a session you created (SuperAdmin can update any). Rejected once the session already has a survey or report attached. includeWeekends follows the same meaning as on POST /sessions - update it here too if a reschedule changes whether the session should span weekends.\n',
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
       requestBody: {
         content: {
@@ -65,6 +65,7 @@ export const sessionRoutesDocs: Record<string, any> = {
               properties: {
                 startDate: { type: 'string', format: 'date-time' },
                 endDate: { type: 'string', format: 'date-time' },
+                includeWeekends: { type: 'boolean' },
               },
             },
           },
