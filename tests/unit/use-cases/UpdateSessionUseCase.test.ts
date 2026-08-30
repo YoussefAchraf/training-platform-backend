@@ -145,6 +145,15 @@ describe('UpdateSessionUseCase', () => {
     });
   });
 
+  it('passes includeWeekends through to the repository when provided', async () => {
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), sessionId: 5, startDate: '2026-09-01T10:00:00Z', includeWeekends: true });
+
+    expect(sessionRepository.update).toHaveBeenCalledWith(5, { startDate: '2026-09-01T10:00:00Z', endDate: undefined, includeWeekends: true });
+  });
+
   it('allows a SuperAdmin to edit a session with an existing report, bypassing both ownership and the guard', async () => {
     const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     reportRepository.findBySessionId.mockResolvedValue({ id: 1, sessionId: 5 });

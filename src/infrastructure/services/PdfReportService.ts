@@ -223,7 +223,7 @@ class PdfReportService {
       x += columns[2].width;
       doc
         .fillColor(attendee.surveySubmitted ? COLORS.success : COLORS.textFaint)
-        .text(attendee.surveySubmitted ? 'Submitted' : 'Pending', x + 8, y + 7, { width: columns[3].width - 8 });
+        .text(attendee.surveySubmitted ? 'Submitted' : '—', x + 8, y + 7, { width: columns[3].width - 8 });
 
       doc
         .strokeColor(COLORS.border)

@@ -17,7 +17,19 @@ class UpdateSessionUseCase {
     this.emailService = emailService;
   }
 
-  async execute({ requester, sessionId, startDate, endDate }: { requester: any; sessionId: any; startDate?: any; endDate?: any }) {
+  async execute({
+    requester,
+    sessionId,
+    startDate,
+    endDate,
+    includeWeekends,
+  }: {
+    requester: any;
+    sessionId: any;
+    startDate?: any;
+    endDate?: any;
+    includeWeekends?: boolean;
+  }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a training session');
     }
@@ -47,7 +59,7 @@ class UpdateSessionUseCase {
       throw new Error('endDate must be after startDate');
     }
 
-    const updated = await this.sessionRepository.update(sessionId, { startDate, endDate });
+    const updated = await this.sessionRepository.update(sessionId, { startDate, endDate, includeWeekends });
 
     
     
