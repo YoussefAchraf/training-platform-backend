@@ -130,7 +130,7 @@ export const sessionRoutesDocs: Record<string, any> = {
     post: {
       tags: ['Sessions'],
       summary: 'Add an attendee to a session',
-      description: 'Sales or Manager only.',
+      description: 'Sales, Manager, or SuperAdmin only.',
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
       requestBody: {
         required: true,
@@ -146,13 +146,13 @@ export const sessionRoutesDocs: Record<string, any> = {
       },
       responses: {
         201: { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionAttendee' } } } },
-        403: { description: 'Not Sales or Manager' },
+        403: { description: 'Not Sales, Manager, or SuperAdmin' },
       },
     },
     get: {
       tags: ['Sessions'],
       summary: "List a session's attendees",
-      description: 'Sales/Manager can view any session\'s attendees; an Instructor can only view attendees of a session assigned to them.\n',
+      description: 'Sales/Manager/SuperAdmin can view any session\'s attendees; an Instructor can only view attendees of a session assigned to them.\n',
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
       responses: {
         200: {
@@ -175,7 +175,7 @@ export const sessionRoutesDocs: Record<string, any> = {
       tags: ['Sessions'],
       summary: 'Bulk-import attendees from a spreadsheet',
       description:
-        'Sales or Manager only. Upload a .xlsx or .csv file with a header row containing a "Name" column and an optional "Email" column. Rows are imported best-effort: a row is skipped (with a reason) rather than failing the whole file if the name is missing, the email is invalid, the email is duplicated within the file, or the attendee is already registered in a different session that overlaps this one in time.',
+        'Sales, Manager, or SuperAdmin only. Upload a .xlsx or .csv file with a header row containing a "Name" column and an optional "Email" column. Rows are imported best-effort: a row is skipped (with a reason) rather than failing the whole file if the name is missing, the email is invalid, the email is duplicated within the file, or the attendee is already registered in a different session that overlaps this one in time.',
       parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
       requestBody: {
         required: true,
@@ -217,7 +217,7 @@ export const sessionRoutesDocs: Record<string, any> = {
           description: 'No file uploaded, unsupported file type, unreadable file, or session does not exist',
           content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
         },
-        403: { description: 'Not Sales or Manager' },
+        403: { description: 'Not Sales, Manager, or SuperAdmin' },
       },
     },
   },
@@ -253,7 +253,7 @@ export const sessionRoutesDocs: Record<string, any> = {
       tags: ['Sessions'],
       summary: "Edit an attendee's name/email",
       description:
-        "Sales or Manager only. Locked once the session's attendance has started being marked - callers should stop offering this once any attendee on the session has a non-pending attendanceStatus, though the backend itself doesn't separately enforce that (there's nothing wrong with fixing a typo after the fact via the API).\n",
+        "Sales, Manager, or SuperAdmin only. Locked once the session's attendance has started being marked - callers should stop offering this once any attendee on the session has a non-pending attendanceStatus, though the backend itself doesn't separately enforce that (there's nothing wrong with fixing a typo after the fact via the API).\n",
       parameters: [
         { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
         { name: 'attendeeId', in: 'path', required: true, schema: { type: 'integer' } },
@@ -276,7 +276,25 @@ export const sessionRoutesDocs: Record<string, any> = {
           description: 'Invalid name/email, session/attendee not found, attendee does not belong to this session, or the new email overlaps another session',
           content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
         },
-        403: { description: 'Not Sales or Manager' },
+        403: { description: 'Not Sales, Manager, or SuperAdmin' },
+      },
+    },
+    delete: {
+      tags: ['Sessions'],
+      summary: 'Remove an attendee from a session',
+      description:
+        "Sales, Manager, or SuperAdmin only. Rejected if the attendee has already submitted a survey (their response would be left pointing at a deleted attendee). Same as editing, callers should stop offering this once the session's attendance has started being marked, though the backend itself doesn't separately enforce that.\n",
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+        { name: 'attendeeId', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      responses: {
+        204: { description: 'Deleted' },
+        400: {
+          description: 'Session/attendee not found, attendee does not belong to this session, or the attendee already submitted a survey',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not Sales, Manager, or SuperAdmin' },
       },
     },
   },
@@ -328,6 +346,13 @@ export default function sessionRoutes({ sessionController, authMiddleware, requi
     authMiddleware,
     requireRole(['Sales', 'Manager']),
     sessionController.updateAttendee
+  );
+
+  router.delete(
+    '/:id/attendees/:attendeeId',
+    authMiddleware,
+    requireRole(['Sales', 'Manager']),
+    sessionController.removeAttendee
   );
 
   return router;

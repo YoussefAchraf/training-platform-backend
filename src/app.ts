@@ -72,6 +72,7 @@ import { CancelSessionUseCase } from './use-cases/sessions/CancelSessionUseCase'
 import { BulkImportAttendeesUseCase } from './use-cases/sessions/BulkImportAttendeesUseCase';
 import { MarkAttendanceUseCase } from './use-cases/sessions/MarkAttendanceUseCase';
 import { UpdateAttendeeUseCase } from './use-cases/sessions/UpdateAttendeeUseCase';
+import { DeleteAttendeeUseCase } from './use-cases/sessions/DeleteAttendeeUseCase';
 
 import {
   ListGlobalCalendarUseCase,
@@ -260,6 +261,7 @@ function buildApp() {
   const bulkImportAttendeesUseCase = new BulkImportAttendeesUseCase({ sessionRepository, attendeeFileParserService });
   const markAttendanceUseCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
   const updateAttendeeUseCase = new UpdateAttendeeUseCase({ sessionRepository });
+  const deleteAttendeeUseCase = new DeleteAttendeeUseCase({ sessionRepository });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
   const updateGlobalCalendarUseCase = new UpdateGlobalCalendarUseCase({ calendarRepository });
@@ -348,6 +350,7 @@ function buildApp() {
     bulkImportAttendeesUseCase,
     markAttendanceUseCase,
     updateAttendeeUseCase,
+    deleteAttendeeUseCase,
   });
   const calendarController = new CalendarController({
     listGlobalCalendarUseCase,

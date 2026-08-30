@@ -21,6 +21,8 @@ class ISessionRepository {
   async addAttendeesBulk(sessionId, attendees): Promise<any> { notImplemented('ISessionRepository', 'addAttendeesBulk'); }
   async markAttendeeStatus(attendeeId, status): Promise<any> { notImplemented('ISessionRepository', 'markAttendeeStatus'); }
   async findConflictingSessionForInstructor(params): Promise<any> { notImplemented('ISessionRepository', 'findConflictingSessionForInstructor'); }
+  async updateAttendee(attendeeId, fields): Promise<any> { notImplemented('ISessionRepository', 'updateAttendee'); }
+  async deleteAttendee(attendeeId): Promise<any> { notImplemented('ISessionRepository', 'deleteAttendee'); }
 }
 
 export { ISessionRepository };

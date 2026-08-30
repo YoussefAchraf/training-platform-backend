@@ -444,13 +444,15 @@ actually being scheduled.
 | Method | Path | Access | Notes |
 |---|---|---|---|
 | GET | `/sessions` | Any authenticated | an Instructor sees only sessions assigned to them |
-| POST | `/sessions` | Sales, Manager | also writes a matching global calendar entry; rejected if the same training already has another session starting at that exact time |
+| POST | `/sessions` | Sales, Manager, SuperAdmin | also writes a matching global calendar entry; rejected if the same training already has another session starting at that exact time |
 | PATCH | `/sessions/:id` | Sales/Manager (creator) or SuperAdmin | blocked once the session already has a survey response or report |
 | POST | `/sessions/:id/cancel` | Sales/Manager (creator) or SuperAdmin | same protection, plus refuses to cancel an already-cancelled session |
 | POST | `/sessions/:id/assign-instructor` | Manager | body: instructorId. Requires at least one attendee already added; the instructor must be approved and qualified for the training, and not already engaged in a different session at that exact start time. Assignment is immediate — notifies the instructor by email and push. |
-| POST | `/sessions/:id/attendees` | Sales, Manager | body: name, email |
-| GET | `/sessions/:id/attendees` | Any authenticated | Sales/Manager see any session's attendees; an Instructor only their own session's |
-| POST | `/sessions/:id/attendees/import` | Sales, Manager | multipart upload, `.csv`/`.xlsx` with a `Name` column and optional `Email` column; imports best-effort, skipping (with a reason) rows with a missing name, an invalid or duplicate email, or an attendee already registered in a session that overlaps this one in time |
+| POST | `/sessions/:id/attendees` | Sales, Manager, SuperAdmin | body: name, email |
+| GET | `/sessions/:id/attendees` | Any authenticated | Sales/Manager/SuperAdmin see any session's attendees; an Instructor only their own session's |
+| POST | `/sessions/:id/attendees/import` | Sales, Manager, SuperAdmin | multipart upload, `.csv`/`.xlsx` with a `Name` column and optional `Email` column; imports best-effort, skipping (with a reason) rows with a missing name, an invalid or duplicate email, or an attendee already registered in a session that overlaps this one in time |
+| PATCH | `/sessions/:id/attendees/:attendeeId` | Sales, Manager, SuperAdmin | body: name, email; edits an attendee's details. Frontend stops offering this once the session's attendance has started being marked, though it isn't backend-enforced |
+| DELETE | `/sessions/:id/attendees/:attendeeId` | Sales, Manager, SuperAdmin | removes an attendee entirely; rejected if they've already submitted a survey |
 | PATCH | `/sessions/:id/attendees/:attendeeId/attendance` | the session's assigned Instructor | body: status (present\|absent) |
 
 ### Instructors (`/instructors`)
