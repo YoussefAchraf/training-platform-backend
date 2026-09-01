@@ -14,12 +14,10 @@ class AuthController {
   setSessionCookies: any;
   clearSessionCookies: any;
   csrfCheckPasses: any;
+  requestPasswordResetUseCase: any;
+  resetPasswordUseCase: any;
+  changeOwnPasswordUseCase: any;
 
-  
-  
-  
-  
-  
   constructor({
     signupUseCase,
     loginUseCase,
@@ -36,6 +34,9 @@ class AuthController {
     setSessionCookies,
     clearSessionCookies,
     csrfCheckPasses,
+    requestPasswordResetUseCase,
+    resetPasswordUseCase,
+    changeOwnPasswordUseCase,
   }) {
     this.signupUseCase = signupUseCase;
     this.loginUseCase = loginUseCase;
@@ -52,6 +53,9 @@ class AuthController {
     this.setSessionCookies = setSessionCookies;
     this.clearSessionCookies = clearSessionCookies;
     this.csrfCheckPasses = csrfCheckPasses;
+    this.requestPasswordResetUseCase = requestPasswordResetUseCase;
+    this.resetPasswordUseCase = resetPasswordUseCase;
+    this.changeOwnPasswordUseCase = changeOwnPasswordUseCase;
   }
 
   signup = async (req, res) => {
@@ -248,6 +252,43 @@ class AuthController {
         hasSeenTour,
       });
       res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  sendPasswordReset = async (req, res) => {
+    try {
+      const result = await this.requestPasswordResetUseCase.execute({
+        requester: req.user,
+        targetUserId: Number(req.params.id),
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  resetPassword = async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      const result = await this.resetPasswordUseCase.execute({ token, newPassword });
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  changePassword = async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const { accessToken, refreshToken } = await this.changeOwnPasswordUseCase.execute({
+        requester: req.user,
+        currentPassword,
+        newPassword,
+      });
+      this.setSessionCookies(res, { accessToken, refreshToken });
+      res.status(200).json({ message: 'Password changed.' });
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

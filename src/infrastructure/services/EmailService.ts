@@ -78,6 +78,36 @@ class EmailService {
     });
   }
 
+  async sendPasswordResetEmail(toEmail, firstname, resetUrl) {
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: toEmail,
+      subject: 'Reset your password',
+      html: `
+        <p>Hi ${firstname},</p>
+        <p>An administrator started a password reset for your account. Click the link below to
+        set a new password. This link works once and expires soon, so use it right away.</p>
+        <p><a href="${resetUrl}">Set a new password</a></p>
+        <p>If you weren't expecting this, contact your administrator - your existing sessions
+        have already been signed out as a precaution.</p>
+      `,
+    });
+  }
+
+  async sendPasswordChangedEmail(toEmail, firstname) {
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: toEmail,
+      subject: 'Your password was changed',
+      html: `
+        <p>Hi ${firstname},</p>
+        <p>This is a confirmation that your account's password was just changed. Every other
+        active session was signed out as a result.</p>
+        <p>If you didn't make this change, contact your administrator immediately.</p>
+      `,
+    });
+  }
+
   async sendRecordChangedNotification(managerEmails, { actor, action, entityType, entityId, label }) {
     if (!managerEmails || managerEmails.length === 0) {
       return;
