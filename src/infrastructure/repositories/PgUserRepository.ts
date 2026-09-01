@@ -108,6 +108,7 @@ class PgUserRepository extends IUserRepository {
     if (fields.roleId) data.role_id = fields.roleId;
     if (fields.status) data.status = fields.status;
     if (fields.hasSeenTour !== undefined) data.has_seen_tour = fields.hasSeenTour;
+    if (fields.passwordHash) data.password_hash = fields.passwordHash;
 
     
     
