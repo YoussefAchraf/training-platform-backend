@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE TABLE IF NOT EXISTS audit_log (
     id            SERIAL PRIMARY KEY,
     actor_id      INTEGER REFERENCES users(id),
-    action        VARCHAR(20) NOT NULL,
+    action        VARCHAR(40) NOT NULL,
     entity_type   VARCHAR(50) NOT NULL,
     entity_id     INTEGER NOT NULL,
     before        JSONB,
@@ -231,3 +231,5 @@ UPDATE training_sessions SET assignment_status = 'accepted' WHERE assignment_sta
 ALTER TABLE users ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAULT false;
 
 ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS include_weekends BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE audit_log ALTER COLUMN action TYPE VARCHAR(40);

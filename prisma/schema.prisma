@@ -18,7 +18,7 @@ datasource db {
 model audit_log {
   id          Int      @id @default(autoincrement())
   actor_id    Int?
-  action      String   @db.VarChar(20)
+  action      String   @db.VarChar(40)
   entity_type String   @db.VarChar(50)
   entity_id   Int
   before      Json?
