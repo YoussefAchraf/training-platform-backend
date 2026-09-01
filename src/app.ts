@@ -9,6 +9,7 @@ import { prismaClient } from './infrastructure/database/prismaClient';
 import { PasswordHasher } from './infrastructure/security/PasswordHasher';
 import { TokenService } from './infrastructure/security/TokenService';
 import { RefreshTokenStore } from './infrastructure/security/RefreshTokenStore';
+import { PasswordResetTokenStore } from './infrastructure/security/PasswordResetTokenStore';
 
 import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
@@ -41,6 +42,9 @@ import { UpdateUserByAdminUseCase } from './use-cases/auth/UpdateUserByAdminUseC
 import { DeactivateUserUseCase } from './use-cases/auth/DeactivateUserUseCase';
 import { UpdateOwnProfileUseCase } from './use-cases/auth/UpdateOwnProfileUseCase';
 import { ListRolesUseCase } from './use-cases/auth/ListRolesUseCase';
+import { RequestPasswordResetUseCase } from './use-cases/auth/RequestPasswordResetUseCase';
+import { ResetPasswordUseCase } from './use-cases/auth/ResetPasswordUseCase';
+import { ChangeOwnPasswordUseCase } from './use-cases/auth/ChangeOwnPasswordUseCase';
 import { GetAdminSessionsOverviewUseCase } from './use-cases/admin/GetAdminSessionsOverviewUseCase';
 import { GetAuditLogUseCase } from './use-cases/admin/GetAuditLogUseCase';
 
@@ -127,6 +131,7 @@ function buildApp() {
   const passwordHasher = new PasswordHasher();
   const tokenService = new TokenService();
   const refreshTokenStore = new RefreshTokenStore({ redisClient: redis });
+  const passwordResetTokenStore = new PasswordResetTokenStore({ redisClient: redis });
   const emailService = new EmailService();
   const qrCodeService = new QRCodeService();
   const pdfReportService = new PdfReportService();
@@ -168,6 +173,29 @@ function buildApp() {
   const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
   const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
   const listRolesUseCase = new ListRolesUseCase({ roleRepository });
+  const requestPasswordResetUseCase = new RequestPasswordResetUseCase({
+    userRepository,
+    passwordResetTokenStore,
+    refreshTokenStore,
+    emailService,
+    auditLogRepository,
+  });
+  const resetPasswordUseCase = new ResetPasswordUseCase({
+    userRepository,
+    passwordResetTokenStore,
+    refreshTokenStore,
+    passwordHasher,
+    emailService,
+    auditLogRepository,
+  });
+  const changeOwnPasswordUseCase = new ChangeOwnPasswordUseCase({
+    userRepository,
+    passwordHasher,
+    tokenService,
+    refreshTokenStore,
+    emailService,
+    auditLogRepository,
+  });
   const getAdminSessionsOverviewUseCase = new GetAdminSessionsOverviewUseCase({ sessionRepository });
   const getAuditLogUseCase = new GetAuditLogUseCase({ auditLogRepository });
 
@@ -313,6 +341,9 @@ function buildApp() {
     setSessionCookies,
     clearSessionCookies,
     csrfCheckPasses,
+    requestPasswordResetUseCase,
+    resetPasswordUseCase,
+    changeOwnPasswordUseCase,
   });
   const adminController = new AdminController({ getAdminSessionsOverviewUseCase, getAuditLogUseCase });
   const providerController = new ProviderController({

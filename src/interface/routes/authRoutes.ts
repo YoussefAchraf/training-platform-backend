@@ -178,6 +178,70 @@ export const authRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/auth/reset-password': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Complete a password reset using the token from a reset email',
+      description:
+        'Public - the token (not a session) is what authorizes this call, exactly like the survey-submission flow is authorized by knowing a session ID rather than logging in. Single-use: the token is consumed the moment this succeeds, whether or not it was already close to expiring. Revokes every refresh token the account holds and sends a confirmation email.\n',
+      security: [],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['token', 'newPassword'],
+              properties: {
+                token: { type: 'string' },
+                newPassword: { type: 'string', format: 'password', description: 'At least 10 characters, with at least one letter and one number.' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK' },
+        400: {
+          description: 'Token invalid/expired/already used, or newPassword too weak',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        429: { description: 'Rate limited' },
+      },
+    },
+  },
+  '/auth/me/password': {
+    patch: {
+      tags: ['Auth'],
+      summary: 'Change my own password',
+      description:
+        "Requires the current password even though the caller is already authenticated, so a hijacked-but-idle session can't silently take over the account. On success, every OTHER session for this account is signed out (a fresh session is issued for the device that made this call, via updated Set-Cookie headers) and a confirmation email is sent.\n",
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['currentPassword', 'newPassword'],
+              properties: {
+                currentPassword: { type: 'string', format: 'password' },
+                newPassword: { type: 'string', format: 'password', description: 'At least 10 characters, with at least one letter and one number. Must differ from currentPassword.' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK. New session cookies set via Set-Cookie.' },
+        400: {
+          description: 'Current password incorrect, newPassword too weak, or newPassword equals currentPassword',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        401: { description: 'Missing/invalid access token' },
+        429: { description: 'Rate limited' },
+      },
+    },
+  },
   '/auth/service-token': {
     get: {
       tags: ['Auth'],
@@ -282,6 +346,8 @@ export default function authRoutes({
   
   router.get('/me', optionalAuthMiddleware, authController.me);
   router.patch('/me', authMiddleware, authController.updateMe);
+  router.patch('/me/password', authMiddleware, authLimiter, authController.changePassword);
+  router.post('/reset-password', authLimiter, authController.resetPassword);
   router.get('/service-token', authMiddleware, authController.serviceToken);
   router.get('/roles', authMiddleware, authController.listRoles);
 

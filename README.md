@@ -121,6 +121,7 @@ information, gathered in one place:
 | `REDIS_URL` | Yes | Backs refresh tokens and rate limiting. `docker-compose.yml` overrides this to point at its own `redis` service with auth. |
 | `REDIS_PASSWORD` | Yes, for docker-compose | No default on purpose — required to start the `redis`/`backend` services. |
 | `REFRESH_TOKEN_TTL_DAYS` | No (default `30`) | How long a refresh token stays valid, and how long it takes an idle session to require a real login again. |
+| `PASSWORD_RESET_TOKEN_TTL_MINUTES` | No (default `60`) | How long a SuperAdmin-issued password reset link stays valid. Single-use regardless of this window - consumed the moment it's used. |
 | `TRUST_PROXY` | No (default `false`) | Set `true` behind a real reverse proxy/ingress so rate limiting sees the real client IP instead of the proxy's. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Yes | Used for every outbound email: signup notifications to managers, approval/rejection notices, instructor assignment notices, and manager notifications when a catalog record or session changes. |
 | `REPORT_JOB_CRON` | No (default `*/10 * * * *`) | How often the auto-report cron job checks for ended sessions. |
@@ -414,6 +415,8 @@ token for the separate cross-origin use case described above.
 | POST | `/auth/logout` | Any authenticated | revokes the current refresh token, clears session cookies |
 | GET | `/auth/me` | Any authenticated (optional) | the currently authenticated user, or `{ user: null }` |
 | PATCH | `/auth/me` | Any authenticated | update your own firstname/lastname, or mark the guided tour as seen (`hasSeenTour`) |
+| PATCH | `/auth/me/password` | Any authenticated | body: currentPassword, newPassword. Requires the current password, signs out every other session, emails a confirmation |
+| POST | `/auth/reset-password` | Public, rate-limited | body: token, newPassword. Completes a reset started by a SuperAdmin via `/admin/users/:id/send-password-reset`; the token is single-use |
 | GET | `/auth/service-token` | Any authenticated | mints a short-lived bearer token for cross-origin calls |
 | GET | `/auth/roles` | Any authenticated | list of `{ id, name }` — resolves a `roleId` to a display name |
 | GET | `/auth/users/pending` | Manager | the approval queue |
@@ -426,6 +429,7 @@ token for the separate cross-origin use case described above.
 | GET | `/admin/users` | SuperAdmin | every user, any status — not filtered to `approved` like other listings |
 | PATCH | `/admin/users/:id` | SuperAdmin | edit any user's profile, role, or status directly; refuses to change the role/status of the last remaining active SuperAdmin |
 | DELETE | `/admin/users/:id` | SuperAdmin | deactivate a user; same last-SuperAdmin protection |
+| POST | `/admin/users/:id/send-password-reset` | SuperAdmin | emails a single-use reset link for a Sales/Manager/Instructor account (never another SuperAdmin) and immediately signs out every session that account holds |
 | GET | `/admin/sessions` | SuperAdmin | platform-wide sessions overview, with training/client/instructor/creator names and attendee counts already joined in |
 | GET | `/admin/audit-log` | Manager (scoped) / SuperAdmin (full) | a Manager's view excludes changes to *other users'* accounts; SuperAdmin's doesn't; filterable by `entityType`/`entityId` |
 

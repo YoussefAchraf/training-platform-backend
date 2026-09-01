@@ -61,6 +61,23 @@ export const adminRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/admin/users/{id}/send-password-reset': {
+    post: {
+      tags: ['Admin'],
+      summary: "Email a password reset link for another user's account",
+      description:
+        "SuperAdmin only, and cannot target another SuperAdmin account. Sends a single-use, short-lived reset link to the account's own email and immediately revokes every refresh token that account currently holds, signing out any active sessions as a precaution. No password is ever generated or transmitted by this endpoint - the emailed link only lets the recipient set their own new one, via POST /auth/reset-password.\n",
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: { description: 'OK - email sent' },
+        400: {
+          description: 'User not found, target is a SuperAdmin, or the email failed to send',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not a SuperAdmin' },
+      },
+    },
+  },
   '/admin/sessions': {
     get: {
       tags: ['Admin'],
@@ -115,6 +132,7 @@ export default function adminRoutes({ authController, adminController, authMiddl
   router.get('/users', authMiddleware, requireRole(['SuperAdmin']), authController.listAllUsers);
   router.patch('/users/:id', authMiddleware, requireRole(['SuperAdmin']), authController.updateUserByAdmin);
   router.delete('/users/:id', authMiddleware, requireRole(['SuperAdmin']), authController.deactivateUser);
+  router.post('/users/:id/send-password-reset', authMiddleware, requireRole(['SuperAdmin']), authController.sendPasswordReset);
 
   router.get('/sessions', authMiddleware, requireRole(['SuperAdmin']), adminController.sessionsOverview);
   router.get('/audit-log', authMiddleware, requireRole(['Manager']), adminController.auditLog);
