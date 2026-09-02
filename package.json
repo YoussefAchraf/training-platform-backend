@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "prepare": "node scripts/setup-git-filters.js",
-    "build": "tsc && node -e \"const fs=require('fs'); fs.copyFileSync('src/infrastructure/database/schema.sql','dist/infrastructure/database/schema.sql')\"",
+    "build": "tsc && node -e \"const fs=require('fs'); fs.copyFileSync('src/infrastructure/database/schema.sql','dist/infrastructure/database/schema.sql'); fs.cpSync('src/infrastructure/services/emailTemplates','dist/infrastructure/services/emailTemplates',{recursive:true})\"",
     "start": "node dist/server.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
     "db:migrate": "ts-node src/infrastructure/database/migrate.ts",
@@ -25,6 +25,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
+    "ejs": "^6.0.1",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
@@ -49,6 +50,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
+    "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -84,6 +86,9 @@
     },
     "@prisma/config": {
       "deepmerge-ts": "8.0.0"
+    },
+    "prisma": {
+      "mysql2": "3.22.0"
     }
   }
 }
