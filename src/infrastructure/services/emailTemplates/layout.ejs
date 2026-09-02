@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light" />
+<meta name="supported-color-schemes" content="light" />
+<title><%= subject %></title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f5; font-family:'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <!-- Preheader: hidden preview text shown next to the subject in most inboxes -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+    <%= preheader || '' %>
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;">
+    <tr>
+      <td align="center" style="padding:40px 16px;">
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px; background-color:#ffffff; border:1px solid #e4e4e7; border-radius:16px; overflow:hidden;">
+
+          <!-- Header banner -->
+          <tr>
+            <td style="background-color:#dc2626; padding:28px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="vertical-align:middle; padding-right:12px;">
+                    <img src="cid:logo" width="36" height="36" alt="Training Platform" style="display:block; border-radius:9px;" />
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="font-family:'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:19px; font-weight:700; color:#ffffff; letter-spacing:-0.01em;">Training Platform</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding:40px;">
+              <%- content %>
+            </td>
+          </tr>
+
+        </table>
+
+        <!-- Footer, outside the card -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+          <tr>
+            <td align="center" style="padding:24px 24px 0;">
+              <p style="margin:0 0 4px; font-family:'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:12px; line-height:1.5; color:#a1a1aa;">
+                Training Platform &middot; automated message, please don&rsquo;t reply
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

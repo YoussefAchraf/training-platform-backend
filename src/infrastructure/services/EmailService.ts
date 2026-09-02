@@ -1,4 +1,9 @@
+import path from 'path';
+import ejs from 'ejs';
 import nodemailer from 'nodemailer';
+
+const TEMPLATES_DIR = path.join(__dirname, 'emailTemplates');
+const LOGO_PATH = path.join(TEMPLATES_DIR, 'assets', 'logo.png');
 
 class EmailService {
   transporter: any;
@@ -15,96 +20,119 @@ class EmailService {
     });
   }
 
+  
+  
+  
+  
+  private async renderEmail(templateName: string, subject: string, locals: Record<string, any>): Promise<string> {
+    const content = await ejs.renderFile(path.join(TEMPLATES_DIR, `${templateName}.ejs`), locals);
+    return ejs.renderFile(path.join(TEMPLATES_DIR, 'layout.ejs'), { ...locals, subject, content });
+  }
+
+  private logoAttachment() {
+    return [{ filename: 'logo.png', path: LOGO_PATH, cid: 'logo' }];
+  }
+
   async sendAccountApprovedEmail(toEmail, firstname) {
     const loginUrl = `${process.env.CLIENT_URL}/login`;
+    const subject = 'Your account has been approved';
 
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: toEmail,
-      subject: 'Your account has been approved',
-      html: `
-        <p>Hi ${firstname},</p>
-        <p>Your account has been verified and approved by a manager. You can now sign in.</p>
-        <p><a href="${loginUrl}">Click here to log in</a></p>
-      `,
+      subject,
+      html: await this.renderEmail('accountApproved', subject, {
+        firstname,
+        loginUrl,
+        preheader: 'Your account is approved - you can log in now.',
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 
   async sendAccountRejectedEmail(toEmail, firstname) {
+    const subject = 'Your account request was declined';
+
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: toEmail,
-      subject: 'Your account request was declined',
-      html: `<p>Hi ${firstname},</p><p>Your account request was not approved. Please contact your administrator for details.</p>`,
+      subject,
+      html: await this.renderEmail('accountRejected', subject, {
+        firstname,
+        preheader: 'Your account request was not approved.',
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 
-    async sendNewSignupNotification(managerEmails, newUser) {
+  async sendNewSignupNotification(managerEmails, newUser) {
     if (!managerEmails || managerEmails.length === 0) {
-      
       return;
     }
 
     const approvalsUrl = `${process.env.CLIENT_URL}/admin/pending-approvals`;
+    const subject = `New ${newUser.roleName} signup pending approval`;
 
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: managerEmails.join(','),
-      subject: `New ${newUser.roleName} signup pending approval`,
-      html: `
-        <p>A new account request needs your review:</p>
-        <ul>
-          <li><strong>Name:</strong> ${newUser.firstname} ${newUser.lastname}</li>
-          <li><strong>Email:</strong> ${newUser.email}</li>
-          <li><strong>Requested role:</strong> ${newUser.roleName}</li>
-        </ul>
-        <p><a href="${approvalsUrl}">Review pending approvals</a></p>
-      `,
+      subject,
+      html: await this.renderEmail('newSignupNotification', subject, {
+        newUser,
+        approvalsUrl,
+        preheader: `${newUser.firstname} ${newUser.lastname} requested a ${newUser.roleName} account.`,
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 
   async sendInstructorAssignedEmail(toEmail, firstname, { trainingName, startDate, sessionUrl }) {
     const when = startDate ? new Date(startDate).toLocaleString() : undefined;
+    const subject = `You've been assigned to teach ${trainingName}`;
 
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: toEmail,
-      subject: `You've been assigned to teach ${trainingName}`,
-      html: `
-        <p>Hi ${firstname},</p>
-        <p>You've been assigned to deliver <strong>${trainingName}</strong>${when ? ` on <strong>${when}</strong>` : ''}.</p>
-        <p><a href="${sessionUrl}">View the session details</a></p>
-      `,
+      subject,
+      html: await this.renderEmail('instructorAssigned', subject, {
+        firstname,
+        trainingName,
+        when,
+        sessionUrl,
+        preheader: `You're delivering ${trainingName}${when ? ` on ${when}` : ''}.`,
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 
   async sendPasswordResetEmail(toEmail, firstname, resetUrl) {
+    const subject = 'Reset your password';
+
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: toEmail,
-      subject: 'Reset your password',
-      html: `
-        <p>Hi ${firstname},</p>
-        <p>An administrator started a password reset for your account. Click the link below to
-        set a new password. This link works once and expires soon, so use it right away.</p>
-        <p><a href="${resetUrl}">Set a new password</a></p>
-        <p>If you weren't expecting this, contact your administrator - your existing sessions
-        have already been signed out as a precaution.</p>
-      `,
+      subject,
+      html: await this.renderEmail('passwordReset', subject, {
+        firstname,
+        resetUrl,
+        preheader: 'Set a new password for your Training Platform account.',
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 
   async sendPasswordChangedEmail(toEmail, firstname) {
+    const subject = 'Your password was changed';
+
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: toEmail,
-      subject: 'Your password was changed',
-      html: `
-        <p>Hi ${firstname},</p>
-        <p>This is a confirmation that your account's password was just changed. Every other
-        active session was signed out as a result.</p>
-        <p>If you didn't make this change, contact your administrator immediately.</p>
-      `,
+      subject,
+      html: await this.renderEmail('passwordChanged', subject, {
+        firstname,
+        preheader: 'Your password was just changed.',
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 
@@ -115,18 +143,21 @@ class EmailService {
 
     const ACTION_VERBS = { update: 'updated', delete: 'deleted', cancel: 'cancelled' };
     const verb = ACTION_VERBS[action] || action;
+    const subject = `${entityType} ${verb} by ${actor.firstname} ${actor.lastname}`;
 
     await this.transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: managerEmails.join(','),
-      subject: `${entityType} ${verb} by ${actor.firstname} ${actor.lastname}`,
-      html: `
-        <p><strong>${actor.firstname} ${actor.lastname}</strong> (${actor.email}) just ${verb} a ${entityType.toLowerCase()}${label ? `: <strong>${label}</strong>` : ''}.</p>
-        <ul>
-          <li><strong>Entity:</strong> ${entityType} #${entityId}</li>
-          <li><strong>Action:</strong> ${verb}</li>
-        </ul>
-      `,
+      subject,
+      html: await this.renderEmail('recordChanged', subject, {
+        actor,
+        verb,
+        entityType,
+        entityId,
+        label,
+        preheader: subject,
+      }),
+      attachments: this.logoAttachment(),
     });
   }
 }
