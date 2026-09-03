@@ -467,6 +467,7 @@ above.
 | GET | `/admin/users` | SuperAdmin | every user, any status — not filtered to `approved` like other listings |
 | PATCH | `/admin/users/:id` | SuperAdmin | edit any user's profile, role, or status directly; refuses to change the role/status of the last remaining active SuperAdmin |
 | DELETE | `/admin/users/:id` | SuperAdmin | deactivate a user; same last-SuperAdmin protection |
+| DELETE | `/admin/users/:id/purge` | SuperAdmin | **irreversible.** Permanently deletes the account row. Requires the account to already be deactivated, and refuses to target the requester's own account. Records the user created (trainings, sessions, providers, clients, feedback, announcements) are kept, just detached (`created_by`/`submitted_by` becomes null); sessions/surveys where they were the assigned instructor are unassigned, not deleted. Their footprint in the audit log is anonymized, not erased — see below |
 | POST | `/admin/users/:id/send-password-reset` | SuperAdmin | emails a single-use reset link for a Sales/Manager/Instructor account (never another SuperAdmin) and immediately signs out every session that account holds |
 | GET | `/admin/sessions` | SuperAdmin | platform-wide sessions overview, with training/client/instructor/creator names and attendee counts already joined in |
 | GET | `/admin/audit-log` | Manager (scoped) / SuperAdmin (full) | a Manager's view excludes changes to *other users'* accounts; SuperAdmin's doesn't; filterable by `entityType`/`entityId` |

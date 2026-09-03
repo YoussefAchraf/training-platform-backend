@@ -101,4 +101,32 @@ describe('PgAuditLogRepository (Prisma, real database)', () => {
     });
     expect(after.some((r) => r.entityId === 4)).toBe(false);
   });
+
+  it('redactUserEntries flags actor rows as actor_deleted and scrubs name/email from User-entity snapshots', async () => {
+    const actedOnByThemselves = await repository.create({
+      actorId: testUserId,
+      action: 'create',
+      entityType: 'User',
+      entityId: testUserId,
+      before: null,
+      after: { id: testUserId, firstname: 'Audit', lastname: 'Tester', email: 'audit@example.com', status: 'pending' },
+    });
+    const actedByThemOnSomethingElse = await repository.create({
+      actorId: testUserId,
+      action: 'create',
+      entityType: marker,
+      entityId: 5,
+    });
+
+    await repository.redactUserEntries(testUserId);
+
+    const own = await prismaClient.audit_log.findUniqueOrThrow({ where: { id: actedOnByThemselves.id } });
+    expect(own.after).toEqual({ id: testUserId, firstname: '[deleted]', lastname: '[deleted]', email: '[deleted]', status: 'pending' });
+    expect(own.actor_deleted).toBe(true);
+
+    const other = await prismaClient.audit_log.findUniqueOrThrow({ where: { id: actedByThemOnSomethingElse.id } });
+    expect(other.actor_deleted).toBe(true);
+
+    await prismaClient.audit_log.deleteMany({ where: { entity_type: 'User', entity_id: testUserId } });
+  });
 });

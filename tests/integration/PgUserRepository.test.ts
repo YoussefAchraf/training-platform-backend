@@ -103,4 +103,38 @@ describe('PgUserRepository (Prisma, real database)', () => {
     expect(all.find((u) => u.id === superAdmin.id)).toBeDefined();
     expect(all.find((u) => u.id === userId)).toBeDefined();
   });
+
+  it('hardDelete removes the row and detaches (not deletes) records they created', async () => {
+    const salesRole = await prismaClient.roles.findUniqueOrThrow({ where: { name: 'Sales' } });
+    const doomed = await prismaClient.users.create({
+      data: {
+        firstname: 'Doomed',
+        lastname: 'User',
+        email: `${marker}-doomed@example.com`,
+        password_hash: 'x',
+        role_id: salesRole.id,
+        status: 'deactivated',
+      },
+    });
+
+    const provider = await prismaClient.providers.create({
+      data: { name: `${marker}-provider`, created_by: doomed.id },
+    });
+    const auditRow = await prismaClient.audit_log.create({
+      data: { actor_id: doomed.id, action: 'create', entity_type: marker, entity_id: 1 },
+    });
+
+    await repo.hardDelete(doomed.id);
+
+    expect(await repo.findById(doomed.id)).toBeNull();
+
+    const providerAfter = await prismaClient.providers.findUniqueOrThrow({ where: { id: provider.id } });
+    expect(providerAfter.created_by).toBeNull();
+
+    const auditRowAfter = await prismaClient.audit_log.findUniqueOrThrow({ where: { id: auditRow.id } });
+    expect(auditRowAfter.actor_id).toBeNull();
+
+    await prismaClient.providers.deleteMany({ where: { id: provider.id } });
+    await prismaClient.audit_log.deleteMany({ where: { entity_type: marker } });
+  });
 });

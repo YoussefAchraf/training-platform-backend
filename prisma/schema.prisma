@@ -16,15 +16,16 @@ datasource db {
 }
 
 model audit_log {
-  id          Int      @id @default(autoincrement())
-  actor_id    Int?
-  action      String   @db.VarChar(40)
-  entity_type String   @db.VarChar(50)
-  entity_id   Int
-  before      Json?
-  after       Json?
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  users       users?   @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id            Int      @id @default(autoincrement())
+  actor_id      Int?
+  action        String   @db.VarChar(40)
+  entity_type   String   @db.VarChar(50)
+  entity_id     Int
+  before        Json?
+  after         Json?
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  actor_deleted Boolean  @default(false)
+  users         users?   @relation(fields: [actor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([created_at], map: "idx_audit_log_created_at")
   @@index([entity_type, entity_id], map: "idx_audit_log_entity")
@@ -49,7 +50,7 @@ model clients {
   created_at        DateTime            @default(now()) @db.Timestamptz(6)
   updated_at        DateTime            @default(now()) @db.Timestamptz(6)
   deleted_at        DateTime?           @db.Timestamptz(6)
-  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   training_sessions training_sessions[]
 
   @@index([id], map: "idx_clients_active", where: raw("(deleted_at IS NULL)"))
@@ -57,12 +58,12 @@ model clients {
 
 model feature_announcements {
   id                            Int                             @id @default(autoincrement())
-  created_by                    Int
+  created_by                    Int?
   title                         String                          @db.VarChar(150)
   description                   String
   target_roles                  Json
   created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
-  users                         users                           @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                         users?                          @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   feature_announcement_ratings  feature_announcement_ratings[]
 
   @@index([created_at], map: "idx_feature_announcements_created_at")
@@ -83,11 +84,11 @@ model feature_announcement_ratings {
 
 model feedback_reports {
   id            Int               @id @default(autoincrement())
-  submitted_by  Int
+  submitted_by  Int?
   category      feedback_category
   message       String
   created_at    DateTime          @default(now()) @db.Timestamptz(6)
-  users         users             @relation(fields: [submitted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users         users?            @relation(fields: [submitted_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([submitted_by], map: "idx_feedback_reports_submitted_by")
   @@index([created_at], map: "idx_feedback_reports_created_at")
@@ -123,7 +124,7 @@ model providers {
   updated_at  DateTime    @default(now()) @db.Timestamptz(6)
   deleted_at  DateTime?   @db.Timestamptz(6)
   logo_url    String?     @db.VarChar(500)
-  users       users?      @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users       users?      @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   trainings   trainings[]
 
   @@index([id], map: "idx_providers_active", where: raw("(deleted_at IS NULL)"))
@@ -175,14 +176,14 @@ model session_attendees {
 model surveys {
   id                Int                @id @default(autoincrement())
   session_id        Int
-  instructor_id     Int
+  instructor_id     Int?
   attendee_id       Int?
   instructor_score  Int
   nps_score         Int
   comments          String?
   submitted_at      DateTime           @default(now()) @db.Timestamptz(6)
   session_attendees session_attendees? @relation(fields: [attendee_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  instructors       instructors        @relation(fields: [instructor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  instructors       instructors?       @relation(fields: [instructor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   training_sessions training_sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([session_id], map: "idx_surveys_session")
@@ -209,8 +210,8 @@ model training_sessions {
   session_attendees session_attendees[]
   surveys           surveys[]
   clients           clients             @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users             users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  instructors       instructors?        @relation(fields: [instructor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?              @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  instructors       instructors?        @relation(fields: [instructor_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
   trainings         trainings           @relation(fields: [training_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([instructor_id], map: "idx_sessions_instructor")
@@ -231,7 +232,7 @@ model trainings {
   deleted_at        DateTime?               @db.Timestamptz(6)
   instructor_skills instructor_skills[]
   training_sessions training_sessions[]
-  users             users?                  @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users?                  @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   providers         providers               @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([id], map: "idx_trainings_active", where: raw("(deleted_at IS NULL)"))
@@ -260,7 +261,7 @@ model users {
   push_subscriptions push_subscriptions[]
   training_sessions  training_sessions[]
   trainings          trainings[]
-  users              users?               @relation("usersTousers", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              users?               @relation("usersTousers", fields: [approved_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   other_users        users[]              @relation("usersTousers")
   roles              roles                @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }

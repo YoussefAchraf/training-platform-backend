@@ -271,6 +271,7 @@ const definition = {
           id: { type: 'integer', example: 1 },
           actorId: { type: 'integer' },
           actorName: { type: 'string', example: 'Jane Doe' },
+          actorDeleted: { type: 'boolean', description: 'True if the actor was a real user whose account has since been permanently deleted (actorId/actorName are null because of this, not because it was an automated/system action).' },
           action: { type: 'string', example: 'update' },
           entityType: { type: 'string', example: 'Provider' },
           entityId: { type: 'integer' },

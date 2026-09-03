@@ -1,12 +1,29 @@
 import { AuditLogEntry } from '../../domain/entities/AuditLogEntry';
 import { IAuditLogRepository } from '../../domain/interfaces/IAuditLogRepository';
 
+const REDACTED_USER_FIELDS = ['firstname', 'lastname', 'email'];
+const REDACTED = '[deleted]';
+
+
+
+
+
+function redactUserFields(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  const redacted = { ...snapshot };
+  for (const field of REDACTED_USER_FIELDS) {
+    if (field in redacted) redacted[field] = REDACTED;
+  }
+  return redacted;
+}
+
 function mapRow(row) {
   if (!row) return null;
   return new AuditLogEntry({
     id: row.id,
     actorId: row.actor_id,
     actorName: row.actor_name,
+    actorDeleted: row.actor_deleted,
     action: row.action,
     entityType: row.entity_type,
     entityId: row.entity_id,
@@ -65,6 +82,37 @@ class PgAuditLogRepository extends IAuditLogRepository {
         actor_name: row.users ? `${row.users.firstname} ${row.users.lastname}` : null,
       })
     );
+  }
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  async redactUserEntries(userId) {
+    await this.prisma.audit_log.updateMany({
+      where: { actor_id: userId },
+      data: { actor_deleted: true },
+    });
+
+    const userEntries = await this.prisma.audit_log.findMany({
+      where: { entity_type: 'User', entity_id: userId },
+    });
+
+    for (const entry of userEntries) {
+      await this.prisma.audit_log.update({
+        where: { id: entry.id },
+        data: {
+          before: redactUserFields(entry.before),
+          after: redactUserFields(entry.after),
+        },
+      });
+    }
   }
 }
 

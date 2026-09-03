@@ -274,3 +274,51 @@ CREATE INDEX IF NOT EXISTS idx_feedback_reports_submitted_by ON feedback_reports
 CREATE INDEX IF NOT EXISTS idx_feedback_reports_created_at ON feedback_reports(created_at);
 CREATE INDEX IF NOT EXISTS idx_feature_announcements_created_at ON feature_announcements(created_at);
 CREATE INDEX IF NOT EXISTS idx_feature_announcement_ratings_announcement ON feature_announcement_ratings(announcement_id);
+
+
+
+
+
+
+
+
+
+ALTER TABLE feedback_reports ALTER COLUMN submitted_by DROP NOT NULL;
+ALTER TABLE feature_announcements ALTER COLUMN created_by DROP NOT NULL;
+ALTER TABLE surveys ALTER COLUMN instructor_id DROP NOT NULL;
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_approved_by_fkey;
+ALTER TABLE users ADD CONSTRAINT users_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE providers DROP CONSTRAINT IF EXISTS providers_created_by_fkey;
+ALTER TABLE providers ADD CONSTRAINT providers_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE trainings DROP CONSTRAINT IF EXISTS trainings_created_by_fkey;
+ALTER TABLE trainings ADD CONSTRAINT trainings_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE clients DROP CONSTRAINT IF EXISTS clients_created_by_fkey;
+ALTER TABLE clients ADD CONSTRAINT clients_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_created_by_fkey;
+ALTER TABLE training_sessions ADD CONSTRAINT training_sessions_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_sessions_instructor_id_fkey;
+ALTER TABLE training_sessions ADD CONSTRAINT training_sessions_instructor_id_fkey FOREIGN KEY (instructor_id) REFERENCES instructors(id) ON DELETE SET NULL;
+
+ALTER TABLE surveys DROP CONSTRAINT IF EXISTS surveys_instructor_id_fkey;
+ALTER TABLE surveys ADD CONSTRAINT surveys_instructor_id_fkey FOREIGN KEY (instructor_id) REFERENCES instructors(id) ON DELETE SET NULL;
+
+ALTER TABLE feedback_reports DROP CONSTRAINT IF EXISTS feedback_reports_submitted_by_fkey;
+ALTER TABLE feedback_reports ADD CONSTRAINT feedback_reports_submitted_by_fkey FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE feature_announcements DROP CONSTRAINT IF EXISTS feature_announcements_created_by_fkey;
+ALTER TABLE feature_announcements ADD CONSTRAINT feature_announcements_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE audit_log DROP CONSTRAINT IF EXISTS audit_log_actor_id_fkey;
+ALTER TABLE audit_log ADD CONSTRAINT audit_log_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL;
+
+
+
+
+
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS actor_deleted BOOLEAN NOT NULL DEFAULT false;

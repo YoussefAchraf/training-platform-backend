@@ -127,6 +127,14 @@ class PgUserRepository extends IUserRepository {
   async countActiveSuperAdmins() {
     return this.prisma.users.count({ where: { status: 'approved', roles: { name: 'SuperAdmin' } } });
   }
+
+  
+  
+  
+  
+  async hardDelete(userId) {
+    await this.prisma.users.delete({ where: { id: userId } });
+  }
 }
 
 export { PgUserRepository };

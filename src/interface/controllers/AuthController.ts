@@ -8,6 +8,7 @@ class AuthController {
   listAllUsersUseCase: any;
   updateUserByAdminUseCase: any;
   deactivateUserUseCase: any;
+  hardDeleteUserUseCase: any;
   updateOwnProfileUseCase: any;
   tokenService: any;
   listRolesUseCase: any;
@@ -28,6 +29,7 @@ class AuthController {
     listAllUsersUseCase,
     updateUserByAdminUseCase,
     deactivateUserUseCase,
+    hardDeleteUserUseCase,
     updateOwnProfileUseCase,
     tokenService,
     listRolesUseCase,
@@ -47,6 +49,7 @@ class AuthController {
     this.listAllUsersUseCase = listAllUsersUseCase;
     this.updateUserByAdminUseCase = updateUserByAdminUseCase;
     this.deactivateUserUseCase = deactivateUserUseCase;
+    this.hardDeleteUserUseCase = hardDeleteUserUseCase;
     this.updateOwnProfileUseCase = updateOwnProfileUseCase;
     this.tokenService = tokenService;
     this.listRolesUseCase = listRolesUseCase;
@@ -252,6 +255,18 @@ class AuthController {
         targetUserId: Number(req.params.id),
       });
       res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  hardDeleteUser = async (req, res) => {
+    try {
+      const result = await this.hardDeleteUserUseCase.execute({
+        requester: req.user,
+        targetUserId: Number(req.params.id),
+      });
+      res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
