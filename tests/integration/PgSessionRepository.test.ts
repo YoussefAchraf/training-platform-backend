@@ -92,6 +92,38 @@ describe('PgSessionRepository (Prisma, real database)', () => {
     const noneYet = await repo.listEndedWithoutReport(120);
     expect(noneYet.map((s) => s.id)).not.toContain(sessionId);
   });
+
+  it('listNeeding24hReminder/listNeeding1hReminder find an upcoming scheduled session, and marking it sent excludes it afterwards', async () => {
+    const startsIn30Min = new Date(Date.now() + 30 * 60000);
+    const upcoming = await repo.create({
+      trainingId,
+      clientId,
+      startDate: startsIn30Min,
+      endDate: new Date(startsIn30Min.getTime() + 60 * 60000),
+      createdBy: userId,
+    });
+
+    try {
+      const in24h = await repo.listNeeding24hReminder();
+      expect(in24h.map((s) => s.id)).toContain(upcoming.id);
+      const in1h = await repo.listNeeding1hReminder();
+      expect(in1h.map((s) => s.id)).toContain(upcoming.id);
+
+      await repo.markReminder1hSent(upcoming.id);
+      const in1hAfterMark = await repo.listNeeding1hReminder();
+      expect(in1hAfterMark.map((s) => s.id)).not.toContain(upcoming.id);
+      
+      
+      const in24hAfterMark = await repo.listNeeding24hReminder();
+      expect(in24hAfterMark.map((s) => s.id)).toContain(upcoming.id);
+
+      await repo.markReminder24hSent(upcoming.id);
+      const in24hAfterBothMarked = await repo.listNeeding24hReminder();
+      expect(in24hAfterBothMarked.map((s) => s.id)).not.toContain(upcoming.id);
+    } finally {
+      await prismaClient.training_sessions.deleteMany({ where: { id: upcoming.id } });
+    }
+  });
 });
 
 describe('scheduling guards and attendance (PgSessionRepository)', () => {

@@ -202,6 +202,8 @@ model training_sessions {
   created_by        Int?
   created_at        DateTime            @default(now()) @db.Timestamptz(6)
   updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  reminder_24h_sent_at DateTime?        @db.Timestamptz(6)
+  reminder_1h_sent_at  DateTime?        @db.Timestamptz(6)
   calendar          calendar[]
   reports           reports?
   session_attendees session_attendees[]
@@ -213,6 +215,7 @@ model training_sessions {
 
   @@index([instructor_id], map: "idx_sessions_instructor")
   @@index([session_status], map: "idx_sessions_status")
+  @@index([start_date], map: "idx_sessions_start_date")
 }
 
 model trainings {

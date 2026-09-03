@@ -266,6 +266,10 @@ ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS include_weekends BOOLEAN 
 
 ALTER TABLE audit_log ALTER COLUMN action TYPE VARCHAR(40);
 
+ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS reminder_24h_sent_at TIMESTAMPTZ;
+ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS reminder_1h_sent_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_sessions_start_date ON training_sessions(start_date);
+
 CREATE INDEX IF NOT EXISTS idx_feedback_reports_submitted_by ON feedback_reports(submitted_by);
 CREATE INDEX IF NOT EXISTS idx_feedback_reports_created_at ON feedback_reports(created_at);
 CREATE INDEX IF NOT EXISTS idx_feature_announcements_created_at ON feature_announcements(created_at);
