@@ -1,7 +1,9 @@
 import { adminRoutesDocs } from '../interface/routes/adminRoutes';
+import { announcementRoutesDocs } from '../interface/routes/announcementRoutes';
 import { authRoutesDocs } from '../interface/routes/authRoutes';
 import { calendarRoutesDocs } from '../interface/routes/calendarRoutes';
 import { clientRoutesDocs } from '../interface/routes/clientRoutes';
+import { feedbackRoutesDocs } from '../interface/routes/feedbackRoutes';
 import { instructorRoutesDocs } from '../interface/routes/instructorRoutes';
 import { providerRoutesDocs } from '../interface/routes/providerRoutes';
 import { pushRoutesDocs } from '../interface/routes/pushRoutes';
@@ -12,9 +14,11 @@ import { trainingRoutesDocs } from '../interface/routes/trainingRoutes';
 
 const paths = {
   ...adminRoutesDocs,
+  ...announcementRoutesDocs,
   ...authRoutesDocs,
   ...calendarRoutesDocs,
   ...clientRoutesDocs,
+  ...feedbackRoutesDocs,
   ...instructorRoutesDocs,
   ...providerRoutesDocs,
   ...pushRoutesDocs,
@@ -48,6 +52,8 @@ const definition = {
     { name: 'Reports' },
     { name: 'Admin' },
     { name: 'Push' },
+    { name: 'Feedback' },
+    { name: 'Announcements' },
   ],
   components: {
     securitySchemes: {
@@ -306,6 +312,55 @@ const definition = {
           attendeeSurveysSubmitted: { type: 'integer' },
           hasReport: { type: 'boolean' },
         },
+      },
+      FeedbackReport: {
+        type: 'object',
+        description: 'A bug report / enhancement idea / other message submitted to the Developer, with the submitter joined in.',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          submittedBy: { type: 'integer' },
+          submitterName: { type: 'string', example: 'Jane Doe' },
+          submitterEmail: { type: 'string', example: 'jane.doe@example.com' },
+          submitterRole: { type: 'string', example: 'Sales' },
+          category: { type: 'string', enum: ['bug', 'enhancement', 'other'] },
+          message: { type: 'string' },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      FeatureAnnouncement: {
+        type: 'object',
+        description: 'A feature/enhancement published by the Developer to one or more roles.',
+        properties: {
+          id: { type: 'integer', example: 1 },
+          createdBy: { type: 'integer' },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          targetRoles: { type: 'array', items: { type: 'string', enum: ['Sales', 'Manager', 'Instructor', 'SuperAdmin'] } },
+          createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      FeatureAnnouncementWithRatings: {
+        allOf: [
+          { $ref: '#/components/schemas/FeatureAnnouncement' },
+          {
+            type: 'object',
+            properties: {
+              overallAverageStars: { type: 'number', nullable: true, example: 4.25 },
+              overallRatingCount: { type: 'integer', example: 8 },
+              byRole: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    role: { type: 'string', example: 'Sales' },
+                    averageStars: { type: 'number', example: 4.5 },
+                    ratingCount: { type: 'integer', example: 4 },
+                  },
+                },
+              },
+            },
+          },
+        ],
       },
     },
   },

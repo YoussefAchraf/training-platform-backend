@@ -109,7 +109,7 @@ describe('LoginUseCase', () => {
     expect(refreshTokenStore.issue).toHaveBeenCalledWith(1);
   });
 
-  it('rejects a SuperAdmin with the same generic message when excludeRole is set (regular login page)', async () => {
+  it('rejects a SuperAdmin with the same generic message when excludeRoles is set (regular login page)', async () => {
     const userRepository = {
       findByEmail: jest.fn().mockResolvedValue(buildUser({ roleName: 'SuperAdmin' })),
     };
@@ -121,8 +121,60 @@ describe('LoginUseCase', () => {
     });
 
     await expect(
-      useCase.execute({ email: 'jane@example.com', password: 'correct', excludeRole: 'SuperAdmin' })
+      useCase.execute({ email: 'jane@example.com', password: 'correct', excludeRoles: ['SuperAdmin', 'Developer'] })
     ).rejects.toThrow('Invalid credentials');
+  });
+
+  it('rejects a Developer with the same generic message when excludeRoles is set (regular login page)', async () => {
+    const userRepository = {
+      findByEmail: jest.fn().mockResolvedValue(buildUser({ roleName: 'Developer' })),
+    };
+    const useCase = new LoginUseCase({
+      userRepository,
+      passwordHasher: { compare: jest.fn().mockResolvedValue(true) },
+      tokenService: { signAccessToken: jest.fn() },
+      refreshTokenStore: { issue: jest.fn() },
+    });
+
+    await expect(
+      useCase.execute({ email: 'jane@example.com', password: 'correct', excludeRoles: ['SuperAdmin', 'Developer'] })
+    ).rejects.toThrow('Invalid credentials');
+  });
+
+  it('rejects a non-Developer with the same generic message when requireRole is set (developer login page)', async () => {
+    const userRepository = { findByEmail: jest.fn().mockResolvedValue(buildUser({ roleName: 'Sales' })) };
+    const useCase = new LoginUseCase({
+      userRepository,
+      passwordHasher: { compare: jest.fn().mockResolvedValue(true) },
+      tokenService: { signAccessToken: jest.fn() },
+      refreshTokenStore: { issue: jest.fn() },
+    });
+
+    await expect(
+      useCase.execute({ email: 'jane@example.com', password: 'correct', requireRole: 'Developer' })
+    ).rejects.toThrow('Invalid credentials');
+  });
+
+  it('allows a Developer through when requireRole is set (developer login page)', async () => {
+    const userRepository = {
+      findByEmail: jest.fn().mockResolvedValue(buildUser({ roleName: 'Developer' })),
+    };
+    const tokenService = { signAccessToken: jest.fn().mockReturnValue('signed-jwt') };
+    const refreshTokenStore = { issue: jest.fn().mockResolvedValue('opaque-refresh-token') };
+    const useCase = new LoginUseCase({
+      userRepository,
+      passwordHasher: { compare: jest.fn().mockResolvedValue(true) },
+      tokenService,
+      refreshTokenStore,
+    });
+
+    const result = await useCase.execute({
+      email: 'jane@example.com',
+      password: 'correct',
+      requireRole: 'Developer',
+    });
+
+    expect(result.accessToken).toBe('signed-jwt');
   });
 
   it('rejects a non-SuperAdmin with the same generic message when requireRole is set (admin login page)', async () => {
