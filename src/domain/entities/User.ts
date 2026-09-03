@@ -3,6 +3,7 @@ const ROLES = Object.freeze({
   MANAGER: 'Manager',
   INSTRUCTOR: 'Instructor',
   SUPER_ADMIN: 'SuperAdmin',
+  DEVELOPER: 'Developer',
 });
 
 
@@ -82,6 +83,10 @@ class User {
 
   isSuperAdmin() {
     return this.roleName === ROLES.SUPER_ADMIN;
+  }
+
+  isDeveloper() {
+    return this.roleName === ROLES.DEVELOPER;
   }
 
   canManageCatalog() {

@@ -17,8 +17,8 @@ describe('PgRoleRepository (Prisma, real database)', () => {
     const roles = await repository.listAll();
 
     const names = roles.map((r) => r.name);
-    expect(names).toEqual(expect.arrayContaining(['Sales', 'Manager', 'Instructor', 'SuperAdmin']));
-    expect(roles.length).toBe(4);
+    expect(names).toEqual(expect.arrayContaining(['Sales', 'Manager', 'Instructor', 'SuperAdmin', 'Developer']));
+    expect(roles.length).toBe(5);
 
     const ids = roles.map((r) => r.id);
     expect(ids).toEqual([...ids].sort((a, b) => a - b));

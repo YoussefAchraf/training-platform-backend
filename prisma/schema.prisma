@@ -55,6 +55,44 @@ model clients {
   @@index([id], map: "idx_clients_active", where: raw("(deleted_at IS NULL)"))
 }
 
+model feature_announcements {
+  id                            Int                             @id @default(autoincrement())
+  created_by                    Int
+  title                         String                          @db.VarChar(150)
+  description                   String
+  target_roles                  Json
+  created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
+  users                         users                           @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  feature_announcement_ratings  feature_announcement_ratings[]
+
+  @@index([created_at], map: "idx_feature_announcements_created_at")
+}
+
+model feature_announcement_ratings {
+  id                     Int                    @id @default(autoincrement())
+  announcement_id        Int
+  user_id                Int
+  stars                  Int
+  created_at             DateTime               @default(now()) @db.Timestamptz(6)
+  feature_announcements  feature_announcements  @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                  users                  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([announcement_id, user_id])
+  @@index([announcement_id], map: "idx_feature_announcement_ratings_announcement")
+}
+
+model feedback_reports {
+  id            Int               @id @default(autoincrement())
+  submitted_by  Int
+  category      feedback_category
+  message       String
+  created_at    DateTime          @default(now()) @db.Timestamptz(6)
+  users         users             @relation(fields: [submitted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([submitted_by], map: "idx_feedback_reports_submitted_by")
+  @@index([created_at], map: "idx_feedback_reports_created_at")
+}
+
 model instructor_skills {
   instructor_id Int
   training_id   Int
@@ -211,6 +249,9 @@ model users {
   updated_at         DateTime             @default(now()) @db.Timestamptz(6)
   audit_log          audit_log[]
   clients            clients[]
+  feature_announcements         feature_announcements[]
+  feature_announcement_ratings  feature_announcement_ratings[]
+  feedback_reports   feedback_reports[]
   instructors        instructors?
   providers          providers[]
   push_subscriptions push_subscriptions[]
@@ -232,6 +273,12 @@ enum attendance_status {
   pending
   present
   absent
+}
+
+enum feedback_category {
+  bug
+  enhancement
+  other
 }
 
 enum session_status {

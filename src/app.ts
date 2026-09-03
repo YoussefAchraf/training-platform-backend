@@ -30,6 +30,8 @@ import { PgReportRepository } from './infrastructure/repositories/PgReportReposi
 import { PgAuditLogRepository } from './infrastructure/repositories/PgAuditLogRepository';
 import { PgRoleRepository } from './infrastructure/repositories/PgRoleRepository';
 import { PgPushSubscriptionRepository } from './infrastructure/repositories/PgPushSubscriptionRepository';
+import { PgFeedbackRepository } from './infrastructure/repositories/PgFeedbackRepository';
+import { PgFeatureAnnouncementRepository } from './infrastructure/repositories/PgFeatureAnnouncementRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -95,6 +97,13 @@ import { SubmitSurveyUseCase } from './use-cases/surveys/SubmitSurveyUseCase';
 import { SubscribeToPushUseCase } from './use-cases/push/SubscribeToPushUseCase';
 import { UnsubscribeFromPushUseCase } from './use-cases/push/UnsubscribeFromPushUseCase';
 
+import { SubmitFeedbackReportUseCase } from './use-cases/feedback/SubmitFeedbackReportUseCase';
+import { ListFeedbackReportsUseCase } from './use-cases/feedback/ListFeedbackReportsUseCase';
+import { CreateFeatureAnnouncementUseCase } from './use-cases/announcements/CreateFeatureAnnouncementUseCase';
+import { ListFeatureAnnouncementsUseCase } from './use-cases/announcements/ListFeatureAnnouncementsUseCase';
+import { ListMyPendingAnnouncementsUseCase } from './use-cases/announcements/ListMyPendingAnnouncementsUseCase';
+import { RateFeatureAnnouncementUseCase } from './use-cases/announcements/RateFeatureAnnouncementUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
 import { ProviderController } from './interface/controllers/ProviderController';
@@ -106,6 +115,8 @@ import { CalendarController } from './interface/controllers/CalendarController';
 import { ReportController } from './interface/controllers/ReportController';
 import { SurveyController } from './interface/controllers/SurveyController';
 import { PushController } from './interface/controllers/PushController';
+import { FeedbackController } from './interface/controllers/FeedbackController';
+import { AnnouncementController } from './interface/controllers/AnnouncementController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
@@ -126,6 +137,8 @@ import calendarRoutes from './interface/routes/calendarRoutes';
 import reportRoutes from './interface/routes/reportRoutes';
 import surveyRoutes from './interface/routes/surveyRoutes';
 import pushRoutes from './interface/routes/pushRoutes';
+import feedbackRoutes from './interface/routes/feedbackRoutes';
+import announcementRoutes from './interface/routes/announcementRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
@@ -150,6 +163,8 @@ function buildApp() {
   const auditLogRepository = new PgAuditLogRepository(prismaClient);
   const roleRepository = new PgRoleRepository(prismaClient);
   const pushSubscriptionRepository = new PgPushSubscriptionRepository(prismaClient);
+  const feedbackRepository = new PgFeedbackRepository(prismaClient);
+  const announcementRepository = new PgFeatureAnnouncementRepository(prismaClient);
 
   const signupUseCase = new SignupUseCase({
     userRepository,
@@ -325,6 +340,13 @@ function buildApp() {
   const subscribeToPushUseCase = new SubscribeToPushUseCase({ pushSubscriptionRepository, webPushService });
   const unsubscribeFromPushUseCase = new UnsubscribeFromPushUseCase({ pushSubscriptionRepository });
 
+  const submitFeedbackReportUseCase = new SubmitFeedbackReportUseCase({ feedbackRepository });
+  const listFeedbackReportsUseCase = new ListFeedbackReportsUseCase({ feedbackRepository });
+  const createFeatureAnnouncementUseCase = new CreateFeatureAnnouncementUseCase({ announcementRepository });
+  const listFeatureAnnouncementsUseCase = new ListFeatureAnnouncementsUseCase({ announcementRepository });
+  const listMyPendingAnnouncementsUseCase = new ListMyPendingAnnouncementsUseCase({ announcementRepository });
+  const rateFeatureAnnouncementUseCase = new RateFeatureAnnouncementUseCase({ announcementRepository });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -396,6 +418,13 @@ function buildApp() {
     submitSurveyUseCase,
   });
   const pushController = new PushController({ subscribeToPushUseCase, unsubscribeFromPushUseCase });
+  const feedbackController = new FeedbackController({ submitFeedbackReportUseCase, listFeedbackReportsUseCase });
+  const announcementController = new AnnouncementController({
+    createFeatureAnnouncementUseCase,
+    listFeatureAnnouncementsUseCase,
+    listMyPendingAnnouncementsUseCase,
+    rateFeatureAnnouncementUseCase,
+  });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
   const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
@@ -423,6 +452,13 @@ function buildApp() {
     limit: 5,
     message: 'Too many admin login attempts, please try again later.',
     prefix: 'admin-login',
+  });
+  const developerLoginLimiter = createRateLimiter({
+    redisClient: redis,
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    message: 'Too many developer login attempts, please try again later.',
+    prefix: 'developer-login',
   });
 
   const app = express();
@@ -452,7 +488,15 @@ function buildApp() {
 
   app.use(
     '/auth',
-    authRoutes({ authController, authMiddleware, optionalAuthMiddleware, requireRole, authLimiter, adminLoginLimiter }),
+    authRoutes({
+      authController,
+      authMiddleware,
+      optionalAuthMiddleware,
+      requireRole,
+      authLimiter,
+      adminLoginLimiter,
+      developerLoginLimiter,
+    }),
   );
   app.use('/admin', adminRoutes({ authController, adminController, authMiddleware, requireRole }));
   app.use('/providers', providerRoutes({ providerController, authMiddleware, requireRole }));
@@ -464,6 +508,8 @@ function buildApp() {
   app.use('/reports', reportRoutes({ reportController, authMiddleware, requireRole }));
   app.use('/survey', surveyRoutes({ surveyController, authMiddleware, requireRole }));
   app.use('/push', pushRoutes({ pushController, authMiddleware }));
+  app.use('/feedback', feedbackRoutes({ feedbackController, authMiddleware, requireRole }));
+  app.use('/announcements', announcementRoutes({ announcementController, authMiddleware, requireRole }));
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {

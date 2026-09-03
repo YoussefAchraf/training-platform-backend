@@ -12,6 +12,7 @@
     "db:migrate": "ts-node src/infrastructure/database/migrate.ts",
     "db:provision-roles": "ts-node scripts/provisionDbRoles.ts",
     "db:seed-superadmin": "ts-node scripts/seedSuperAdmin.ts",
+    "db:seed-developer": "ts-node scripts/seedDeveloper.ts",
     "docs:export": "ts-node scripts/exportSwagger.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
