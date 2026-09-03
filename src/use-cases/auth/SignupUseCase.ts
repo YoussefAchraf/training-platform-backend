@@ -7,13 +7,25 @@ class SignupUseCase {
   passwordHasher: any;
   emailService: any;
   auditLogRepository: any;
+  pushSubscriptionRepository: any;
+  webPushService: any;
 
-  constructor({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository }) {
+  constructor({
+    userRepository,
+    instructorRepository,
+    passwordHasher,
+    emailService,
+    auditLogRepository,
+    pushSubscriptionRepository,
+    webPushService,
+  }) {
     this.userRepository = userRepository;
     this.instructorRepository = instructorRepository;
     this.passwordHasher = passwordHasher;
     this.emailService = emailService;
     this.auditLogRepository = auditLogRepository;
+    this.pushSubscriptionRepository = pushSubscriptionRepository;
+    this.webPushService = webPushService;
   }
 
   async execute({ firstname, lastname, email, password, role }) {
@@ -69,11 +81,34 @@ class SignupUseCase {
         managers.map((m) => m.email),
         { firstname: user.firstname, lastname: user.lastname, email: user.email, roleName: role }
       );
+      await Promise.all(managers.map((manager) => this.notifyManager(manager, user, role)));
     } catch (err) {
       console.error('Failed to send new-signup notification:', err.message);
     }
 
     return user.toSafeJSON();
+  }
+
+  // Same send-and-prune pattern as AssignInstructorUseCase.notifyInstructor -
+  // one push per subscribed device, pruning any the push service reports as
+  // expired.
+  async notifyManager(manager: any, newUser: any, role: string) {
+    const subscriptions = await this.pushSubscriptionRepository.listByUserId(manager.id);
+    await Promise.all(
+      subscriptions.map((subscription) =>
+        this.webPushService
+          .send(subscription, {
+            title: 'New signup pending approval',
+            body: `${newUser.firstname} ${newUser.lastname} signed up as ${role}.`,
+            url: '/admin/pending-approvals',
+          })
+          .catch((err: any) => {
+            if (err.expired) {
+              return this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, manager.id);
+            }
+          })
+      )
+    );
   }
 }
 

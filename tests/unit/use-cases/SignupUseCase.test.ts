@@ -23,49 +23,53 @@ function buildRepos(overrides: Record<string, any> = {}) {
     passwordHasher: { hash: jest.fn().mockResolvedValue('hashed-password'), ...overrides.passwordHasher },
     emailService: { sendNewSignupNotification: jest.fn(), ...overrides.emailService },
     auditLogRepository: { create: jest.fn(), ...overrides.auditLogRepository },
+    pushSubscriptionRepository: {
+      listByUserId: jest.fn().mockResolvedValue([]),
+      deleteByEndpointForUser: jest.fn().mockResolvedValue(undefined),
+      ...overrides.pushSubscriptionRepository,
+    },
+    webPushService: { send: jest.fn().mockResolvedValue(undefined), ...overrides.webPushService },
     createdUser,
   };
 }
 
 describe('SignupUseCase', () => {
   it('rejects an unknown role before touching any repository', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos();
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos();
+    const useCase = new SignupUseCase(repos);
 
     await expect(
       useCase.execute({ firstname: 'A', lastname: 'B', email: 'a@b.com', password: 'x', role: 'NotARole' })
     ).rejects.toThrow('role must be one of');
 
-    expect(userRepository.findByEmail).not.toHaveBeenCalled();
+    expect(repos.userRepository.findByEmail).not.toHaveBeenCalled();
   });
 
   it('rejects SuperAdmin as a self-signup role - it is a real ROLES value but not self-signup-able', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos();
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos();
+    const useCase = new SignupUseCase(repos);
 
     await expect(
       useCase.execute({ firstname: 'A', lastname: 'B', email: 'a@b.com', password: 'x', role: 'SuperAdmin' })
     ).rejects.toThrow('role must be one of');
 
-    expect(userRepository.findByEmail).not.toHaveBeenCalled();
+    expect(repos.userRepository.findByEmail).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed email address before touching any repository', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos();
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos();
+    const useCase = new SignupUseCase(repos);
 
     await expect(
       useCase.execute({ firstname: 'A', lastname: 'B', email: 'not-an-email', password: 'x', role: 'Sales' })
     ).rejects.toThrow('valid email');
 
-    expect(userRepository.findByEmail).not.toHaveBeenCalled();
+    expect(repos.userRepository.findByEmail).not.toHaveBeenCalled();
   });
 
   it('rejects a duplicate email', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos({
-      userRepository: { findByEmail: jest.fn().mockResolvedValue({ id: 1 }) },
-    });
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos({ userRepository: { findByEmail: jest.fn().mockResolvedValue({ id: 1 }) } });
+    const useCase = new SignupUseCase(repos);
 
     await expect(
       useCase.execute({ firstname: 'A', lastname: 'B', email: 'a@b.com', password: 'x', role: 'Sales' })
@@ -73,9 +77,8 @@ describe('SignupUseCase', () => {
   });
 
   it('writes an audit log entry attributed to the newly created user', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository, createdUser } =
-      buildRepos();
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos();
+    const useCase = new SignupUseCase(repos);
 
     await useCase.execute({
       firstname: 'Jane',
@@ -85,19 +88,19 @@ describe('SignupUseCase', () => {
       role: 'Sales',
     });
 
-    expect(auditLogRepository.create).toHaveBeenCalledWith({
-      actorId: createdUser.id,
+    expect(repos.auditLogRepository.create).toHaveBeenCalledWith({
+      actorId: repos.createdUser.id,
       action: 'create',
       entityType: 'User',
-      entityId: createdUser.id,
-      after: createdUser.toSafeJSON(),
+      entityId: repos.createdUser.id,
+      after: repos.createdUser.toSafeJSON(),
     });
-    expect(instructorRepository.create).not.toHaveBeenCalled();
+    expect(repos.instructorRepository.create).not.toHaveBeenCalled();
   });
 
   it('also creates an instructor profile when signing up as Instructor', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository } = buildRepos();
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos();
+    const useCase = new SignupUseCase(repos);
 
     await useCase.execute({
       firstname: 'Jane',
@@ -107,19 +110,96 @@ describe('SignupUseCase', () => {
       role: 'Instructor',
     });
 
-    expect(instructorRepository.create).toHaveBeenCalledWith({ userId: 10, bio: '' });
+    expect(repos.instructorRepository.create).toHaveBeenCalledWith({ userId: 10, bio: '' });
   });
 
   it('still returns the created user even if sending the new-signup notification fails', async () => {
-    const { userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository, createdUser } =
-      buildRepos({
-        userRepository: { listApprovedManagers: jest.fn().mockResolvedValue([{ email: 'manager@example.com' }]) },
-        emailService: { sendNewSignupNotification: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')) },
-      });
-    const useCase = new SignupUseCase({ userRepository, instructorRepository, passwordHasher, emailService, auditLogRepository });
+    const repos = buildRepos({
+      userRepository: { listApprovedManagers: jest.fn().mockResolvedValue([{ id: 7, email: 'manager@example.com' }]) },
+      emailService: { sendNewSignupNotification: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED')) },
+    });
+    const useCase = new SignupUseCase(repos);
 
     await expect(
       useCase.execute({ firstname: 'Jane', lastname: 'Doe', email: 'jane@example.com', password: 'password123', role: 'Sales' })
-    ).resolves.toEqual(createdUser.toSafeJSON());
+    ).resolves.toEqual(repos.createdUser.toSafeJSON());
+  });
+
+  describe('notifying approved managers', () => {
+    it('sends a push notification to every device every approved manager is subscribed on', async () => {
+      const repos = buildRepos({
+        userRepository: {
+          listApprovedManagers: jest.fn().mockResolvedValue([
+            { id: 7, email: 'manager-a@example.com' },
+            { id: 8, email: 'manager-b@example.com' },
+          ]),
+        },
+        pushSubscriptionRepository: {
+          listByUserId: jest.fn((userId: number) =>
+            Promise.resolve(
+              userId === 7
+                ? [{ endpoint: 'https://push.example/a', p256dh: 'k', auth: 'a' }]
+                : [{ endpoint: 'https://push.example/b', p256dh: 'k', auth: 'a' }]
+            )
+          ),
+        },
+      });
+      const useCase = new SignupUseCase(repos);
+
+      await useCase.execute({
+        firstname: 'Jane',
+        lastname: 'Doe',
+        email: 'jane@example.com',
+        password: 'password123',
+        role: 'Sales',
+      });
+
+      expect(repos.pushSubscriptionRepository.listByUserId).toHaveBeenCalledWith(7);
+      expect(repos.pushSubscriptionRepository.listByUserId).toHaveBeenCalledWith(8);
+      expect(repos.webPushService.send).toHaveBeenCalledTimes(2);
+      expect(repos.webPushService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ endpoint: 'https://push.example/a' }),
+        expect.objectContaining({
+          title: expect.any(String),
+          body: expect.stringContaining('Jane Doe'),
+          url: '/admin/pending-approvals',
+        }),
+      );
+    });
+
+    it('cleans up an expired push subscription without throwing', async () => {
+      const repos = buildRepos({
+        userRepository: { listApprovedManagers: jest.fn().mockResolvedValue([{ id: 7, email: 'manager@example.com' }]) },
+        pushSubscriptionRepository: {
+          listByUserId: jest.fn().mockResolvedValue([{ endpoint: 'https://push.example/a', p256dh: 'k', auth: 'a' }]),
+        },
+        webPushService: { send: jest.fn().mockRejectedValue(Object.assign(new Error('gone'), { expired: true })) },
+      });
+      const useCase = new SignupUseCase(repos);
+
+      await expect(
+        useCase.execute({ firstname: 'Jane', lastname: 'Doe', email: 'jane@example.com', password: 'password123', role: 'Sales' })
+      ).resolves.toEqual(repos.createdUser.toSafeJSON());
+      expect(repos.pushSubscriptionRepository.deleteByEndpointForUser).toHaveBeenCalledWith(
+        'https://push.example/a',
+        7,
+      );
+    });
+
+    it('sends no push at all when there are no approved managers', async () => {
+      const repos = buildRepos();
+      const useCase = new SignupUseCase(repos);
+
+      await useCase.execute({
+        firstname: 'Jane',
+        lastname: 'Doe',
+        email: 'jane@example.com',
+        password: 'password123',
+        role: 'Sales',
+      });
+
+      expect(repos.pushSubscriptionRepository.listByUserId).not.toHaveBeenCalled();
+      expect(repos.webPushService.send).not.toHaveBeenCalled();
+    });
   });
 });
