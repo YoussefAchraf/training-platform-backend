@@ -43,6 +43,7 @@ import { LogoutUseCase } from './use-cases/auth/LogoutUseCase';
 import { ListAllUsersUseCase } from './use-cases/auth/ListAllUsersUseCase';
 import { UpdateUserByAdminUseCase } from './use-cases/auth/UpdateUserByAdminUseCase';
 import { DeactivateUserUseCase } from './use-cases/auth/DeactivateUserUseCase';
+import { HardDeleteUserUseCase } from './use-cases/auth/HardDeleteUserUseCase';
 import { UpdateOwnProfileUseCase } from './use-cases/auth/UpdateOwnProfileUseCase';
 import { ListRolesUseCase } from './use-cases/auth/ListRolesUseCase';
 import { RequestPasswordResetUseCase } from './use-cases/auth/RequestPasswordResetUseCase';
@@ -190,6 +191,7 @@ function buildApp() {
   const listAllUsersUseCase = new ListAllUsersUseCase({ userRepository });
   const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
   const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
+  const hardDeleteUserUseCase = new HardDeleteUserUseCase({ userRepository, auditLogRepository });
   const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
   const listRolesUseCase = new ListRolesUseCase({ roleRepository });
   const requestPasswordResetUseCase = new RequestPasswordResetUseCase({
@@ -368,6 +370,7 @@ function buildApp() {
     listAllUsersUseCase,
     updateUserByAdminUseCase,
     deactivateUserUseCase,
+    hardDeleteUserUseCase,
     updateOwnProfileUseCase,
     tokenService,
     listRolesUseCase,

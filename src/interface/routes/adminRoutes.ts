@@ -61,6 +61,23 @@ export const adminRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/admin/users/{id}/purge': {
+    delete: {
+      tags: ['Admin'],
+      summary: 'Permanently delete a user',
+      description:
+        "SuperAdmin only. Irreversible - unlike DELETE /admin/users/{id} (which only deactivates), this removes the account row entirely. Requires the account to already be deactivated first, and refuses to target the requester's own account. Trainings/sessions/providers/clients/feedback/announcements this user created are kept, just detached (created_by/submitted_by becomes null) - business records aren't deleted. If they were an assigned Instructor, sessions/surveys referencing them are unassigned (instructor_id becomes null), not deleted. This user's audit log footprint is anonymized rather than deleted: entries where they were the actor now show as from a deleted user instead of System, and entries about their own account (signup, approval, edits) have their name/email scrubbed - the audit trail itself is preserved.\n",
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { id: { type: 'integer' }, deleted: { type: 'boolean' } } } } } },
+        400: {
+          description: 'User not found, not yet deactivated, or is the requester\'s own account',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        403: { description: 'Not a SuperAdmin' },
+      },
+    },
+  },
   '/admin/users/{id}/send-password-reset': {
     post: {
       tags: ['Admin'],
@@ -132,6 +149,7 @@ export default function adminRoutes({ authController, adminController, authMiddl
   router.get('/users', authMiddleware, requireRole(['SuperAdmin']), authController.listAllUsers);
   router.patch('/users/:id', authMiddleware, requireRole(['SuperAdmin']), authController.updateUserByAdmin);
   router.delete('/users/:id', authMiddleware, requireRole(['SuperAdmin']), authController.deactivateUser);
+  router.delete('/users/:id/purge', authMiddleware, requireRole(['SuperAdmin']), authController.hardDeleteUser);
   router.post('/users/:id/send-password-reset', authMiddleware, requireRole(['SuperAdmin']), authController.sendPasswordReset);
 
   router.get('/sessions', authMiddleware, requireRole(['SuperAdmin']), adminController.sessionsOverview);
