@@ -141,6 +141,7 @@ information, gathered in one place:
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Yes | Used for every outbound email: signup notifications to managers, approval/rejection notices, instructor assignment notices, and manager notifications when a catalog record or session changes. |
 | `REPORT_JOB_CRON` | No (default `*/10 * * * *`) | How often the auto-report cron job checks for ended sessions. |
 | `REPORT_AUTO_GENERATE_AFTER_MINUTES` | No (default `60`) | How long after a session ends, with no report yet, before one gets generated automatically. |
+| `SESSION_REMINDER_JOB_CRON` | No (default `*/10 * * * *`) | How often the upcoming-session reminder cron job checks for sessions needing their 24h/1h push reminder. |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Yes, for push notifications | Generate a real pair with `npx web-push generate-vapid-keys`. The public key is also needed by the frontend; only the private key is a real secret. Without these set, push sends are simply skipped rather than failing anything. |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` / `SUPERADMIN_FIRSTNAME` / `SUPERADMIN_LASTNAME` | Only for `db:seed-superadmin` | Never read by the running server itself — only by that one bootstrap script. |
 | `DEVELOPER_EMAIL` / `DEVELOPER_PASSWORD` / `DEVELOPER_FIRSTNAME` / `DEVELOPER_LASTNAME` | Only for `db:seed-developer` | Never read by the running server itself — only by that one bootstrap script. |
@@ -539,6 +540,16 @@ for sessions ended more than `REPORT_AUTO_GENERATE_AFTER_MINUTES`
 | POST | `/push/subscribe` | Any authenticated | body: endpoint, keys (p256dh, auth) — a standard Web Push subscription object |
 | POST | `/push/unsubscribe` | Any authenticated | body: endpoint |
 
+Two kinds of business event push a notification today, both reusing the same
+send-and-prune pattern (`webPushService.send(...)`, deleting the subscription
+on an expired-endpoint error): assigning an instructor to a session (instant,
+see `AssignInstructorUseCase`), and `SessionReminderSchedulerService` — a
+`node-cron` job (`SESSION_REMINDER_JOB_CRON`, default every 10 minutes) that
+sends a one-time reminder 24h and again 1h before a scheduled session starts,
+to the assigned instructor and whoever created the session (`created_by`).
+Each reminder fires exactly once per session, tracked via the
+`reminder_24h_sent_at`/`reminder_1h_sent_at` columns on `training_sessions`.
+
 ## API documentation (Swagger / OpenAPI)
 
 Interactive docs at `GET /api-docs` (Swagger UI); the raw spec at
@@ -587,7 +598,7 @@ Two independent channels, used together for the events that matter most:
 |---|---|---|
 | `src/domain/` | Entities (`User`, `TrainingSession`, ...) and repository interfaces (`I*Repository`). | Zero imports from anywhere else in the codebase — the one directory `eslint-plugin-boundaries` allows nothing but itself to be imported from here. This is what makes the domain layer genuinely framework-agnostic (see the Quarkus section below). |
 | `src/use-cases/` | One class per business action, named for what it does (`CreateSessionUseCase`, `SubmitSurveyUseCase`, ...), constructed with the repository interfaces it needs. | The actual business logic lives here, not in controllers — a controller's job is translating HTTP into a use-case call and a use-case's result back into HTTP, nothing more. |
-| `src/infrastructure/` | Concrete `Pg*Repository` classes (one per domain repository interface, all Prisma-backed), `PasswordHasher`/`TokenService`/`RefreshTokenStore` (security), `EmailService`/`QRCodeService`/`PdfReportService`/`WebPushService`/`AttendeeFileParserService`/`ReportSchedulerService`. | Everything that talks to the outside world (Postgres, Redis, SMTP, a push service, the filesystem, the clock) lives here, behind an interface the domain owns. |
+| `src/infrastructure/` | Concrete `Pg*Repository` classes (one per domain repository interface, all Prisma-backed), `PasswordHasher`/`TokenService`/`RefreshTokenStore` (security), `EmailService`/`QRCodeService`/`PdfReportService`/`WebPushService`/`AttendeeFileParserService`/`ReportSchedulerService`/`SessionReminderSchedulerService`. | Everything that talks to the outside world (Postgres, Redis, SMTP, a push service, the filesystem, the clock) lives here, behind an interface the domain owns. |
 | `src/interface/` | Express controllers, routes, and middleware (`authMiddleware`, `roleMiddleware`, `rateLimitMiddleware`, `sanitizeMiddleware`, `uploadMiddleware`). | The HTTP-facing edge — the only layer that knows Express exists. |
 | `src/docs/` | `swaggerDefinition.ts`, which collects each route file's own exported documentation object. | Kept as its own boundary type in the lint config specifically so documentation assembly can't accidentally become a place business logic leaks into — it's allowed to import from `interface` and nothing else. |
 | `src/generated/prisma/` | The generated Prisma Client, built from `prisma/schema.prisma`. | Never hand-edited — regenerated by `npx prisma generate`, which runs automatically as part of the Docker build and CI setup. Only `infrastructure` is allowed to import from it. |

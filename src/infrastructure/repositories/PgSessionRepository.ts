@@ -199,6 +199,47 @@ class PgSessionRepository extends ISessionRepository {
     return rows.map(mapRow);
   }
 
+  
+  
+  
+  async listNeeding24hReminder() {
+    const rows = await this.prisma.training_sessions.findMany({
+      where: {
+        session_status: 'scheduled',
+        reminder_24h_sent_at: null,
+        start_date: { gt: new Date(), lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      },
+      orderBy: { start_date: 'asc' },
+    });
+    return rows.map(mapRow);
+  }
+
+  async listNeeding1hReminder() {
+    const rows = await this.prisma.training_sessions.findMany({
+      where: {
+        session_status: 'scheduled',
+        reminder_1h_sent_at: null,
+        start_date: { gt: new Date(), lte: new Date(Date.now() + 60 * 60 * 1000) },
+      },
+      orderBy: { start_date: 'asc' },
+    });
+    return rows.map(mapRow);
+  }
+
+  async markReminder24hSent(sessionId) {
+    await this.prisma.training_sessions.updateMany({
+      where: { id: sessionId },
+      data: { reminder_24h_sent_at: new Date() },
+    });
+  }
+
+  async markReminder1hSent(sessionId) {
+    await this.prisma.training_sessions.updateMany({
+      where: { id: sessionId },
+      data: { reminder_1h_sent_at: new Date() },
+    });
+  }
+
   async addAttendee(sessionId, attendee) {
     const row = await this.prisma.session_attendees.create({
       data: { session_id: sessionId, name: attendee.name, email: attendee.email || null },

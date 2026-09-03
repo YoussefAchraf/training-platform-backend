@@ -13,6 +13,7 @@ import { PasswordResetTokenStore } from './infrastructure/security/PasswordReset
 
 import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
+import { SessionReminderSchedulerService } from './infrastructure/services/SessionReminderSchedulerService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
@@ -79,6 +80,7 @@ import { BulkImportAttendeesUseCase } from './use-cases/sessions/BulkImportAtten
 import { MarkAttendanceUseCase } from './use-cases/sessions/MarkAttendanceUseCase';
 import { UpdateAttendeeUseCase } from './use-cases/sessions/UpdateAttendeeUseCase';
 import { DeleteAttendeeUseCase } from './use-cases/sessions/DeleteAttendeeUseCase';
+import { SendUpcomingSessionRemindersUseCase } from './use-cases/sessions/SendUpcomingSessionRemindersUseCase';
 
 import {
   ListGlobalCalendarUseCase,
@@ -305,6 +307,13 @@ function buildApp() {
   const markAttendanceUseCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
   const updateAttendeeUseCase = new UpdateAttendeeUseCase({ sessionRepository });
   const deleteAttendeeUseCase = new DeleteAttendeeUseCase({ sessionRepository });
+  const sendUpcomingSessionRemindersUseCase = new SendUpcomingSessionRemindersUseCase({
+    sessionRepository,
+    trainingRepository,
+    instructorRepository,
+    pushSubscriptionRepository,
+    webPushService,
+  });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
   const updateGlobalCalendarUseCase = new UpdateGlobalCalendarUseCase({ calendarRepository });
@@ -518,8 +527,9 @@ function buildApp() {
   });
 
   const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase });
+  const sessionReminderScheduler = new SessionReminderSchedulerService({ sendUpcomingSessionRemindersUseCase });
 
-  return { app, reportScheduler };
+  return { app, reportScheduler, sessionReminderScheduler };
 }
 
 export { buildApp };
