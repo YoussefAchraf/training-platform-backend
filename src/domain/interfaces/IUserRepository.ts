@@ -11,6 +11,7 @@ class IUserRepository {
   async listAll(): Promise<any> { notImplemented('IUserRepository', 'listAll'); }
   async update(userId, fields): Promise<any> { notImplemented('IUserRepository', 'update'); }
   async countActiveSuperAdmins(): Promise<any> { notImplemented('IUserRepository', 'countActiveSuperAdmins'); }
+  async hardDelete(userId): Promise<any> { notImplemented('IUserRepository', 'hardDelete'); }
 }
 
 export { IUserRepository };
