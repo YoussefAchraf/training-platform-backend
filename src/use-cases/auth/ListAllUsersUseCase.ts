@@ -11,7 +11,11 @@ class ListAllUsersUseCase {
     }
 
     const users = await this.userRepository.listAll();
-    return users.map((u) => u.toSafeJSON());
+    
+    
+    
+    
+    return users.filter((u) => !u.isDeveloper()).map((u) => u.toSafeJSON());
   }
 }
 

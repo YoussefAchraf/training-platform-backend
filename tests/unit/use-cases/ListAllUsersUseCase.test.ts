@@ -18,8 +18,8 @@ describe('ListAllUsersUseCase', () => {
 
   it('returns every user in safe JSON form for a SuperAdmin', async () => {
     const users = [
-      { toSafeJSON: () => ({ id: 1, status: 'pending' }) },
-      { toSafeJSON: () => ({ id: 2, status: 'deactivated' }) },
+      { isDeveloper: () => false, toSafeJSON: () => ({ id: 1, status: 'pending' }) },
+      { isDeveloper: () => false, toSafeJSON: () => ({ id: 2, status: 'deactivated' }) },
     ];
     const userRepository = { listAll: jest.fn().mockResolvedValue(users) };
     const useCase = new ListAllUsersUseCase({ userRepository });
@@ -27,5 +27,18 @@ describe('ListAllUsersUseCase', () => {
     const result = await useCase.execute({ requester: buildRequester({ isSuperAdmin: () => true }) });
 
     expect(result).toEqual([{ id: 1, status: 'pending' }, { id: 2, status: 'deactivated' }]);
+  });
+
+  it('excludes Developer accounts - a separate, script-only silo', async () => {
+    const users = [
+      { isDeveloper: () => false, toSafeJSON: () => ({ id: 1, status: 'approved' }) },
+      { isDeveloper: () => true, toSafeJSON: () => ({ id: 2, status: 'approved' }) },
+    ];
+    const userRepository = { listAll: jest.fn().mockResolvedValue(users) };
+    const useCase = new ListAllUsersUseCase({ userRepository });
+
+    const result = await useCase.execute({ requester: buildRequester({ isSuperAdmin: () => true }) });
+
+    expect(result).toEqual([{ id: 1, status: 'approved' }]);
   });
 });
