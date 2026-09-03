@@ -30,6 +30,12 @@ EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
+DO $$ BEGIN
+    CREATE TYPE feedback_category AS ENUM ('bug', 'enhancement', 'other');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE TABLE IF NOT EXISTS roles (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(50) UNIQUE NOT NULL
@@ -182,8 +188,34 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS feedback_reports (
+    id            SERIAL PRIMARY KEY,
+    submitted_by  INTEGER NOT NULL REFERENCES users(id),
+    category      feedback_category NOT NULL,
+    message       TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor'), ('SuperAdmin')
+CREATE TABLE IF NOT EXISTS feature_announcements (
+    id            SERIAL PRIMARY KEY,
+    created_by    INTEGER NOT NULL REFERENCES users(id),
+    title         VARCHAR(150) NOT NULL,
+    description   TEXT NOT NULL,
+    target_roles  JSONB NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS feature_announcement_ratings (
+    id                SERIAL PRIMARY KEY,
+    announcement_id   INTEGER NOT NULL REFERENCES feature_announcements(id) ON DELETE CASCADE,
+    user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stars             INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (announcement_id, user_id)
+);
+
+
+INSERT INTO roles (name) VALUES ('Sales'), ('Manager'), ('Instructor'), ('SuperAdmin'), ('Developer')
 ON CONFLICT (name) DO NOTHING;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_instructor ON training_sessions(instructor_id);
@@ -233,3 +265,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAUL
 ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS include_weekends BOOLEAN NOT NULL DEFAULT false;
 
 ALTER TABLE audit_log ALTER COLUMN action TYPE VARCHAR(40);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_submitted_by ON feedback_reports(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_feedback_reports_created_at ON feedback_reports(created_at);
+CREATE INDEX IF NOT EXISTS idx_feature_announcements_created_at ON feature_announcements(created_at);
+CREATE INDEX IF NOT EXISTS idx_feature_announcement_ratings_announcement ON feature_announcement_ratings(announcement_id);

@@ -22,7 +22,7 @@ class LoginUseCase {
   
   
   
-  async execute({ email, password, requireRole, excludeRole }: { email: any; password: any; requireRole?: string; excludeRole?: string }) {
+  async execute({ email, password, requireRole, excludeRoles }: { email: any; password: any; requireRole?: string; excludeRoles?: string[] }) {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
       throw new Error('Invalid credentials');
@@ -36,7 +36,7 @@ class LoginUseCase {
     if (requireRole && user.roleName !== requireRole) {
       throw new Error('Invalid credentials');
     }
-    if (excludeRole && user.roleName === excludeRole) {
+    if (excludeRoles && excludeRoles.includes(user.roleName)) {
       throw new Error('Invalid credentials');
     }
 

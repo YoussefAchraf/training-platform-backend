@@ -68,6 +68,17 @@ what each of them needs to do:
 - A **SuperAdmin** sees and can touch everything: every user regardless
   of role or status, a platform-wide sessions overview, and the complete
   unscoped audit log.
+- A **Developer** is a separate, narrowly-scoped account (own login route,
+  own account-creation script, no bypass of other roles' checks) that only
+  receives feedback reports from the other four roles and publishes feature
+  announcements to them. Sales/Manager/Instructor/SuperAdmin each get a
+  feedback form (bug report / enhancement idea / other) that lands in the
+  Developer's inbox with the submitter's name, email, and role already
+  attached; the Developer can publish a short title + description to one or
+  more of those roles, and every targeted user is shown it once — with a
+  mandatory 1-5 star rating — the next time they use the app. The Developer
+  dashboard shows each announcement's overall average and a per-role
+  breakdown of who rated it and how.
 
 Nothing in this system is a frontend concern bleeding into the backend —
 this is a pure API. Whatever consumes it (a web app, initially) is a
@@ -103,6 +114,10 @@ problem:
   'approved' WHERE email = '...'` (or promote via a SuperAdmin once one
   exists).
 
+A **Developer** account follows the exact same out-of-band pattern:
+`npm run db:seed-developer` reads `DEVELOPER_*` from `.env` and creates one
+directly — again, the only way, with no API route for it. Safe to re-run.
+
 ## Environment variables
 
 Every value below is already documented with a comment in `.env.example`
@@ -128,6 +143,7 @@ information, gathered in one place:
 | `REPORT_AUTO_GENERATE_AFTER_MINUTES` | No (default `60`) | How long after a session ends, with no report yet, before one gets generated automatically. |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Yes, for push notifications | Generate a real pair with `npx web-push generate-vapid-keys`. The public key is also needed by the frontend; only the private key is a real secret. Without these set, push sends are simply skipped rather than failing anything. |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` / `SUPERADMIN_FIRSTNAME` / `SUPERADMIN_LASTNAME` | Only for `db:seed-superadmin` | Never read by the running server itself — only by that one bootstrap script. |
+| `DEVELOPER_EMAIL` / `DEVELOPER_PASSWORD` / `DEVELOPER_FIRSTNAME` / `DEVELOPER_LASTNAME` | Only for `db:seed-developer` | Never read by the running server itself — only by that one bootstrap script. |
 
 ## Architecture
 
@@ -316,7 +332,8 @@ bootstrap superuser before anything else.
 Tables: `roles`, `users`, `providers`, `trainings`, `clients`,
 `instructors`, `instructor_skills`, `training_sessions`,
 `session_attendees`, `calendar`, `surveys`, `reports`, `audit_log`,
-`push_subscriptions`.
+`push_subscriptions`, `feedback_reports`, `feature_announcements`,
+`feature_announcement_ratings`.
 
 The shape mirrors the domain model directly — `training_sessions`
 references a training, a client, and (once assigned) an instructor;
@@ -375,7 +392,11 @@ audit log endpoints actually query.
   globally** (`roleMiddleware.ts` checks `req.user.isSuperAdmin()` first,
   before checking the route's actual allowed-roles list) — a SuperAdmin
   passes any role gate in the system by design, not by being explicitly
-  listed on every route.
+  listed on every route. **`Developer` gets no such bypass** — it's a
+  deliberately narrow role, explicitly listed on only the routes it needs
+  (`/feedback`, `/announcements`) and enforced again inside each of those
+  use-cases (`requester.isDeveloper()`), so it can never reach anything a
+  SuperAdmin can.
 - **Every request body is sanitized** (`sanitizeMiddleware`, right after
   `express.json()`): strings are trimmed and stripped of HTML/script
   content before any controller or use case ever sees them — except
@@ -400,17 +421,19 @@ audit log endpoints actually query.
 
 ## API reference
 
-A session cookie (set by `/auth/login`, `/auth/admin-login`, or
-refreshed via `/auth/refresh`) is required on every route below except
-where marked **Public**. `GET /auth/service-token` issues a bearer
-token for the separate cross-origin use case described above.
+A session cookie (set by `/auth/login`, `/auth/admin-login`,
+`/auth/developer-login`, or refreshed via `/auth/refresh`) is required on
+every route below except where marked **Public**. `GET /auth/service-token`
+issues a bearer token for the separate cross-origin use case described
+above.
 
 ### Auth (`/auth`)
 | Method | Path | Access | Notes |
 |---|---|---|---|
 | POST | `/auth/signup` | Public, rate-limited | body: firstname, lastname, email, password, role (Sales\|Manager\|Instructor). Always starts `status: pending`; notifies every approved Manager by email. |
-| POST | `/auth/login` | Public, rate-limited | Sales/Manager/Instructor only — sets session cookies |
+| POST | `/auth/login` | Public, rate-limited | Sales/Manager/Instructor only — SuperAdmin and Developer are both rejected here with the same generic "Invalid credentials" message a wrong password would get, so neither account's existence is revealed. Sets session cookies |
 | POST | `/auth/admin-login` | Public, tightly rate-limited | SuperAdmin only — same cookies, much stricter rate limit |
+| POST | `/auth/developer-login` | Public, tightly rate-limited | Developer only — same cookies, much stricter rate limit |
 | POST | `/auth/refresh` | Public, rate-limited | rotates the session using the httpOnly refresh cookie; requires the CSRF header |
 | POST | `/auth/logout` | Any authenticated | revokes the current refresh token, clears session cookies |
 | GET | `/auth/me` | Any authenticated (optional) | the currently authenticated user, or `{ user: null }` |
@@ -422,6 +445,20 @@ token for the separate cross-origin use case described above.
 | GET | `/auth/users/pending` | Manager | the approval queue |
 | POST | `/auth/users/:id/approve` | Manager | sends an approval email |
 | POST | `/auth/users/:id/reject` | Manager | sends a rejection email, revokes every refresh token that user holds |
+
+### Feedback (`/feedback`)
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/feedback` | Sales, Manager, Instructor, SuperAdmin | body: category (bug\|enhancement\|other), message |
+| GET | `/feedback` | Developer | every report ever submitted, newest first, with the submitter's name/email/role already joined in |
+
+### Announcements (`/announcements`)
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/announcements` | Developer | body: title, description, targetRoles (any of Sales\|Manager\|Instructor\|SuperAdmin). Publishes immediately — there is no draft state |
+| GET | `/announcements` | Developer | every published announcement, with its overall average rating and a per-role breakdown |
+| GET | `/announcements/mine` | Sales, Manager, Instructor, SuperAdmin | announcements targeted at my role that I haven't rated yet, oldest first, limited to what was published since my account was created — drives the mandatory rating popup |
+| PATCH | `/announcements/:id/rate` | Sales, Manager, Instructor, SuperAdmin | body: stars (1-5). Idempotent — rating again updates the existing rating |
 
 ### Admin (`/admin`) — SuperAdmin only, except where noted
 | Method | Path | Access | Notes |
@@ -560,6 +597,7 @@ Two independent channels, used together for the events that matter most:
 | `prisma/schema.prisma` + `prisma.config.ts` | The Prisma schema mirroring `schema.sql`, and Prisma's own connection/config file. | What `npx prisma generate` reads to produce the typed client every repository queries through. |
 | `scripts/provisionDbRoles.ts` | Idempotently creates the `app_migrator` and `app_runtime` Postgres roles and grants each exactly the privileges it needs. | Run once per database, before `db:migrate` ever points at it with the runtime role — see [The database](#the-database) above. |
 | `scripts/seedSuperAdmin.ts` | The *only* way a SuperAdmin account can ever be created — reads `SUPERADMIN_*` from `.env`, refuses to run with a password under 12 characters, no-ops safely if that email already exists. | Deliberately out-of-band: there is no API route that can create a SuperAdmin, on purpose, so that capability can never be reached over HTTP by anyone, ever. |
+| `scripts/seedDeveloper.ts` | The *only* way a Developer account can ever be created — reads `DEVELOPER_*` from `.env`, same 12-character-minimum and already-exists no-op behavior as `seedSuperAdmin.ts`. | Same rationale, mirrored for the Developer role: no API route can create one, so it can never be reached over HTTP by anyone. |
 | `scripts/exportSwagger.ts` | Writes the live OpenAPI spec to `docs/openapi.json`/`.yaml` on disk. | For consumers that want a static file rather than hitting `/api-docs.json` on a running server. |
 | `scripts/setup-git-filters.js` + `scripts/strip-comments.js` + `.gitattributes` | A `prepare` script (runs automatically on `npm install`) that registers a git **clean filter**: every `.ts`/`.js`/`.yml`/`.sql`/`Dockerfile`/etc. has its comments stripped out at the moment it's staged/committed. | A genuinely distinctive, easy-to-miss repo convention worth knowing about explicitly: comments you write locally are real and stay in your working tree, but they never make it into a git commit. This is why some files in this repo have oddly empty-looking gaps where a comment clearly used to explain something — that's not a formatting accident, it's this filter doing exactly what it's configured to do. It's also why this repository's API documentation lives in exported TypeScript objects rather than JSDoc comments: a comment-based approach would have its content silently stripped by this exact filter the moment it's committed. |
 | `ecosystem.config.js` | PM2 process config — one instance, fork mode, auto-restart, 300MB memory-restart threshold. | See the Docker section below for why PM2 specifically. |

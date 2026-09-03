@@ -111,6 +111,41 @@ export const authRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/auth/developer-login': {
+    post: {
+      tags: ['Auth'],
+      summary: 'Log in as Developer',
+      description:
+        'Only succeeds for Developer accounts - a correct password for a non-Developer account is rejected with the same "Invalid credentials" message a wrong password would produce. Subject to a much stricter, dedicated rate limit than /auth/login. Sets the same session cookies as /auth/login on success.\n',
+      security: [],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['email', 'password'],
+              properties: {
+                email: { type: 'string', format: 'email' },
+                password: { type: 'string', format: 'password' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: 'OK. Session cookies set via Set-Cookie.',
+          content: { 'application/json': { schema: { type: 'object', properties: { user: { $ref: '#/components/schemas/User' } } } } },
+        },
+        401: {
+          description: 'Invalid credentials, non-Developer account, pending, or rejected account',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+        429: { description: 'Rate limited (much lower threshold than /auth/login)' },
+      },
+    },
+  },
   '/auth/refresh': {
     post: {
       tags: ['Auth'],
@@ -333,12 +368,14 @@ export default function authRoutes({
   requireRole,
   authLimiter,
   adminLoginLimiter,
+  developerLoginLimiter,
 }) {
   const router = Router();
 
   router.post('/signup', authLimiter, authController.signup);
   router.post('/login', authLimiter, authController.login);
   router.post('/admin-login', adminLoginLimiter, authController.adminLogin);
+  router.post('/developer-login', developerLoginLimiter, authController.developerLogin);
   router.post('/refresh', authLimiter, authController.refresh);
   router.post('/logout', authMiddleware, authController.logout);
   

@@ -78,7 +78,7 @@ class AuthController {
       const { accessToken, refreshToken, user } = await this.loginUseCase.execute({
         email,
         password,
-        excludeRole: 'SuperAdmin',
+        excludeRoles: ['SuperAdmin', 'Developer'],
       });
       this.setSessionCookies(res, { accessToken, refreshToken });
       res.status(200).json({ user });
@@ -94,6 +94,21 @@ class AuthController {
         email,
         password,
         requireRole: 'SuperAdmin',
+      });
+      this.setSessionCookies(res, { accessToken, refreshToken });
+      res.status(200).json({ user });
+    } catch (err) {
+      res.status(401).json({ error: err.message });
+    }
+  };
+
+  developerLogin = async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const { accessToken, refreshToken, user } = await this.loginUseCase.execute({
+        email,
+        password,
+        requireRole: 'Developer',
       });
       this.setSessionCookies(res, { accessToken, refreshToken });
       res.status(200).json({ user });
