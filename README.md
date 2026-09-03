@@ -431,7 +431,7 @@ above.
 ### Auth (`/auth`)
 | Method | Path | Access | Notes |
 |---|---|---|---|
-| POST | `/auth/signup` | Public, rate-limited | body: firstname, lastname, email, password, role (Sales\|Manager\|Instructor). Always starts `status: pending`; notifies every approved Manager by email. |
+| POST | `/auth/signup` | Public, rate-limited | body: firstname, lastname, email, password, role (Sales\|Manager\|Instructor). Always starts `status: pending`; notifies every approved Manager by email and, for any subscribed device, push. |
 | POST | `/auth/login` | Public, rate-limited | Sales/Manager/Instructor only — SuperAdmin and Developer are both rejected here with the same generic "Invalid credentials" message a wrong password would get, so neither account's existence is revealed. Sets session cookies |
 | POST | `/auth/admin-login` | Public, tightly rate-limited | SuperAdmin only — same cookies, much stricter rate limit |
 | POST | `/auth/developer-login` | Public, tightly rate-limited | Developer only — same cookies, much stricter rate limit |
@@ -585,12 +585,15 @@ Two independent channels, used together for the events that matter most:
   they didn't personally act on. Every one of these sends is
   best-effort — a failed send is logged and swallowed, never allowed to
   fail the request that triggered it.
-- **Web Push** (`WebPushService`, standard VAPID-based Web Push): an
-  instructor who has subscribed a browser (`POST /push/subscribe`) gets
-  a push notification the moment they're assigned to a session, in
-  addition to the email. An expired subscription is detected from the
-  push service's own response and cleaned up automatically rather than
-  left to fail silently on every future send.
+- **Web Push** (`WebPushService`, standard VAPID-based Web Push): any
+  subscribed device (`POST /push/subscribe`) belonging to the right
+  user gets a push notification, in addition to the email, for: a new
+  signup (every approved Manager), an instructor being assigned to a
+  session (that instructor), and a session starting soon (the assigned
+  instructor and whoever created it — see `SessionReminderSchedulerService`
+  above). An expired subscription is detected from the push service's
+  own response and cleaned up automatically rather than left to fail
+  silently on every future send.
 
 ## Every file and script, and why it exists
 

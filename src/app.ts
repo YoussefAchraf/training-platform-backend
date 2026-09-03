@@ -174,6 +174,8 @@ function buildApp() {
     passwordHasher,
     emailService,
     auditLogRepository,
+    pushSubscriptionRepository,
+    webPushService,
   });
   const loginUseCase = new LoginUseCase({ userRepository, passwordHasher, tokenService, refreshTokenStore });
   const listPendingUsersUseCase = new ListPendingUsersUseCase({ userRepository });
