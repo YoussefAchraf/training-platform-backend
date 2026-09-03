@@ -11,6 +11,10 @@ class ISessionRepository {
   async update(sessionId, fields): Promise<any> { notImplemented('ISessionRepository', 'update'); }
   async listAllWithDetails(): Promise<any> { notImplemented('ISessionRepository', 'listAllWithDetails'); }
   async listEndedWithoutReport(minutesAgo): Promise<any> { notImplemented('ISessionRepository', 'listEndedWithoutReport'); }
+  async listNeeding24hReminder(): Promise<any> { notImplemented('ISessionRepository', 'listNeeding24hReminder'); }
+  async listNeeding1hReminder(): Promise<any> { notImplemented('ISessionRepository', 'listNeeding1hReminder'); }
+  async markReminder24hSent(sessionId): Promise<any> { notImplemented('ISessionRepository', 'markReminder24hSent'); }
+  async markReminder1hSent(sessionId): Promise<any> { notImplemented('ISessionRepository', 'markReminder1hSent'); }
   async addAttendee(sessionId, attendee): Promise<any> { notImplemented('ISessionRepository', 'addAttendee'); }
   async listAttendees(sessionId): Promise<any> { notImplemented('ISessionRepository', 'listAttendees'); }
   async findAttendeeById(attendeeId): Promise<any> { notImplemented('ISessionRepository', 'findAttendeeById'); }
