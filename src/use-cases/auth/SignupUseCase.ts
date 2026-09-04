@@ -106,6 +106,7 @@ class SignupUseCase {
             if (err.expired) {
               return this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, manager.id);
             }
+            console.error('[Signup] Failed to send push notification:', err.message);
           })
       )
     );
