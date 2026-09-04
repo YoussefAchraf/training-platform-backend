@@ -322,3 +322,9 @@ ALTER TABLE audit_log ADD CONSTRAINT audit_log_actor_id_fkey FOREIGN KEY (actor_
 
 
 ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS actor_deleted BOOLEAN NOT NULL DEFAULT false;
+
+
+
+
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS country VARCHAR(2);

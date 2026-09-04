@@ -114,4 +114,37 @@ describe('UpdateClientUseCase', () => {
       useCase.execute({ requester: buildRequester(), clientId: 5, companyName: 'New Co' })
     ).resolves.toBeDefined();
   });
+
+  it('rejects a country that is not a real ISO 3166-1 alpha-2 code', async () => {
+    const { clientRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateClientUseCase({ clientRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), clientId: 5, country: 'ZZ' })
+    ).rejects.toThrow('valid ISO 3166-1');
+    expect(clientRepository.findById).not.toHaveBeenCalled();
+  });
+
+  it('rejects a phone number invalid for the newly-submitted country', async () => {
+    const { clientRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateClientUseCase({ clientRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), clientId: 5, country: 'TN', phone: '123' })
+    ).rejects.toThrow('not a valid number for TN');
+    expect(clientRepository.update).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the client's already-stored country when only the phone is being changed", async () => {
+    const { clientRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    clientRepository.findById.mockResolvedValue({ id: 5, companyName: 'Old Co', createdBy: 1, country: 'TN' });
+    const useCase = new UpdateClientUseCase({ clientRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), clientId: 5, phone: '123' })
+    ).rejects.toThrow('not a valid number for TN');
+
+    await useCase.execute({ requester: buildRequester(), clientId: 5, phone: '+21620123456' });
+    expect(clientRepository.update).toHaveBeenCalledWith(5, expect.objectContaining({ phone: '+21620123456' }));
+  });
 });

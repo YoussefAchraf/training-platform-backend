@@ -8,6 +8,7 @@ function mapRow(row) {
     companyName: row.company_name,
     email: row.email,
     phone: row.phone,
+    country: row.country,
     createdBy: row.created_by,
     creatorName: row.users ? `${row.users.firstname} ${row.users.lastname}` : null,
     createdAt: row.created_at,
@@ -30,6 +31,7 @@ class PgClientRepository extends IClientRepository {
         company_name: client.companyName,
         email: client.email,
         phone: client.phone,
+        country: client.country,
         created_by: client.createdBy,
       },
       include: CREATOR_INCLUDE,
@@ -56,6 +58,7 @@ class PgClientRepository extends IClientRepository {
     if (fields.companyName) data.company_name = fields.companyName;
     if (fields.email) data.email = fields.email;
     if (fields.phone) data.phone = fields.phone;
+    if (fields.country) data.country = fields.country;
 
     const result = await this.prisma.clients.updateMany({ where: { id, deleted_at: null }, data });
     if (result.count === 0) return null;

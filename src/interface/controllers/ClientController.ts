@@ -13,8 +13,8 @@ class ClientController {
 
   create = async (req, res) => {
     try {
-      const { companyName, email, phone } = req.body;
-      const client = await this.createClientUseCase.execute({ requester: req.user, companyName, email, phone });
+      const { companyName, email, phone, country } = req.body;
+      const client = await this.createClientUseCase.execute({ requester: req.user, companyName, email, phone, country });
       res.status(201).json(client);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -32,13 +32,14 @@ class ClientController {
 
   update = async (req, res) => {
     try {
-      const { companyName, email, phone } = req.body;
+      const { companyName, email, phone, country } = req.body;
       const client = await this.updateClientUseCase.execute({
         requester: req.user,
         clientId: Number(req.params.id),
         companyName,
         email,
         phone,
+        country,
       });
       res.status(200).json(client);
     } catch (err) {
