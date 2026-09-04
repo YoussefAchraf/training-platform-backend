@@ -1,3 +1,5 @@
+import { SESSION_LOCATION_TYPE } from '../../domain/entities/TrainingSession';
+
 class UpdateSessionUseCase {
   sessionRepository: any;
   calendarRepository: any;
@@ -23,15 +25,21 @@ class UpdateSessionUseCase {
     startDate,
     endDate,
     includeWeekends,
+    locationType,
   }: {
     requester: any;
     sessionId: any;
     startDate?: any;
     endDate?: any;
     includeWeekends?: boolean;
+    locationType?: any;
   }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a training session');
+    }
+
+    if (locationType !== undefined && !Object.values(SESSION_LOCATION_TYPE).includes(locationType)) {
+      throw new Error(`locationType must be one of: ${Object.values(SESSION_LOCATION_TYPE).join(', ')}`);
     }
 
     const session = await this.sessionRepository.findById(sessionId);
@@ -59,7 +67,7 @@ class UpdateSessionUseCase {
       throw new Error('endDate must be after startDate');
     }
 
-    const updated = await this.sessionRepository.update(sessionId, { startDate, endDate, includeWeekends });
+    const updated = await this.sessionRepository.update(sessionId, { startDate, endDate, includeWeekends, locationType });
 
     
     
