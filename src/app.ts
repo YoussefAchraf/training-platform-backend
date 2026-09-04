@@ -189,7 +189,7 @@ function buildApp() {
   const refreshTokenUseCase = new RefreshTokenUseCase({ userRepository, tokenService, refreshTokenStore });
   const logoutUseCase = new LogoutUseCase({ refreshTokenStore });
   const listAllUsersUseCase = new ListAllUsersUseCase({ userRepository });
-  const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository });
+  const updateUserByAdminUseCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository, instructorRepository });
   const deactivateUserUseCase = new DeactivateUserUseCase({ userRepository, auditLogRepository, refreshTokenStore });
   const hardDeleteUserUseCase = new HardDeleteUserUseCase({ userRepository, auditLogRepository });
   const updateOwnProfileUseCase = new UpdateOwnProfileUseCase({ userRepository, auditLogRepository });
