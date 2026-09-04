@@ -75,6 +75,7 @@ class SendUpcomingSessionRemindersUseCase {
           if (err.expired) {
             return this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, userId);
           }
+          console.error('[SessionReminders] Failed to send push notification:', err.message);
         })
       )
     );
