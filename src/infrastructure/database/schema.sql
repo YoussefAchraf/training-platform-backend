@@ -328,3 +328,11 @@ ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS actor_deleted BOOLEAN NOT NULL DE
 
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS country VARCHAR(2);
+
+DO $$ BEGIN
+    CREATE TYPE session_location_type AS ENUM ('onsite', 'remote');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_type session_location_type NOT NULL DEFAULT 'onsite';
