@@ -1,4 +1,6 @@
+import { isSupportedCountry } from 'libphonenumber-js';
 import { isValidEmail } from '../../domain/validation/isValidEmail';
+import { isValidPhoneForCountry } from '../../domain/validation/isValidPhoneForCountry';
 
 class CreateClientUseCase {
   clientRepository: any;
@@ -9,7 +11,7 @@ class CreateClientUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, companyName, email, phone }: { requester: any; companyName: any; email?: any; phone?: any }) {
+  async execute({ requester, companyName, email, phone, country }: { requester: any; companyName: any; email?: any; phone?: any; country?: any }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can add a client');
     }
@@ -19,11 +21,18 @@ class CreateClientUseCase {
     if (email && !isValidEmail(email)) {
       throw new Error('email must be a valid email address');
     }
+    if (country && !isSupportedCountry(country)) {
+      throw new Error('country must be a valid ISO 3166-1 alpha-2 code');
+    }
+    if (phone && !isValidPhoneForCountry(phone, country)) {
+      throw new Error(country ? `phone is not a valid number for ${country}` : 'phone must be a valid phone number');
+    }
 
     const client = await this.clientRepository.create({
       companyName: companyName.trim(),
       email,
       phone,
+      country,
       createdBy: requester.id,
     });
 
