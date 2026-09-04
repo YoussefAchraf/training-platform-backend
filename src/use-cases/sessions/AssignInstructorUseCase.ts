@@ -58,7 +58,9 @@ class AssignInstructorUseCase {
 
     const assigned = await this.sessionRepository.assignInstructor(sessionId, instructorId);
 
-    await this.notifyInstructor(session, instructor).catch(() => undefined);
+    await this.notifyInstructor(session, instructor).catch((err: any) => {
+      console.error('[AssignInstructor] Failed to notify instructor:', err.message);
+    });
 
     return assigned;
   }
@@ -74,7 +76,9 @@ class AssignInstructorUseCase {
         startDate: session.startDate,
         sessionUrl,
       })
-      .catch(() => undefined);
+      .catch((err: any) => {
+        console.error('[AssignInstructor] Failed to send instructor-assigned email:', err.message);
+      });
 
     const subscriptions = await this.pushSubscriptionRepository.listByUserId(instructor.userId);
     await Promise.all(
@@ -89,6 +93,7 @@ class AssignInstructorUseCase {
             if (err.expired) {
               return this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, instructor.userId);
             }
+            console.error('[AssignInstructor] Failed to send push notification:', err.message);
           })
       )
     );

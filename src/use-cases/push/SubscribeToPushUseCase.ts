@@ -30,9 +30,9 @@ class SubscribeToPushUseCase {
     } catch (err: any) {
       if (err.expired) {
         await this.pushSubscriptionRepository.deleteByEndpointForUser(endpoint, requester.id);
+      } else {
+        console.error('[SubscribeToPush] Failed to send confirmation push:', err.message);
       }
-      
-      
     }
 
     return subscription;
