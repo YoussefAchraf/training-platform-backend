@@ -1,3 +1,5 @@
+import { SESSION_LOCATION_TYPE } from '../../domain/entities/TrainingSession';
+
 class CreateSessionUseCase {
   sessionRepository: any;
   trainingRepository: any;
@@ -13,9 +15,13 @@ class CreateSessionUseCase {
     this.auditLogRepository = auditLogRepository;
   }
 
-  async execute({ requester, trainingId, clientId, startDate, endDate, includeWeekends = false }) {
+  async execute({ requester, trainingId, clientId, startDate, endDate, includeWeekends = false, locationType = SESSION_LOCATION_TYPE.ONSITE }) {
     if (!requester.canManageCatalog()) {
       throw new Error('Only Sales or Manager can create a training session');
+    }
+
+    if (!Object.values(SESSION_LOCATION_TYPE).includes(locationType)) {
+      throw new Error(`locationType must be one of: ${Object.values(SESSION_LOCATION_TYPE).join(', ')}`);
     }
 
     const training = await this.trainingRepository.findById(trainingId);
@@ -40,6 +46,7 @@ class CreateSessionUseCase {
       startDate,
       endDate,
       includeWeekends,
+      locationType,
       createdBy: requester.id,
     });
 

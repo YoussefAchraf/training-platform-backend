@@ -12,6 +12,11 @@ const ASSIGNMENT_STATUS = Object.freeze({
   REFUSED: 'refused',
 });
 
+const SESSION_LOCATION_TYPE = Object.freeze({
+  ONSITE: 'onsite',
+  REMOTE: 'remote',
+});
+
 class TrainingSession {
   id: any;
   trainingId: any;
@@ -22,6 +27,7 @@ class TrainingSession {
   sessionStatus: any;
   assignmentStatus: any;
   includeWeekends: any;
+  locationType: any;
   createdBy: any;
   createdAt: any;
 
@@ -35,6 +41,7 @@ class TrainingSession {
     sessionStatus = SESSION_STATUS.SCHEDULED,
     assignmentStatus = ASSIGNMENT_STATUS.UNASSIGNED,
     includeWeekends = false,
+    locationType = SESSION_LOCATION_TYPE.ONSITE,
     createdBy,
     createdAt,
   }: any) {
@@ -47,6 +54,7 @@ class TrainingSession {
     this.sessionStatus = sessionStatus;
     this.assignmentStatus = assignmentStatus;
     this.includeWeekends = includeWeekends;
+    this.locationType = locationType;
     this.createdBy = createdBy;
     this.createdAt = createdAt;
   }
@@ -60,4 +68,4 @@ class TrainingSession {
   }
 }
 
-export { TrainingSession, SESSION_STATUS, ASSIGNMENT_STATUS };
+export { TrainingSession, SESSION_STATUS, ASSIGNMENT_STATUS, SESSION_LOCATION_TYPE };
