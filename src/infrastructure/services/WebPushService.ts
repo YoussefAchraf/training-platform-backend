@@ -25,7 +25,13 @@ class WebPushService {
       keys: { p256dh: subscription.p256dh, auth: subscription.auth },
     };
     try {
-      await webpush.sendNotification(pushSubscription, JSON.stringify(payload));
+      
+      
+      
+      
+      
+      
+      await webpush.sendNotification(pushSubscription, JSON.stringify(payload), { urgency: 'high' });
     } catch (err: any) {
       
       
