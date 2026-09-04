@@ -4,10 +4,12 @@ import { isValidEmail } from '../../domain/validation/isValidEmail';
 class UpdateUserByAdminUseCase {
   userRepository: any;
   auditLogRepository: any;
+  instructorRepository: any;
 
-  constructor({ userRepository, auditLogRepository }) {
+  constructor({ userRepository, auditLogRepository, instructorRepository }) {
     this.userRepository = userRepository;
     this.auditLogRepository = auditLogRepository;
+    this.instructorRepository = instructorRepository;
   }
 
   async execute({ requester, targetUserId, firstname, lastname, email, role, status }: { requester: any; targetUserId: any; firstname?: any; lastname?: any; email?: any; role?: any; status?: any }) {
@@ -50,6 +52,19 @@ class UpdateUserByAdminUseCase {
     }
 
     const updated = await this.userRepository.update(targetUserId, { firstname, lastname, email, roleId, status });
+
+    
+    
+    
+    
+    
+    
+    if (role === ROLES.INSTRUCTOR) {
+      const existingProfile = await this.instructorRepository.findByUserId(targetUserId);
+      if (!existingProfile) {
+        await this.instructorRepository.create({ userId: targetUserId, bio: '' });
+      }
+    }
 
     await this.auditLogRepository.create({
       actorId: requester.id,

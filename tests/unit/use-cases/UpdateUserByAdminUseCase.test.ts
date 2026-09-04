@@ -30,6 +30,10 @@ function buildRepos() {
       })),
     },
     auditLogRepository: { create: jest.fn() },
+    instructorRepository: {
+      findByUserId: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 10 }),
+    },
   };
 }
 
@@ -132,5 +136,36 @@ describe('UpdateUserByAdminUseCase', () => {
     expect(auditLogRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ actorId: 1, action: 'update', entityType: 'User', entityId: 5 })
     );
+  });
+
+  it('creates an instructor profile row when promoting a user to Instructor who does not already have one', async () => {
+    const { userRepository, auditLogRepository, instructorRepository } = buildRepos();
+    const useCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository, instructorRepository });
+
+    await useCase.execute({ requester: buildRequester(), targetUserId: 5, role: 'Instructor' });
+
+    expect(instructorRepository.findByUserId).toHaveBeenCalledWith(5);
+    expect(instructorRepository.create).toHaveBeenCalledWith({ userId: 5, bio: '' });
+  });
+
+  it('does not create a duplicate instructor profile row if one already exists', async () => {
+    const { userRepository, auditLogRepository, instructorRepository } = buildRepos();
+    instructorRepository.findByUserId.mockResolvedValue({ id: 3, userId: 5 });
+    const useCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository, instructorRepository });
+
+    await useCase.execute({ requester: buildRequester(), targetUserId: 5, role: 'Instructor' });
+
+    expect(instructorRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('does not touch the instructor repository when the role is left unchanged or set to something else', async () => {
+    const { userRepository, auditLogRepository, instructorRepository } = buildRepos();
+    const useCase = new UpdateUserByAdminUseCase({ userRepository, auditLogRepository, instructorRepository });
+
+    await useCase.execute({ requester: buildRequester(), targetUserId: 5, firstname: 'New' });
+    await useCase.execute({ requester: buildRequester(), targetUserId: 5, role: 'Manager' });
+
+    expect(instructorRepository.findByUserId).not.toHaveBeenCalled();
+    expect(instructorRepository.create).not.toHaveBeenCalled();
   });
 });
