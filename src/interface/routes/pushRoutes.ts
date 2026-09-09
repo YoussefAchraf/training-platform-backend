@@ -20,6 +20,12 @@ export const pushRoutesDocs: Record<string, any> = {
                   required: ['p256dh', 'auth'],
                   properties: { p256dh: { type: 'string' }, auth: { type: 'string' } },
                 },
+                silent: {
+                  type: 'boolean',
+                  description:
+                    'Skip the "Notifications enabled" confirmation push - set by the frontend when this call is reconciling an already-known subscription (e.g. on every app load) rather than a genuine first-time opt-in.',
+                  default: false,
+                },
               },
             },
           },

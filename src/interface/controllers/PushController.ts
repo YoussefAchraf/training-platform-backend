@@ -9,8 +9,13 @@ class PushController {
 
   subscribe = async (req, res) => {
     try {
-      const { endpoint, keys } = req.body;
-      const subscription = await this.subscribeToPushUseCase.execute({ requester: req.user, endpoint, keys });
+      const { endpoint, keys, silent } = req.body;
+      const subscription = await this.subscribeToPushUseCase.execute({
+        requester: req.user,
+        endpoint,
+        keys,
+        silent: Boolean(silent),
+      });
       res.status(201).json(subscription);
     } catch (err) {
       res.status(400).json({ error: err.message });
