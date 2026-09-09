@@ -7,7 +7,7 @@ class SubscribeToPushUseCase {
     this.webPushService = webPushService;
   }
 
-  async execute({ requester, endpoint, keys }) {
+  async execute({ requester, endpoint, keys, silent }) {
     if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
       throw new Error('A valid push subscription (endpoint and keys) is required');
     }
@@ -21,17 +21,22 @@ class SubscribeToPushUseCase {
 
     
     
-    try {
-      await this.webPushService.send(subscription, {
-        title: 'Notifications enabled',
-        body: `You'll now get push notifications on this device, ${requester.firstname}.`,
-        url: '/account',
-      });
-    } catch (err: any) {
-      if (err.expired) {
-        await this.pushSubscriptionRepository.deleteByEndpointForUser(endpoint, requester.id);
-      } else {
-        console.error('[SubscribeToPush] Failed to send confirmation push:', err.message);
+    
+    
+    
+    if (!silent) {
+      try {
+        await this.webPushService.send(subscription, {
+          title: 'Notifications enabled',
+          body: `You'll now get push notifications on this device, ${requester.firstname}.`,
+          url: '/account',
+        });
+      } catch (err: any) {
+        if (err.expired) {
+          await this.pushSubscriptionRepository.deleteByEndpointForUser(endpoint, requester.id);
+        } else {
+          console.error('[SubscribeToPush] Failed to send confirmation push:', err.message);
+        }
       }
     }
 
