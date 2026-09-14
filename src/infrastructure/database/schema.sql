@@ -336,3 +336,17 @@ EXCEPTION
 END $$;
 
 ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS location_type session_location_type NOT NULL DEFAULT 'onsite';
+
+ALTER TABLE instructor_skills ADD COLUMN IF NOT EXISTS certificate_id TEXT;
+ALTER TABLE instructor_skills ADD COLUMN IF NOT EXISTS certificate_expires_at TIMESTAMPTZ;
+ALTER TABLE instructor_skills ADD COLUMN IF NOT EXISTS expiry_reminder_sent_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS session_notes (
+    id              SERIAL PRIMARY KEY,
+    session_id      INTEGER NOT NULL REFERENCES training_sessions(id) ON DELETE CASCADE,
+    instructor_id   INTEGER NOT NULL REFERENCES instructors(id) ON DELETE CASCADE,
+    body            TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_session_notes_session_id ON session_notes(session_id);

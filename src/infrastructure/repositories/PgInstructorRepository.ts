@@ -59,8 +59,15 @@ class PgInstructorRepository extends IInstructorRepository {
   }
 
   async isQualifiedForTraining(instructorId, trainingId) {
+    
+    
+    
     const match = await this.prisma.instructor_skills.findFirst({
-      where: { instructor_id: instructorId, training_id: trainingId },
+      where: {
+        instructor_id: instructorId,
+        training_id: trainingId,
+        OR: [{ certificate_expires_at: null }, { certificate_expires_at: { gt: new Date() } }],
+      },
     });
     return match !== null;
   }
@@ -73,14 +80,20 @@ class PgInstructorRepository extends IInstructorRepository {
     return this.findById(instructorId);
   }
 
-  async setSkills(instructorId, trainingIds) {
+  async setSkills(instructorId, skills) {
+    
     
     
     
     await this.prisma.$transaction([
       this.prisma.instructor_skills.deleteMany({ where: { instructor_id: instructorId } }),
       this.prisma.instructor_skills.createMany({
-        data: trainingIds.map((trainingId) => ({ instructor_id: instructorId, training_id: trainingId })),
+        data: skills.map((skill) => ({
+          instructor_id: instructorId,
+          training_id: skill.trainingId,
+          certificate_id: skill.certificateId || null,
+          certificate_expires_at: skill.certificateExpiresAt ? new Date(skill.certificateExpiresAt) : null,
+        })),
       }),
     ]);
     return this.getSkills(instructorId);
@@ -91,7 +104,41 @@ class PgInstructorRepository extends IInstructorRepository {
       where: { instructor_id: instructorId },
       include: { trainings: { select: { id: true, name: true } } },
     });
-    return rows.map((r) => ({ trainingId: r.trainings.id, trainingName: r.trainings.name }));
+    return rows.map((r) => ({
+      trainingId: r.trainings.id,
+      trainingName: r.trainings.name,
+      certificateId: r.certificate_id,
+      certificateExpiresAt: r.certificate_expires_at,
+    }));
+  }
+
+  async listExpiringCertifications(withinDays) {
+    const rows = await this.prisma.instructor_skills.findMany({
+      where: {
+        expiry_reminder_sent_at: null,
+        certificate_expires_at: { not: null, lte: new Date(Date.now() + withinDays * 24 * 60 * 60 * 1000) },
+      },
+      include: {
+        trainings: { select: { id: true, name: true } },
+        instructors: { select: { id: true, user_id: true, users: { select: { firstname: true } } } },
+      },
+      orderBy: { certificate_expires_at: 'asc' },
+    });
+    return rows.map((r) => ({
+      instructorId: r.instructors.id,
+      instructorUserId: r.instructors.user_id,
+      instructorFirstname: r.instructors.users.firstname,
+      trainingId: r.trainings.id,
+      trainingName: r.trainings.name,
+      certificateExpiresAt: r.certificate_expires_at,
+    }));
+  }
+
+  async markExpiryReminderSent(instructorId, trainingId) {
+    await this.prisma.instructor_skills.update({
+      where: { instructor_id_training_id: { instructor_id: instructorId, training_id: trainingId } },
+      data: { expiry_reminder_sent_at: new Date() },
+    });
   }
 }
 

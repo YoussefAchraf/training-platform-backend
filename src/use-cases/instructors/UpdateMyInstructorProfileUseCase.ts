@@ -5,7 +5,7 @@ class UpdateMyInstructorProfileUseCase {
     this.instructorRepository = instructorRepository;
   }
 
-  async execute({ requester, bio, trainingIds }) {
+  async execute({ requester, bio, skills }) {
     if (!requester.isInstructor()) {
       throw new Error('Only an Instructor can update their own profile');
     }
@@ -16,8 +16,11 @@ class UpdateMyInstructorProfileUseCase {
     if (bio !== undefined) {
       await this.instructorRepository.updateBio(profile.id, bio);
     }
-    if (Array.isArray(trainingIds)) {
-      await this.instructorRepository.setSkills(profile.id, trainingIds);
+    if (Array.isArray(skills)) {
+      if (skills.some((skill) => !skill || !Number.isFinite(Number(skill.trainingId)))) {
+        throw new Error('Each skill requires a valid trainingId');
+      }
+      await this.instructorRepository.setSkills(profile.id, skills);
     }
 
     return this.instructorRepository.findById(profile.id);

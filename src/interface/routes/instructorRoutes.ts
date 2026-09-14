@@ -40,10 +40,18 @@ export const instructorRoutesDocs: Record<string, any> = {
               type: 'object',
               properties: {
                 bio: { type: 'string' },
-                trainingIds: {
+                skills: {
                   type: 'array',
-                  items: { type: 'integer' },
                   description: 'Full replacement list of trainings this instructor can deliver.',
+                  items: {
+                    type: 'object',
+                    required: ['trainingId'],
+                    properties: {
+                      trainingId: { type: 'integer' },
+                      certificateId: { type: 'string', nullable: true },
+                      certificateExpiresAt: { type: 'string', format: 'date', nullable: true },
+                    },
+                  },
                 },
               },
             },
@@ -69,7 +77,18 @@ export const instructorRoutesDocs: Record<string, any> = {
               type: 'object',
               properties: {
                 bio: { type: 'string' },
-                trainingIds: { type: 'array', items: { type: 'integer' } },
+                skills: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['trainingId'],
+                    properties: {
+                      trainingId: { type: 'integer' },
+                      certificateId: { type: 'string', nullable: true },
+                      certificateExpiresAt: { type: 'string', format: 'date', nullable: true },
+                    },
+                  },
+                },
               },
             },
           },

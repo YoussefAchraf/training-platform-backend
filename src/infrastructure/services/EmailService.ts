@@ -105,6 +105,54 @@ class EmailService {
     });
   }
 
+  async sendCertificationExpiringInstructorEmail(toEmail, firstname, { trainingName, expiresAt, isExpired }) {
+    const expiresAtFormatted = new Date(expiresAt).toLocaleDateString();
+    const profileUrl = `${process.env.CLIENT_URL}/instructors/me`;
+    const subject = isExpired ? `Your ${trainingName} certification has expired` : `Your ${trainingName} certification expires soon`;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: toEmail,
+      subject,
+      html: await this.renderEmail('certificationExpiringInstructor', subject, {
+        firstname,
+        trainingName,
+        expiresAtFormatted,
+        isExpired,
+        profileUrl,
+        preheader: subject,
+      }),
+      attachments: this.logoAttachment(),
+    });
+  }
+
+  async sendCertificationExpiringManagerEmail(managerEmails, { instructorName, trainingName, expiresAt, isExpired }) {
+    if (!managerEmails || managerEmails.length === 0) {
+      return;
+    }
+
+    const expiresAtFormatted = new Date(expiresAt).toLocaleDateString();
+    const instructorsUrl = `${process.env.CLIENT_URL}/instructors`;
+    const subject = isExpired
+      ? `${instructorName}'s ${trainingName} certification has expired`
+      : `${instructorName}'s ${trainingName} certification expires soon`;
+
+    await this.transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: managerEmails.join(','),
+      subject,
+      html: await this.renderEmail('certificationExpiringManager', subject, {
+        instructorName,
+        trainingName,
+        expiresAtFormatted,
+        isExpired,
+        instructorsUrl,
+        preheader: subject,
+      }),
+      attachments: this.logoAttachment(),
+    });
+  }
+
   async sendPasswordResetEmail(toEmail, firstname, resetUrl) {
     const subject = 'Reset your password';
 
