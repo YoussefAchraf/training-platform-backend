@@ -1,4 +1,4 @@
-import { SESSION_LOCATION_TYPE } from '../../domain/entities/TrainingSession';
+import { SESSION_LOCATION_TYPE, SESSION_TEACHING_LANGUAGE } from '../../domain/entities/TrainingSession';
 
 class UpdateSessionUseCase {
   sessionRepository: any;
@@ -26,6 +26,7 @@ class UpdateSessionUseCase {
     endDate,
     includeWeekends,
     locationType,
+    teachingLanguage,
   }: {
     requester: any;
     sessionId: any;
@@ -33,6 +34,7 @@ class UpdateSessionUseCase {
     endDate?: any;
     includeWeekends?: boolean;
     locationType?: any;
+    teachingLanguage?: any;
   }) {
     if (!requester.canManageCatalog() && !requester.isSuperAdmin()) {
       throw new Error('Only Sales or Manager can update a training session');
@@ -40,6 +42,10 @@ class UpdateSessionUseCase {
 
     if (locationType !== undefined && !Object.values(SESSION_LOCATION_TYPE).includes(locationType)) {
       throw new Error(`locationType must be one of: ${Object.values(SESSION_LOCATION_TYPE).join(', ')}`);
+    }
+
+    if (teachingLanguage !== undefined && !Object.values(SESSION_TEACHING_LANGUAGE).includes(teachingLanguage)) {
+      throw new Error(`teachingLanguage must be one of: ${Object.values(SESSION_TEACHING_LANGUAGE).join(', ')}`);
     }
 
     const session = await this.sessionRepository.findById(sessionId);
@@ -67,7 +73,13 @@ class UpdateSessionUseCase {
       throw new Error('endDate must be after startDate');
     }
 
-    const updated = await this.sessionRepository.update(sessionId, { startDate, endDate, includeWeekends, locationType });
+    const updated = await this.sessionRepository.update(sessionId, {
+      startDate,
+      endDate,
+      includeWeekends,
+      locationType,
+      teachingLanguage,
+    });
 
     
     

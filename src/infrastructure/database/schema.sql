@@ -350,3 +350,11 @@ CREATE TABLE IF NOT EXISTS session_notes (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_session_notes_session_id ON session_notes(session_id);
+
+DO $$ BEGIN
+    CREATE TYPE session_teaching_language AS ENUM ('french', 'english');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS teaching_language session_teaching_language NOT NULL DEFAULT 'french';

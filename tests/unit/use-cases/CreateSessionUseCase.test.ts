@@ -149,6 +149,49 @@ describe('CreateSessionUseCase', () => {
     expect(sessionRepository.create).not.toHaveBeenCalled();
   });
 
+  it('defaults teachingLanguage to french and passes it through to the repository', async () => {
+    const { sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository } = buildRepos();
+    const useCase = new CreateSessionUseCase({ sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository });
+
+    await useCase.execute({
+      requester: buildRequester(),
+      trainingId: 1,
+      clientId: 1,
+      startDate: '2026-09-01T09:00:00Z',
+      endDate: '2026-09-03T17:00:00Z',
+    });
+
+    expect(sessionRepository.create).toHaveBeenCalledWith(expect.objectContaining({ teachingLanguage: 'french' }));
+
+    await useCase.execute({
+      requester: buildRequester(),
+      trainingId: 1,
+      clientId: 1,
+      startDate: '2026-09-01T09:00:00Z',
+      endDate: '2026-09-03T17:00:00Z',
+      teachingLanguage: 'english',
+    });
+
+    expect(sessionRepository.create).toHaveBeenCalledWith(expect.objectContaining({ teachingLanguage: 'english' }));
+  });
+
+  it('rejects an invalid teachingLanguage', async () => {
+    const { sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository } = buildRepos();
+    const useCase = new CreateSessionUseCase({ sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository });
+
+    await expect(
+      useCase.execute({
+        requester: buildRequester(),
+        trainingId: 1,
+        clientId: 1,
+        startDate: '2026-09-01T09:00:00Z',
+        endDate: '2026-09-01T17:00:00Z',
+        teachingLanguage: 'arabic',
+      })
+    ).rejects.toThrow('teachingLanguage must be one of');
+    expect(sessionRepository.create).not.toHaveBeenCalled();
+  });
+
   it('rejects when another session for the same training already starts at the exact same time', async () => {
     const { sessionRepository, trainingRepository, clientRepository, calendarRepository, auditLogRepository } = buildRepos();
     sessionRepository.findConflictingSessionForTraining.mockResolvedValue({ id: 9, trainingId: 1 });
