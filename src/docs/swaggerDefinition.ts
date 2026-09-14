@@ -172,6 +172,12 @@ const definition = {
           sessionStatus: { $ref: '#/components/schemas/SessionStatus' },
           assignmentStatus: { $ref: '#/components/schemas/AssignmentStatus' },
           includeWeekends: { type: 'boolean', description: 'Whether Saturday/Sunday count as real training days for this session.' },
+          locationType: { type: 'string', enum: ['onsite', 'remote'] },
+          teachingLanguage: {
+            type: 'string',
+            enum: ['french', 'english'],
+            description: 'The language the training will be delivered in.',
+          },
           createdBy: { type: 'integer', nullable: true },
           createdAt: { type: 'string', format: 'date-time' },
         },
