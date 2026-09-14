@@ -358,3 +358,18 @@ EXCEPTION
 END $$;
 
 ALTER TABLE training_sessions ADD COLUMN IF NOT EXISTS teaching_language session_teaching_language NOT NULL DEFAULT 'french';
+
+
+
+
+
+
+
+
+
+
+
+ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_endpoint_key;
+ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_user_id_endpoint_key;
+ALTER TABLE push_subscriptions ADD CONSTRAINT push_subscriptions_user_id_endpoint_key UNIQUE (user_id, endpoint);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);
