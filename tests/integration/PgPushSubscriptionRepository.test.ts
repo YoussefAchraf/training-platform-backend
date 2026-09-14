@@ -36,17 +36,34 @@ describe('PgPushSubscriptionRepository (Prisma, real database)', () => {
     expect(results[0].endpoint).toBe(endpoint);
   });
 
-  it('re-subscribing the same endpoint under a different user re-points it (upsert), not a duplicate', async () => {
+  it('re-subscribing the same endpoint under a different user adds a second row, keeping the first', async () => {
+    
+    
+    
+    
+    
     await repository.create({ userId: otherUserId, endpoint, p256dh: 'key2', auth: 'auth2' });
 
-    expect(await repository.listByUserId(userId)).toHaveLength(0);
-    const results = await repository.listByUserId(otherUserId);
+    const firstUserResults = await repository.listByUserId(userId);
+    expect(firstUserResults).toHaveLength(1);
+    expect(firstUserResults[0].p256dh).toBe('key1');
+
+    const otherUserResults = await repository.listByUserId(otherUserId);
+    expect(otherUserResults).toHaveLength(1);
+    expect(otherUserResults[0].p256dh).toBe('key2');
+  });
+
+  it('re-subscribing the same (user, endpoint) pair updates the keys in place, not a duplicate', async () => {
+    await repository.create({ userId, endpoint, p256dh: 'key1-rotated', auth: 'auth1-rotated' });
+
+    const results = await repository.listByUserId(userId);
     expect(results).toHaveLength(1);
-    expect(results[0].p256dh).toBe('key2');
+    expect(results[0].p256dh).toBe('key1-rotated');
   });
 
   it('deleteByEndpointForUser only removes it for the matching user', async () => {
     await repository.deleteByEndpointForUser(endpoint, userId);
+    expect(await repository.listByUserId(userId)).toHaveLength(0);
     expect(await repository.listByUserId(otherUserId)).toHaveLength(1);
 
     await repository.deleteByEndpointForUser(endpoint, otherUserId);
