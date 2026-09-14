@@ -51,7 +51,7 @@ class SessionController {
 
   create = async (req, res) => {
     try {
-      const { trainingId, clientId, startDate, endDate, includeWeekends, locationType } = req.body;
+      const { trainingId, clientId, startDate, endDate, includeWeekends, locationType, teachingLanguage } = req.body;
       const session = await this.createSessionUseCase.execute({
         requester: req.user,
         trainingId,
@@ -60,6 +60,7 @@ class SessionController {
         endDate,
         includeWeekends,
         locationType,
+        teachingLanguage,
       });
       res.status(201).json(session);
     } catch (err) {
@@ -119,7 +120,7 @@ class SessionController {
 
   update = async (req, res) => {
     try {
-      const { startDate, endDate, includeWeekends, locationType } = req.body;
+      const { startDate, endDate, includeWeekends, locationType, teachingLanguage } = req.body;
       const session = await this.updateSessionUseCase.execute({
         requester: req.user,
         sessionId: Number(req.params.id),
@@ -127,6 +128,7 @@ class SessionController {
         endDate,
         includeWeekends,
         locationType,
+        teachingLanguage,
       });
       res.status(200).json(session);
     } catch (err) {

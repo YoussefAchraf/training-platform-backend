@@ -17,6 +17,11 @@ const SESSION_LOCATION_TYPE = Object.freeze({
   REMOTE: 'remote',
 });
 
+const SESSION_TEACHING_LANGUAGE = Object.freeze({
+  FRENCH: 'french',
+  ENGLISH: 'english',
+});
+
 class TrainingSession {
   id: any;
   trainingId: any;
@@ -28,6 +33,7 @@ class TrainingSession {
   assignmentStatus: any;
   includeWeekends: any;
   locationType: any;
+  teachingLanguage: any;
   createdBy: any;
   createdAt: any;
 
@@ -42,6 +48,7 @@ class TrainingSession {
     assignmentStatus = ASSIGNMENT_STATUS.UNASSIGNED,
     includeWeekends = false,
     locationType = SESSION_LOCATION_TYPE.ONSITE,
+    teachingLanguage = SESSION_TEACHING_LANGUAGE.FRENCH,
     createdBy,
     createdAt,
   }: any) {
@@ -55,6 +62,7 @@ class TrainingSession {
     this.assignmentStatus = assignmentStatus;
     this.includeWeekends = includeWeekends;
     this.locationType = locationType;
+    this.teachingLanguage = teachingLanguage;
     this.createdBy = createdBy;
     this.createdAt = createdAt;
   }
@@ -68,4 +76,4 @@ class TrainingSession {
   }
 }
 
-export { TrainingSession, SESSION_STATUS, ASSIGNMENT_STATUS, SESSION_LOCATION_TYPE };
+export { TrainingSession, SESSION_STATUS, ASSIGNMENT_STATUS, SESSION_LOCATION_TYPE, SESSION_TEACHING_LANGUAGE };

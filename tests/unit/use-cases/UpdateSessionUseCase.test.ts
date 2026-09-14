@@ -173,6 +173,25 @@ describe('UpdateSessionUseCase', () => {
     expect(sessionRepository.update).not.toHaveBeenCalled();
   });
 
+  it('passes teachingLanguage through to the repository when provided', async () => {
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await useCase.execute({ requester: buildRequester(), sessionId: 5, teachingLanguage: 'english' });
+
+    expect(sessionRepository.update).toHaveBeenCalledWith(5, expect.objectContaining({ teachingLanguage: 'english' }));
+  });
+
+  it('rejects an invalid teachingLanguage', async () => {
+    const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
+    const useCase = new UpdateSessionUseCase({ sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), sessionId: 5, teachingLanguage: 'arabic' })
+    ).rejects.toThrow('teachingLanguage must be one of');
+    expect(sessionRepository.update).not.toHaveBeenCalled();
+  });
+
   it('allows a SuperAdmin to edit a session with an existing report, bypassing both ownership and the guard', async () => {
     const { sessionRepository, calendarRepository, reportRepository, surveyRepository, auditLogRepository, userRepository, emailService } = buildRepos();
     reportRepository.findBySessionId.mockResolvedValue({ id: 1, sessionId: 5 });

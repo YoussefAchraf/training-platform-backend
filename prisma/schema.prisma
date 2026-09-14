@@ -219,6 +219,7 @@ model training_sessions {
   assignment_status assignment_status   @default(unassigned)
   include_weekends  Boolean             @default(false)
   location_type     session_location_type @default(onsite)
+  teaching_language session_teaching_language @default(french)
   created_by        Int?
   created_at        DateTime            @default(now()) @db.Timestamptz(6)
   updated_at        DateTime            @default(now()) @db.Timestamptz(6)
@@ -315,6 +316,11 @@ enum session_status {
 enum session_location_type {
   onsite
   remote
+}
+
+enum session_teaching_language {
+  french
+  english
 }
 
 enum training_duration_unit {

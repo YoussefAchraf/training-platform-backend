@@ -15,6 +15,7 @@ function mapRow(row) {
     assignmentStatus: row.assignment_status,
     includeWeekends: row.include_weekends,
     locationType: row.location_type,
+    teachingLanguage: row.teaching_language,
     createdBy: row.created_by,
     createdAt: row.created_at,
   });
@@ -52,6 +53,7 @@ class PgSessionRepository extends ISessionRepository {
         assignment_status: session.instructorId ? 'pending' : 'unassigned',
         include_weekends: session.includeWeekends || false,
         location_type: session.locationType || 'onsite',
+        teaching_language: session.teachingLanguage || 'french',
         created_by: session.createdBy,
       },
     });
@@ -115,6 +117,7 @@ class PgSessionRepository extends ISessionRepository {
     if (fields.endDate) data.end_date = fields.endDate;
     if (fields.includeWeekends !== undefined) data.include_weekends = fields.includeWeekends;
     if (fields.locationType) data.location_type = fields.locationType;
+    if (fields.teachingLanguage) data.teaching_language = fields.teachingLanguage;
 
     const result = await this.prisma.training_sessions.updateMany({ where: { id: sessionId }, data });
     if (result.count === 0) return null;
@@ -143,6 +146,7 @@ class PgSessionRepository extends ISessionRepository {
         ts.session_status,
         ts.assignment_status,
         ts.location_type,
+        ts.teaching_language,
         ts.created_by,
         cu.firstname AS creator_firstname,
         cu.lastname AS creator_lastname,
@@ -173,6 +177,7 @@ class PgSessionRepository extends ISessionRepository {
       sessionStatus: row.session_status,
       assignmentStatus: row.assignment_status,
       locationType: row.location_type,
+      teachingLanguage: row.teaching_language,
       createdBy: row.created_by,
       creatorName: row.created_by ? `${row.creator_firstname} ${row.creator_lastname}` : null,
       creatorEmail: row.creator_email,
