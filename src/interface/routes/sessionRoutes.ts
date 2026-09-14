@@ -298,6 +298,89 @@ export const sessionRoutesDocs: Record<string, any> = {
       },
     },
   },
+  '/sessions/{id}/notes': {
+    post: {
+      tags: ['Sessions'],
+      summary: 'Add a note to a session',
+      description: "Only the session's assigned Instructor can add a note.",
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { type: 'object', required: ['body'], properties: { body: { type: 'string' } } },
+          },
+        },
+      },
+      responses: {
+        201: { description: 'Created', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionNote' } } } },
+        400: {
+          description: 'Session not found, empty/too-long note body, or requester is not the assigned Instructor',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+      },
+    },
+    get: {
+      tags: ['Sessions'],
+      summary: "List a session's notes",
+      description:
+        "Sales/Manager/SuperAdmin can view any session's notes (read-only); the assigned Instructor can view (and manage) their own session's notes.\n",
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: {
+        200: {
+          description: 'OK',
+          content: {
+            'application/json': {
+              schema: { type: 'array', items: { $ref: '#/components/schemas/SessionNote' } },
+            },
+          },
+        },
+        400: { description: "Not allowed to view this session's notes, or the session does not exist" },
+      },
+    },
+  },
+  '/sessions/{id}/notes/{noteId}': {
+    patch: {
+      tags: ['Sessions'],
+      summary: 'Edit a session note',
+      description: "Only the note's author (the assigned Instructor) can edit it.",
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+        { name: 'noteId', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: { type: 'object', required: ['body'], properties: { body: { type: 'string' } } },
+          },
+        },
+      },
+      responses: {
+        200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/SessionNote' } } } },
+        400: {
+          description: 'Note/session not found, empty/too-long note body, or requester is not the note author',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+      },
+    },
+    delete: {
+      tags: ['Sessions'],
+      summary: 'Delete a session note',
+      description: "Only the note's author (the assigned Instructor) can delete it.",
+      parameters: [
+        { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+        { name: 'noteId', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      responses: {
+        204: { description: 'Deleted' },
+        400: {
+          description: 'Note/session not found, or requester is not the note author',
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+        },
+      },
+    },
+  },
 };
 
 export default function sessionRoutes({ sessionController, authMiddleware, requireRole, uploadAttendeesFile }) {
@@ -353,6 +436,29 @@ export default function sessionRoutes({ sessionController, authMiddleware, requi
     authMiddleware,
     requireRole(['Sales', 'Manager']),
     sessionController.removeAttendee
+  );
+
+  router.post(
+    '/:id/notes',
+    authMiddleware,
+    requireRole(['Instructor']),
+    sessionController.addNote
+  );
+
+  router.get('/:id/notes', authMiddleware, sessionController.listNotes);
+
+  router.patch(
+    '/:id/notes/:noteId',
+    authMiddleware,
+    requireRole(['Instructor']),
+    sessionController.updateNote
+  );
+
+  router.delete(
+    '/:id/notes/:noteId',
+    authMiddleware,
+    requireRole(['Instructor']),
+    sessionController.removeNote
   );
 
   return router;

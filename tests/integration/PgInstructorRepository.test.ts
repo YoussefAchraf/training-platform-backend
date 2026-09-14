@@ -52,10 +52,13 @@ describe('PgInstructorRepository (Prisma, real database)', () => {
   });
 
   it('setSkills replaces the full set atomically, including going back to zero', async () => {
-    const withOne = await repository.setSkills(instructorId, [trainingIdA]);
+    const withOne = await repository.setSkills(instructorId, [{ trainingId: trainingIdA }]);
     expect(withOne.map((s) => s.trainingId)).toEqual([trainingIdA]);
 
-    const withBoth = await repository.setSkills(instructorId, [trainingIdA, trainingIdB]);
+    const withBoth = await repository.setSkills(instructorId, [
+      { trainingId: trainingIdA },
+      { trainingId: trainingIdB },
+    ]);
     expect(withBoth.map((s) => s.trainingId).sort()).toEqual([trainingIdA, trainingIdB].sort());
 
     const withNone = await repository.setSkills(instructorId, []);

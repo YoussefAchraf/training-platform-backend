@@ -5,8 +5,7 @@ class UpdateInstructorByManagerUseCase {
     this.instructorRepository = instructorRepository;
   }
 
-  async execute({ requester, instructorId, bio, trainingIds }: { requester: any; instructorId: any; bio?: any; trainingIds?: any }) {
-    
+  async execute({ requester, instructorId, bio, skills }: { requester: any; instructorId: any; bio?: any; skills?: any }) {
     if (!requester.isManager() && !requester.isSuperAdmin()) {
       throw new Error('Only a Manager can update another instructor profile');
     }
@@ -17,8 +16,11 @@ class UpdateInstructorByManagerUseCase {
     if (bio !== undefined) {
       await this.instructorRepository.updateBio(instructorId, bio);
     }
-    if (Array.isArray(trainingIds)) {
-      await this.instructorRepository.setSkills(instructorId, trainingIds);
+    if (Array.isArray(skills)) {
+      if (skills.some((skill) => !skill || !Number.isFinite(Number(skill.trainingId)))) {
+        throw new Error('Each skill requires a valid trainingId');
+      }
+      await this.instructorRepository.setSkills(instructorId, skills);
     }
 
     return this.instructorRepository.findById(instructorId);

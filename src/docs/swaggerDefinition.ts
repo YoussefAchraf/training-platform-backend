@@ -265,6 +265,18 @@ const definition = {
           generatedAt: { type: 'string', format: 'date-time' },
         },
       },
+      SessionNote: {
+        type: 'object',
+        description: "A free-text note left by a session's assigned Instructor. Sales/Manager/SuperAdmin can view but not create/edit/delete these.",
+        properties: {
+          id: { type: 'integer', example: 1 },
+          sessionId: { type: 'integer' },
+          instructorId: { type: 'integer' },
+          body: { type: 'string', example: 'Group struggled with chapter 3, plan a recap next session.' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
       AuditLogEntry: {
         type: 'object',
         properties: {
