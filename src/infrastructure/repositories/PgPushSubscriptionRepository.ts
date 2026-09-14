@@ -22,10 +22,16 @@ class PgPushSubscriptionRepository extends IPushSubscriptionRepository {
   }
 
   async create({ userId, endpoint, p256dh, auth }) {
+    
+    
+    
+    
+    
+    
     const row = await this.prisma.push_subscriptions.upsert({
-      where: { endpoint },
+      where: { user_id_endpoint: { user_id: userId, endpoint } },
       create: { user_id: userId, endpoint, p256dh, auth },
-      update: { user_id: userId, p256dh, auth },
+      update: { p256dh, auth },
     });
     return mapRow(row);
   }
