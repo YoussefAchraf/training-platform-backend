@@ -3,7 +3,7 @@ import { pool } from './infrastructure/database/connection';
 import { redis } from './infrastructure/cache/RedisClient';
 import { buildApp } from './app';
 
-const { app, reportScheduler, sessionReminderScheduler } = buildApp();
+const { app, reportScheduler, sessionReminderScheduler, certificationExpiryScheduler } = buildApp();
 
 const PORT = process.env.PORT || 4000;
 
@@ -11,6 +11,7 @@ const server = app.listen(PORT, () => {
   console.log(`Training platform API listening on port ${PORT}`);
   reportScheduler.start();
   sessionReminderScheduler.start();
+  certificationExpiryScheduler.start();
 });
 
 function shutdown(signal: string) {

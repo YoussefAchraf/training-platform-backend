@@ -14,6 +14,7 @@ import { PasswordResetTokenStore } from './infrastructure/security/PasswordReset
 import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { SessionReminderSchedulerService } from './infrastructure/services/SessionReminderSchedulerService';
+import { CertificationExpirySchedulerService } from './infrastructure/services/CertificationExpirySchedulerService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
@@ -28,6 +29,7 @@ import { PgSessionRepository } from './infrastructure/repositories/PgSessionRepo
 import { PgCalendarRepository } from './infrastructure/repositories/PgCalendarRepository';
 import { PgSurveyRepository } from './infrastructure/repositories/PgSurveyRepository';
 import { PgReportRepository } from './infrastructure/repositories/PgReportRepository';
+import { PgSessionNoteRepository } from './infrastructure/repositories/PgSessionNoteRepository';
 import { PgAuditLogRepository } from './infrastructure/repositories/PgAuditLogRepository';
 import { PgRoleRepository } from './infrastructure/repositories/PgRoleRepository';
 import { PgPushSubscriptionRepository } from './infrastructure/repositories/PgPushSubscriptionRepository';
@@ -69,6 +71,7 @@ import { ListInstructorsUseCase } from './use-cases/instructors/ListInstructorsU
 import { GetMyInstructorProfileUseCase } from './use-cases/instructors/GetMyInstructorProfileUseCase';
 import { UpdateMyInstructorProfileUseCase } from './use-cases/instructors/UpdateMyInstructorProfileUseCase';
 import { UpdateInstructorByManagerUseCase } from './use-cases/instructors/UpdateInstructorByManagerUseCase';
+import { SendCertificationExpiryRemindersUseCase } from './use-cases/instructors/SendCertificationExpiryRemindersUseCase';
 
 import { CreateSessionUseCase } from './use-cases/sessions/CreateSessionUseCase';
 import { ListSessionsUseCase } from './use-cases/sessions/ListSessionsUseCase';
@@ -82,6 +85,10 @@ import { MarkAttendanceUseCase } from './use-cases/sessions/MarkAttendanceUseCas
 import { UpdateAttendeeUseCase } from './use-cases/sessions/UpdateAttendeeUseCase';
 import { DeleteAttendeeUseCase } from './use-cases/sessions/DeleteAttendeeUseCase';
 import { SendUpcomingSessionRemindersUseCase } from './use-cases/sessions/SendUpcomingSessionRemindersUseCase';
+import { CreateSessionNoteUseCase } from './use-cases/sessions/CreateSessionNoteUseCase';
+import { ListSessionNotesUseCase } from './use-cases/sessions/ListSessionNotesUseCase';
+import { UpdateSessionNoteUseCase } from './use-cases/sessions/UpdateSessionNoteUseCase';
+import { DeleteSessionNoteUseCase } from './use-cases/sessions/DeleteSessionNoteUseCase';
 
 import {
   ListGlobalCalendarUseCase,
@@ -163,6 +170,7 @@ function buildApp() {
   const calendarRepository = new PgCalendarRepository(prismaClient);
   const surveyRepository = new PgSurveyRepository(prismaClient);
   const reportRepository = new PgReportRepository(prismaClient);
+  const sessionNoteRepository = new PgSessionNoteRepository(prismaClient);
   const auditLogRepository = new PgAuditLogRepository(prismaClient);
   const roleRepository = new PgRoleRepository(prismaClient);
   const pushSubscriptionRepository = new PgPushSubscriptionRepository(prismaClient);
@@ -310,6 +318,10 @@ function buildApp() {
   const bulkImportAttendeesUseCase = new BulkImportAttendeesUseCase({ sessionRepository, attendeeFileParserService });
   const markAttendanceUseCase = new MarkAttendanceUseCase({ sessionRepository, instructorRepository });
   const updateAttendeeUseCase = new UpdateAttendeeUseCase({ sessionRepository });
+  const createSessionNoteUseCase = new CreateSessionNoteUseCase({ sessionRepository, instructorRepository, sessionNoteRepository });
+  const listSessionNotesUseCase = new ListSessionNotesUseCase({ sessionRepository, instructorRepository, sessionNoteRepository });
+  const updateSessionNoteUseCase = new UpdateSessionNoteUseCase({ sessionRepository, instructorRepository, sessionNoteRepository });
+  const deleteSessionNoteUseCase = new DeleteSessionNoteUseCase({ sessionRepository, instructorRepository, sessionNoteRepository });
   const deleteAttendeeUseCase = new DeleteAttendeeUseCase({ sessionRepository });
   const sendUpcomingSessionRemindersUseCase = new SendUpcomingSessionRemindersUseCase({
     sessionRepository,
@@ -317,6 +329,13 @@ function buildApp() {
     instructorRepository,
     pushSubscriptionRepository,
     webPushService,
+  });
+  const sendCertificationExpiryRemindersUseCase = new SendCertificationExpiryRemindersUseCase({
+    instructorRepository,
+    userRepository,
+    pushSubscriptionRepository,
+    webPushService,
+    emailService,
   });
 
   const listGlobalCalendarUseCase = new ListGlobalCalendarUseCase({ calendarRepository });
@@ -418,6 +437,10 @@ function buildApp() {
     markAttendanceUseCase,
     updateAttendeeUseCase,
     deleteAttendeeUseCase,
+    createSessionNoteUseCase,
+    listSessionNotesUseCase,
+    updateSessionNoteUseCase,
+    deleteSessionNoteUseCase,
   });
   const calendarController = new CalendarController({
     listGlobalCalendarUseCase,
@@ -533,8 +556,9 @@ function buildApp() {
 
   const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase });
   const sessionReminderScheduler = new SessionReminderSchedulerService({ sendUpcomingSessionRemindersUseCase });
+  const certificationExpiryScheduler = new CertificationExpirySchedulerService({ sendCertificationExpiryRemindersUseCase });
 
-  return { app, reportScheduler, sessionReminderScheduler };
+  return { app, reportScheduler, sessionReminderScheduler, certificationExpiryScheduler };
 }
 
 export { buildApp };

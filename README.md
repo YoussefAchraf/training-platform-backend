@@ -142,6 +142,8 @@ information, gathered in one place:
 | `REPORT_JOB_CRON` | No (default `*/10 * * * *`) | How often the auto-report cron job checks for ended sessions. |
 | `REPORT_AUTO_GENERATE_AFTER_MINUTES` | No (default `60`) | How long after a session ends, with no report yet, before one gets generated automatically. |
 | `SESSION_REMINDER_JOB_CRON` | No (default `*/10 * * * *`) | How often the upcoming-session reminder cron job checks for sessions needing their 24h/1h push reminder. |
+| `CERT_EXPIRY_REMINDER_JOB_CRON` | No (default `0 8 * * *`) | How often the certification-expiry reminder cron job checks for instructor certifications expiring soon. |
+| `CERT_EXPIRY_REMINDER_DAYS` | No (default `30`) | How many days before a certificate's expiry date the one-time reminder fires. |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Yes, for push notifications | Generate a real pair with `npx web-push generate-vapid-keys`. The public key is also needed by the frontend; only the private key is a real secret. Without these set, push sends are simply skipped rather than failing anything. |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` / `SUPERADMIN_FIRSTNAME` / `SUPERADMIN_LASTNAME` | Only for `db:seed-superadmin` | Never read by the running server itself — only by that one bootstrap script. |
 | `DEVELOPER_EMAIL` / `DEVELOPER_PASSWORD` / `DEVELOPER_FIRSTNAME` / `DEVELOPER_LASTNAME` | Only for `db:seed-developer` | Never read by the running server itself — only by that one bootstrap script. |
@@ -332,9 +334,9 @@ bootstrap superuser before anything else.
 
 Tables: `roles`, `users`, `providers`, `trainings`, `clients`,
 `instructors`, `instructor_skills`, `training_sessions`,
-`session_attendees`, `calendar`, `surveys`, `reports`, `audit_log`,
-`push_subscriptions`, `feedback_reports`, `feature_announcements`,
-`feature_announcement_ratings`.
+`session_attendees`, `session_notes`, `calendar`, `surveys`, `reports`,
+`audit_log`, `push_subscriptions`, `feedback_reports`,
+`feature_announcements`, `feature_announcement_ratings`.
 
 The shape mirrors the domain model directly — `training_sessions`
 references a training, a client, and (once assigned) an instructor;
@@ -343,6 +345,9 @@ time, generated automatically alongside session creation, not
 maintained separately; `session_attendees` tracks both whether an
 attendee has submitted their survey and, independently, whether the
 instructor has marked them present or absent for the session itself;
+`session_notes` holds free-text notes an assigned instructor leaves on
+their own session — visible read-only to Sales/Manager/SuperAdmin, but
+only the authoring instructor can edit or delete one;
 `audit_log` records actor, action, entity type/id, and before/after
 snapshots for every create/update/delete/approve/reject/cancel across
 the system, which is what both the Manager-scoped and SuperAdmin-full
@@ -497,6 +502,10 @@ actually being scheduled.
 | PATCH | `/sessions/:id/attendees/:attendeeId` | Sales, Manager, SuperAdmin | body: name, email; edits an attendee's details. Frontend stops offering this once the session's attendance has started being marked, though it isn't backend-enforced |
 | DELETE | `/sessions/:id/attendees/:attendeeId` | Sales, Manager, SuperAdmin | removes an attendee entirely; rejected if they've already submitted a survey |
 | PATCH | `/sessions/:id/attendees/:attendeeId/attendance` | the session's assigned Instructor | body: status (present\|absent) |
+| POST | `/sessions/:id/notes` | the session's assigned Instructor | body: body (free text, max 5000 chars) |
+| GET | `/sessions/:id/notes` | Any authenticated | Sales/Manager/SuperAdmin see any session's notes (read-only); an Instructor only their own session's |
+| PATCH | `/sessions/:id/notes/:noteId` | the note's author (assigned Instructor) | body: body |
+| DELETE | `/sessions/:id/notes/:noteId` | the note's author (assigned Instructor) | |
 
 ### Instructors (`/instructors`)
 | Method | Path | Access |
@@ -541,15 +550,27 @@ for sessions ended more than `REPORT_AUTO_GENERATE_AFTER_MINUTES`
 | POST | `/push/subscribe` | Any authenticated | body: endpoint, keys (p256dh, auth) — a standard Web Push subscription object |
 | POST | `/push/unsubscribe` | Any authenticated | body: endpoint |
 
-Two kinds of business event push a notification today, both reusing the same
+Three kinds of business event push a notification today, all reusing the same
 send-and-prune pattern (`webPushService.send(...)`, deleting the subscription
 on an expired-endpoint error): assigning an instructor to a session (instant,
-see `AssignInstructorUseCase`), and `SessionReminderSchedulerService` — a
+see `AssignInstructorUseCase`), `SessionReminderSchedulerService` — a
 `node-cron` job (`SESSION_REMINDER_JOB_CRON`, default every 10 minutes) that
 sends a one-time reminder 24h and again 1h before a scheduled session starts,
-to the assigned instructor and whoever created the session (`created_by`).
-Each reminder fires exactly once per session, tracked via the
-`reminder_24h_sent_at`/`reminder_1h_sent_at` columns on `training_sessions`.
+to the assigned instructor and whoever created the session (`created_by`) —
+and `CertificationExpirySchedulerService`, a daily `node-cron` job
+(`CERT_EXPIRY_REMINDER_JOB_CRON`) that finds any `instructor_skills` row
+whose `certificate_expires_at` falls within `CERT_EXPIRY_REMINDER_DAYS`
+(default 30) and sends a one-time push + email to both the instructor and
+every approved Manager. Each reminder fires exactly once, tracked via a
+`*_reminder_sent_at` column on the relevant row (`reminder_24h_sent_at`/
+`reminder_1h_sent_at` on `training_sessions`, `expiry_reminder_sent_at` on
+`instructor_skills`).
+
+An instructor's certificate expiring also has a real effect beyond the
+reminder: `isQualifiedForTraining` treats an expired `certificate_expires_at`
+the same as never having added the training at all, so `AssignInstructorUseCase`
+automatically refuses to assign that instructor to that training until the
+certificate is renewed.
 
 ## API documentation (Swagger / OpenAPI)
 

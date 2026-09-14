@@ -10,6 +10,10 @@ class SessionController {
   markAttendanceUseCase: any;
   updateAttendeeUseCase: any;
   deleteAttendeeUseCase: any;
+  createSessionNoteUseCase: any;
+  listSessionNotesUseCase: any;
+  updateSessionNoteUseCase: any;
+  deleteSessionNoteUseCase: any;
 
   constructor({
     createSessionUseCase,
@@ -23,6 +27,10 @@ class SessionController {
     markAttendanceUseCase,
     updateAttendeeUseCase,
     deleteAttendeeUseCase,
+    createSessionNoteUseCase,
+    listSessionNotesUseCase,
+    updateSessionNoteUseCase,
+    deleteSessionNoteUseCase,
   }) {
     this.createSessionUseCase = createSessionUseCase;
     this.listSessionsUseCase = listSessionsUseCase;
@@ -35,6 +43,10 @@ class SessionController {
     this.markAttendanceUseCase = markAttendanceUseCase;
     this.updateAttendeeUseCase = updateAttendeeUseCase;
     this.deleteAttendeeUseCase = deleteAttendeeUseCase;
+    this.createSessionNoteUseCase = createSessionNoteUseCase;
+    this.listSessionNotesUseCase = listSessionNotesUseCase;
+    this.updateSessionNoteUseCase = updateSessionNoteUseCase;
+    this.deleteSessionNoteUseCase = deleteSessionNoteUseCase;
   }
 
   create = async (req, res) => {
@@ -184,6 +196,60 @@ class SessionController {
         requester: req.user,
         sessionId: Number(req.params.id),
         attendeeId: Number(req.params.attendeeId),
+      });
+      res.status(204).send();
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  addNote = async (req, res) => {
+    try {
+      const { body } = req.body;
+      const note = await this.createSessionNoteUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+        body,
+      });
+      res.status(201).json(note);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  listNotes = async (req, res) => {
+    try {
+      const notes = await this.listSessionNotesUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+      });
+      res.status(200).json(notes);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  updateNote = async (req, res) => {
+    try {
+      const { body } = req.body;
+      const note = await this.updateSessionNoteUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+        noteId: Number(req.params.noteId),
+        body,
+      });
+      res.status(200).json(note);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  removeNote = async (req, res) => {
+    try {
+      await this.deleteSessionNoteUseCase.execute({
+        requester: req.user,
+        sessionId: Number(req.params.id),
+        noteId: Number(req.params.noteId),
       });
       res.status(204).send();
     } catch (err) {

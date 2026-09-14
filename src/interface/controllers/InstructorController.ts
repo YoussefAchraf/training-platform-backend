@@ -36,11 +36,11 @@ class InstructorController {
 
   updateMe = async (req, res) => {
     try {
-      const { bio, trainingIds } = req.body;
+      const { bio, skills } = req.body;
       const profile = await this.updateMyInstructorProfileUseCase.execute({
         requester: req.user,
         bio,
-        trainingIds,
+        skills,
       });
       res.status(200).json(profile);
     } catch (err) {
@@ -50,12 +50,12 @@ class InstructorController {
 
   updateByManager = async (req, res) => {
     try {
-      const { bio, trainingIds } = req.body;
+      const { bio, skills } = req.body;
       const profile = await this.updateInstructorByManagerUseCase.execute({
         requester: req.user,
         instructorId: Number(req.params.id),
         bio,
-        trainingIds,
+        skills,
       });
       res.status(200).json(profile);
     } catch (err) {

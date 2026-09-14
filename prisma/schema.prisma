@@ -96,10 +96,13 @@ model feedback_reports {
 }
 
 model instructor_skills {
-  instructor_id Int
-  training_id   Int
-  instructors   instructors @relation(fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  trainings     trainings   @relation(fields: [training_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  instructor_id           Int
+  training_id             Int
+  certificate_id          String?
+  certificate_expires_at  DateTime?   @db.Timestamptz(6)
+  expiry_reminder_sent_at DateTime?   @db.Timestamptz(6)
+  instructors             instructors @relation(fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  trainings               trainings   @relation(fields: [training_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([instructor_id, training_id])
 }
@@ -114,6 +117,7 @@ model instructors {
   users             users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   surveys           surveys[]
   training_sessions training_sessions[]
+  session_notes     session_notes[]
 }
 
 model providers {
@@ -151,6 +155,19 @@ model reports {
   nps_average       Decimal?          @db.Decimal(5, 2)
   generated_at      DateTime          @default(now()) @db.Timestamptz(6)
   training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model session_notes {
+  id                Int               @id @default(autoincrement())
+  session_id        Int
+  instructor_id     Int
+  body              String
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @db.Timestamptz(6)
+  training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  instructors       instructors       @relation(fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_id], map: "idx_session_notes_session_id")
 }
 
 model roles {
@@ -210,6 +227,7 @@ model training_sessions {
   calendar          calendar[]
   reports           reports?
   session_attendees session_attendees[]
+  session_notes     session_notes[]
   surveys           surveys[]
   clients           clients             @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users             users?              @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
