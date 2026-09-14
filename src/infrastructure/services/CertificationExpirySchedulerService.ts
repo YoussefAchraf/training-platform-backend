@@ -22,9 +22,7 @@ class CertificationExpirySchedulerService {
       }
     });
 
-    
-    
-    console.log(`[CertificationExpiryScheduler] Started (cron: "${cronExpression}", threshold: ${thresholdDays} days)`); 
+    console.log('[CertificationExpiryScheduler] Started');
   }
 }
 
