@@ -1,10 +1,14 @@
 class MessagesController {
   sendMessageUseCase: any;
   listMessagesUseCase: any;
+  translateMessageUseCase: any;
+  forwardMessageUseCase: any;
 
-  constructor({ sendMessageUseCase, listMessagesUseCase }) {
+  constructor({ sendMessageUseCase, listMessagesUseCase, translateMessageUseCase, forwardMessageUseCase }) {
     this.sendMessageUseCase = sendMessageUseCase;
     this.listMessagesUseCase = listMessagesUseCase;
+    this.translateMessageUseCase = translateMessageUseCase;
+    this.forwardMessageUseCase = forwardMessageUseCase;
   }
 
   list = async (req, res) => {
@@ -37,6 +41,32 @@ class MessagesController {
         body,
         replyToMessageId: replyToMessageId ? Number(replyToMessageId) : undefined,
         attachment,
+      });
+      res.status(201).json(message);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  translate = async (req, res) => {
+    try {
+      const result = await this.translateMessageUseCase.execute({
+        requester: req.user,
+        messageId: Number(req.params.messageId),
+        targetLanguage: req.body.targetLanguage,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  forward = async (req, res) => {
+    try {
+      const message = await this.forwardMessageUseCase.execute({
+        requester: req.user,
+        messageId: Number(req.params.messageId),
+        targetConversationId: Number(req.body.targetConversationId),
       });
       res.status(201).json(message);
     } catch (err) {

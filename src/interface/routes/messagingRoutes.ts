@@ -44,6 +44,22 @@ export const messagingRoutesDocs: Record<string, any> = {
       responses: { 200: { description: 'OK' } },
     },
   },
+  '/messaging/messages/{messageId}/translate': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Translate a text message into the requesting user\'s language (requires GEMINI_API_KEY)',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' }, 400: { description: 'Not configured, not found, or not a participant' } },
+    },
+  },
+  '/messaging/messages/{messageId}/forward': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Forward a message to another conversation you are a participant of',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 201: { description: 'Created' } },
+    },
+  },
 };
 
 export default function messagingRoutes({
@@ -54,6 +70,7 @@ export default function messagingRoutes({
   uploadMessageAttachment,
   authMiddleware,
   requireRole,
+  translateLimiter,
 }) {
   const router = Router();
   const requireMessagingRole = requireRole(MESSAGING_ALLOWED_ROLES);
@@ -77,6 +94,15 @@ export default function messagingRoutes({
   );
 
   router.get('/attachments/:messageId', authMiddleware, requireMessagingRole, attachmentsController.download);
+
+  router.post(
+    '/messages/:messageId/translate',
+    authMiddleware,
+    requireMessagingRole,
+    translateLimiter,
+    messagesController.translate,
+  );
+  router.post('/messages/:messageId/forward', authMiddleware, requireMessagingRole, messagesController.forward);
 
   return router;
 }

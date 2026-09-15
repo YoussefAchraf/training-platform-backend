@@ -20,6 +20,7 @@ import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
 import { AttendeeFileParserService } from './infrastructure/services/AttendeeFileParserService';
 import { AttachmentStorageService } from './infrastructure/services/AttachmentStorageService';
+import { TranslationService } from './infrastructure/services/TranslationService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -127,6 +128,8 @@ import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
 import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
 import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
 import { DownloadAttachmentUseCase } from './use-cases/messaging/DownloadAttachmentUseCase';
+import { TranslateMessageUseCase } from './use-cases/messaging/TranslateMessageUseCase';
+import { ForwardMessageUseCase } from './use-cases/messaging/ForwardMessageUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
@@ -180,6 +183,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   const pdfReportService = new PdfReportService();
   const webPushService = new WebPushService();
   const attachmentStorageService = new AttachmentStorageService();
+  const translationService = new TranslationService();
   const attendeeFileParserService = new AttendeeFileParserService();
 
   const userRepository = new PgUserRepository(prismaClient);
@@ -420,6 +424,20 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository });
   const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
   const downloadAttachmentUseCase = new DownloadAttachmentUseCase({ conversationRepository, messageRepository });
+  const translateMessageUseCase = new TranslateMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    translationService,
+    redis,
+  });
+  const forwardMessageUseCase = new ForwardMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    messagingRealtime,
+    presenceStore,
+    pushSubscriptionRepository,
+    webPushService,
+  });
 
   const authController = new AuthController({
     signupUseCase,
@@ -512,7 +530,12 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     listConversationsUseCase,
     markConversationReadUseCase,
   });
-  const messagesController = new MessagesController({ sendMessageUseCase, listMessagesUseCase });
+  const messagesController = new MessagesController({
+    sendMessageUseCase,
+    listMessagesUseCase,
+    translateMessageUseCase,
+    forwardMessageUseCase,
+  });
   const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
   const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });
   const uploadMessageAttachment = uploadMessageAttachmentFactory({ attachmentStorageService });
@@ -550,6 +573,13 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     limit: 5,
     message: 'Too many developer login attempts, please try again later.',
     prefix: 'developer-login',
+  });
+  const translateLimiter = createRateLimiter({
+    redisClient: redis,
+    windowMs: 60 * 1000,
+    limit: 20,
+    message: 'Too many translation requests, please try again in a moment.',
+    prefix: 'translate',
   });
 
   const app = providedApp || express();
@@ -611,6 +641,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
       uploadMessageAttachment,
       authMiddleware,
       requireRole,
+      translateLimiter,
     }),
   );
 
