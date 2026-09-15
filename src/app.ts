@@ -35,6 +35,8 @@ import { PgRoleRepository } from './infrastructure/repositories/PgRoleRepository
 import { PgPushSubscriptionRepository } from './infrastructure/repositories/PgPushSubscriptionRepository';
 import { PgFeedbackRepository } from './infrastructure/repositories/PgFeedbackRepository';
 import { PgFeatureAnnouncementRepository } from './infrastructure/repositories/PgFeatureAnnouncementRepository';
+import { PgConversationRepository } from './infrastructure/repositories/PgConversationRepository';
+import { PgMessageRepository } from './infrastructure/repositories/PgMessageRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -114,6 +116,16 @@ import { ListFeatureAnnouncementsUseCase } from './use-cases/announcements/ListF
 import { ListMyPendingAnnouncementsUseCase } from './use-cases/announcements/ListMyPendingAnnouncementsUseCase';
 import { RateFeatureAnnouncementUseCase } from './use-cases/announcements/RateFeatureAnnouncementUseCase';
 
+import { CreateDirectConversationUseCase } from './use-cases/messaging/CreateDirectConversationUseCase';
+import { CreateGroupConversationUseCase } from './use-cases/messaging/CreateGroupConversationUseCase';
+import { AddParticipantUseCase } from './use-cases/messaging/AddParticipantUseCase';
+import { RemoveParticipantUseCase } from './use-cases/messaging/RemoveParticipantUseCase';
+import { ListConversationsUseCase } from './use-cases/messaging/ListConversationsUseCase';
+import { ListReachablePeopleUseCase } from './use-cases/messaging/ListReachablePeopleUseCase';
+import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
+import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
+import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
 import { ProviderController } from './interface/controllers/ProviderController';
@@ -127,6 +139,9 @@ import { SurveyController } from './interface/controllers/SurveyController';
 import { PushController } from './interface/controllers/PushController';
 import { FeedbackController } from './interface/controllers/FeedbackController';
 import { AnnouncementController } from './interface/controllers/AnnouncementController';
+import { ConversationsController } from './interface/controllers/ConversationsController';
+import { MessagesController } from './interface/controllers/MessagesController';
+import { MessagingDirectoryController } from './interface/controllers/MessagingDirectoryController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
@@ -149,6 +164,7 @@ import surveyRoutes from './interface/routes/surveyRoutes';
 import pushRoutes from './interface/routes/pushRoutes';
 import feedbackRoutes from './interface/routes/feedbackRoutes';
 import announcementRoutes from './interface/routes/announcementRoutes';
+import messagingRoutes from './interface/routes/messagingRoutes';
 
 function buildApp() {
   const passwordHasher = new PasswordHasher();
@@ -176,6 +192,8 @@ function buildApp() {
   const pushSubscriptionRepository = new PgPushSubscriptionRepository(prismaClient);
   const feedbackRepository = new PgFeedbackRepository(prismaClient);
   const announcementRepository = new PgFeatureAnnouncementRepository(prismaClient);
+  const conversationRepository = new PgConversationRepository(prismaClient);
+  const messageRepository = new PgMessageRepository(prismaClient);
 
   const signupUseCase = new SignupUseCase({
     userRepository,
@@ -379,6 +397,16 @@ function buildApp() {
   const listMyPendingAnnouncementsUseCase = new ListMyPendingAnnouncementsUseCase({ announcementRepository });
   const rateFeatureAnnouncementUseCase = new RateFeatureAnnouncementUseCase({ announcementRepository });
 
+  const createDirectConversationUseCase = new CreateDirectConversationUseCase({ conversationRepository, userRepository });
+  const createGroupConversationUseCase = new CreateGroupConversationUseCase({ conversationRepository, userRepository });
+  const addParticipantUseCase = new AddParticipantUseCase({ conversationRepository, userRepository });
+  const removeParticipantUseCase = new RemoveParticipantUseCase({ conversationRepository });
+  const listConversationsUseCase = new ListConversationsUseCase({ conversationRepository });
+  const listReachablePeopleUseCase = new ListReachablePeopleUseCase({ conversationRepository });
+  const sendMessageUseCase = new SendMessageUseCase({ conversationRepository, messageRepository });
+  const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository });
+  const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -462,6 +490,16 @@ function buildApp() {
     listMyPendingAnnouncementsUseCase,
     rateFeatureAnnouncementUseCase,
   });
+  const conversationsController = new ConversationsController({
+    createDirectConversationUseCase,
+    createGroupConversationUseCase,
+    addParticipantUseCase,
+    removeParticipantUseCase,
+    listConversationsUseCase,
+    markConversationReadUseCase,
+  });
+  const messagesController = new MessagesController({ sendMessageUseCase, listMessagesUseCase });
+  const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
   const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
@@ -547,6 +585,10 @@ function buildApp() {
   app.use('/push', pushRoutes({ pushController, authMiddleware }));
   app.use('/feedback', feedbackRoutes({ feedbackController, authMiddleware, requireRole }));
   app.use('/announcements', announcementRoutes({ announcementController, authMiddleware, requireRole }));
+  app.use(
+    '/messaging',
+    messagingRoutes({ conversationsController, messagesController, messagingDirectoryController, authMiddleware, requireRole }),
+  );
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {

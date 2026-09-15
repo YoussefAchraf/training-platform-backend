@@ -5,6 +5,7 @@ import { calendarRoutesDocs } from '../interface/routes/calendarRoutes';
 import { clientRoutesDocs } from '../interface/routes/clientRoutes';
 import { feedbackRoutesDocs } from '../interface/routes/feedbackRoutes';
 import { instructorRoutesDocs } from '../interface/routes/instructorRoutes';
+import { messagingRoutesDocs } from '../interface/routes/messagingRoutes';
 import { providerRoutesDocs } from '../interface/routes/providerRoutes';
 import { pushRoutesDocs } from '../interface/routes/pushRoutes';
 import { reportRoutesDocs } from '../interface/routes/reportRoutes';
@@ -20,6 +21,7 @@ const paths = {
   ...clientRoutesDocs,
   ...feedbackRoutesDocs,
   ...instructorRoutesDocs,
+  ...messagingRoutesDocs,
   ...providerRoutesDocs,
   ...pushRoutesDocs,
   ...reportRoutesDocs,

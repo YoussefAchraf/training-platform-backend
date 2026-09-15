@@ -373,3 +373,58 @@ ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_endp
 ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS push_subscriptions_user_id_endpoint_key;
 ALTER TABLE push_subscriptions ADD CONSTRAINT push_subscriptions_user_id_endpoint_key UNIQUE (user_id, endpoint);
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);
+
+DO $$ BEGIN
+    CREATE TYPE conversation_type AS ENUM ('direct', 'group');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE conversation_role AS ENUM ('owner', 'member');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE message_type AS ENUM ('text', 'image', 'voice', 'file');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id          SERIAL PRIMARY KEY,
+    type        conversation_type NOT NULL,
+    name        VARCHAR(150),
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_conversations_created_by ON conversations(created_by);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id                          SERIAL PRIMARY KEY,
+    conversation_id             INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id                   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    type                        message_type NOT NULL,
+    body                        TEXT,
+    attachment_key              TEXT,
+    attachment_original_name    TEXT,
+    attachment_mime             TEXT,
+    attachment_size_bytes       INTEGER,
+    attachment_duration_seconds INTEGER,
+    reply_to_message_id         INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+    created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id_id ON messages(conversation_id, id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+
+CREATE TABLE IF NOT EXISTS conversation_participants (
+    conversation_id      INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    user_id              INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role                 conversation_role NOT NULL DEFAULT 'member',
+    joined_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_read_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+    last_read_at         TIMESTAMPTZ,
+    PRIMARY KEY (conversation_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants(user_id);
