@@ -433,3 +433,12 @@ ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS last_delivered_me
 ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS last_delivered_at TIMESTAMPTZ;
 
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS message_deletions (
+    message_id  INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    deleted_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (message_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_message_deletions_user ON message_deletions(user_id);

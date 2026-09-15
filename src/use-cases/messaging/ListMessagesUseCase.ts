@@ -29,7 +29,11 @@ class ListMessagesUseCase {
       throw new Error('You are not a participant of this conversation');
     }
 
-    const messages = await this.messageRepository.listByConversation(conversationId, { cursor, limit });
+    const messages = await this.messageRepository.listByConversation(conversationId, {
+      cursor,
+      limit,
+      requesterId: requester.id,
+    });
 
     const newestMessage = messages[messages.length - 1];
     if (newestMessage) {

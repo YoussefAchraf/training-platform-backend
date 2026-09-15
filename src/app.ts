@@ -131,6 +131,7 @@ import { DownloadAttachmentUseCase } from './use-cases/messaging/DownloadAttachm
 import { TranslateMessageUseCase } from './use-cases/messaging/TranslateMessageUseCase';
 import { ForwardMessageUseCase } from './use-cases/messaging/ForwardMessageUseCase';
 import { EditMessageUseCase } from './use-cases/messaging/EditMessageUseCase';
+import { DeleteMessageUseCase } from './use-cases/messaging/DeleteMessageUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
@@ -440,6 +441,12 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     webPushService,
   });
   const editMessageUseCase = new EditMessageUseCase({ conversationRepository, messageRepository, messagingRealtime });
+  const deleteMessageUseCase = new DeleteMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    attachmentStorageService,
+    messagingRealtime,
+  });
 
   const authController = new AuthController({
     signupUseCase,
@@ -538,6 +545,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     translateMessageUseCase,
     forwardMessageUseCase,
     editMessageUseCase,
+    deleteMessageUseCase,
   });
   const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
   const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });

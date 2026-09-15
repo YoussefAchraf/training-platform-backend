@@ -67,6 +67,12 @@ export const messagingRoutesDocs: Record<string, any> = {
       parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
       responses: { 200: { description: 'OK' } },
     },
+    delete: {
+      tags: ['Messaging'],
+      summary: 'Delete a message for yourself, or for everyone (sender only, within 2 minutes of sending)',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } },
+    },
   },
 };
 
@@ -112,6 +118,7 @@ export default function messagingRoutes({
   );
   router.post('/messages/:messageId/forward', authMiddleware, requireMessagingRole, messagesController.forward);
   router.patch('/messages/:messageId', authMiddleware, requireMessagingRole, messagesController.edit);
+  router.delete('/messages/:messageId', authMiddleware, requireMessagingRole, messagesController.remove);
 
   return router;
 }
