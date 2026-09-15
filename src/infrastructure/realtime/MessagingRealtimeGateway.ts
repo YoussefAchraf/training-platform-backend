@@ -36,8 +36,22 @@ class MessagingRealtimeGateway {
     await this.messaging.in(userRoom(userId)).socketsLeave(conversationRoom(conversationId));
   }
 
-  broadcastRead(userId, conversationId, lastReadMessageId) {
-    this.messaging?.to(userRoom(userId)).emit('conversation:read', { conversationId, lastReadMessageId });
+  broadcastRead(conversationId, participant) {
+    this.messaging?.to(conversationRoom(conversationId)).emit('conversation:read', {
+      conversationId,
+      userId: participant.userId,
+      lastReadMessageId: participant.lastReadMessageId,
+      lastReadAt: participant.lastReadAt,
+    });
+  }
+
+  broadcastDelivered(conversationId, participant) {
+    this.messaging?.to(conversationRoom(conversationId)).emit('conversation:delivered', {
+      conversationId,
+      userId: participant.userId,
+      lastDeliveredMessageId: participant.lastDeliveredMessageId,
+      lastDeliveredAt: participant.lastDeliveredAt,
+    });
   }
 }
 

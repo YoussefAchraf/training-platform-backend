@@ -120,6 +120,22 @@ describe('PgConversationRepository (Prisma, real database)', () => {
     });
   });
 
+  describe('markDelivered', () => {
+    it('only ever moves forward, never backward, even under out-of-order calls (the concurrency-safety ratchet)', async () => {
+      const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      createdConversationIds.push(conversation.id);
+
+      const messageA = await prismaClient.messages.create({ data: { conversation_id: conversation.id, sender_id: instructorId, type: 'text', body: 'first' } });
+      const messageB = await prismaClient.messages.create({ data: { conversation_id: conversation.id, sender_id: instructorId, type: 'text', body: 'second' } });
+
+      const afterHighResult = await repository.markDelivered(conversation.id, managerId, messageB.id);
+      expect(afterHighResult.lastDeliveredMessageId).toBe(messageB.id);
+
+      const afterLowResult = await repository.markDelivered(conversation.id, managerId, messageA.id);
+      expect(afterLowResult.lastDeliveredMessageId).toBe(messageB.id);
+    });
+  });
+
   describe('listForUser', () => {
     it('computes an unread count that excludes the reader\'s own messages', async () => {
       const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });

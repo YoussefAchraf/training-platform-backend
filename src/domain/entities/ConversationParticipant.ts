@@ -5,6 +5,8 @@ class ConversationParticipant {
   joinedAt: any;
   lastReadMessageId: any;
   lastReadAt: any;
+  lastDeliveredMessageId: any;
+  lastDeliveredAt: any;
   firstname: any;
   lastname: any;
   email: any;
@@ -17,6 +19,8 @@ class ConversationParticipant {
     joinedAt,
     lastReadMessageId = null,
     lastReadAt = null,
+    lastDeliveredMessageId = null,
+    lastDeliveredAt = null,
     firstname = null,
     lastname = null,
     email = null,
@@ -28,6 +32,8 @@ class ConversationParticipant {
     this.joinedAt = joinedAt;
     this.lastReadMessageId = lastReadMessageId;
     this.lastReadAt = lastReadAt;
+    this.lastDeliveredMessageId = lastDeliveredMessageId;
+    this.lastDeliveredAt = lastDeliveredAt;
     this.firstname = firstname;
     this.lastname = lastname;
     this.email = email;

@@ -428,3 +428,6 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
     PRIMARY KEY (conversation_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants(user_id);
+
+ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS last_delivered_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS last_delivered_at TIMESTAMPTZ;
