@@ -3,10 +3,12 @@ import { MESSAGING_ALLOWED_ROLES } from '../../domain/constants/messagingRoles';
 class AddParticipantUseCase {
   conversationRepository: any;
   userRepository: any;
+  messagingRealtime: any;
 
-  constructor({ conversationRepository, userRepository }) {
+  constructor({ conversationRepository, userRepository, messagingRealtime = null }) {
     this.conversationRepository = conversationRepository;
     this.userRepository = userRepository;
+    this.messagingRealtime = messagingRealtime;
   }
 
   async execute({ requester, conversationId, userId }: { requester: any; conversationId: any; userId: any }) {
@@ -37,7 +39,12 @@ class AddParticipantUseCase {
       throw new Error('This user is already in the group');
     }
 
-    return this.conversationRepository.addParticipant(conversationId, target.id, 'member');
+    const participant = await this.conversationRepository.addParticipant(conversationId, target.id, 'member');
+    this.messagingRealtime?.notifyParticipantAdded(conversationId, conversation, participant).catch((err) => {
+      console.error('[AddParticipant] Failed to notify participant in real time:', err.message);
+    });
+
+    return participant;
   }
 }
 

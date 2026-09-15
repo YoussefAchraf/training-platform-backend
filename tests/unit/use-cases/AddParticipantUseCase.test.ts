@@ -82,4 +82,17 @@ describe('AddParticipantUseCase', () => {
     await useCase.execute({ requester: buildRequester(), conversationId: 10, userId: 2 });
     expect(repos.conversationRepository.addParticipant).toHaveBeenCalledWith(10, 2, 'member');
   });
+
+  it('notifies the new participant in real time without failing the request if that notification errors', async () => {
+    const repos = buildRepos();
+    const messagingRealtime = { notifyParticipantAdded: jest.fn().mockRejectedValue(new Error('socket down')) };
+    const useCase = new AddParticipantUseCase({ ...repos, messagingRealtime });
+
+    await expect(useCase.execute({ requester: buildRequester(), conversationId: 10, userId: 2 })).resolves.toBeDefined();
+    expect(messagingRealtime.notifyParticipantAdded).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ id: 10 }),
+      { userId: 2, role: 'member' }
+    );
+  });
 });

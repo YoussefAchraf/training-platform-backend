@@ -1,8 +1,10 @@
 class RemoveParticipantUseCase {
   conversationRepository: any;
+  messagingRealtime: any;
 
-  constructor({ conversationRepository }) {
+  constructor({ conversationRepository, messagingRealtime = null }) {
     this.conversationRepository = conversationRepository;
+    this.messagingRealtime = messagingRealtime;
   }
 
   async execute({ requester, conversationId, userId }: { requester: any; conversationId: any; userId: any }) {
@@ -29,6 +31,9 @@ class RemoveParticipantUseCase {
     }
 
     await this.conversationRepository.removeParticipant(conversationId, userId);
+    this.messagingRealtime?.notifyParticipantRemoved(conversationId, userId).catch((err) => {
+      console.error('[RemoveParticipant] Failed to notify participant removal in real time:', err.message);
+    });
   }
 }
 

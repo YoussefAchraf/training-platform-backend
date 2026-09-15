@@ -58,4 +58,13 @@ describe('RemoveParticipantUseCase', () => {
     await useCase.execute({ requester: buildRequester(), conversationId: 10, userId: 2 });
     expect(repos.conversationRepository.removeParticipant).toHaveBeenCalledWith(10, 2);
   });
+
+  it('notifies the removal in real time', async () => {
+    const repos = buildRepos();
+    const messagingRealtime = { notifyParticipantRemoved: jest.fn().mockResolvedValue(undefined) };
+    const useCase = new RemoveParticipantUseCase({ ...repos, messagingRealtime });
+
+    await useCase.execute({ requester: buildRequester(), conversationId: 10, userId: 2 });
+    expect(messagingRealtime.notifyParticipantRemoved).toHaveBeenCalledWith(10, 2);
+  });
 });

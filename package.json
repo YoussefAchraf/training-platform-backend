@@ -41,6 +41,7 @@
     "pm2": "^7.0.3",
     "qrcode": "^1.5.3",
     "rate-limit-redis": "^6.0.1",
+    "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
     "validator": "^13.15.35",
     "web-push": "^3.6.7",

@@ -1,8 +1,10 @@
 class MarkConversationReadUseCase {
   conversationRepository: any;
+  messagingRealtime: any;
 
-  constructor({ conversationRepository }) {
+  constructor({ conversationRepository, messagingRealtime = null }) {
     this.conversationRepository = conversationRepository;
+    this.messagingRealtime = messagingRealtime;
   }
 
   async execute({ requester, conversationId, messageId }: { requester: any; conversationId: any; messageId: any }) {
@@ -18,7 +20,10 @@ class MarkConversationReadUseCase {
       throw new Error('You are not a participant of this conversation');
     }
 
-    return this.conversationRepository.markRead(conversationId, requester.id, messageId);
+    const participant = await this.conversationRepository.markRead(conversationId, requester.id, messageId);
+    this.messagingRealtime?.broadcastRead(requester.id, conversationId, participant.lastReadMessageId);
+
+    return participant;
   }
 }
 

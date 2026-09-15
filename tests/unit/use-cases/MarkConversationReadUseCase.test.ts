@@ -54,4 +54,13 @@ describe('MarkConversationReadUseCase', () => {
     expect(result).toEqual({ userId: 1, lastReadMessageId: 42 });
     expect(repos.conversationRepository.markRead).toHaveBeenCalledWith(10, 1, 42);
   });
+
+  it('broadcasts the read state to the same user\'s other sessions in real time', async () => {
+    const repos = buildRepos();
+    const messagingRealtime = { broadcastRead: jest.fn() };
+    const useCase = new MarkConversationReadUseCase({ ...repos, messagingRealtime });
+
+    await useCase.execute({ requester: buildRequester(), conversationId: 10, messageId: 42 });
+    expect(messagingRealtime.broadcastRead).toHaveBeenCalledWith(1, 10, 42);
+  });
 });
