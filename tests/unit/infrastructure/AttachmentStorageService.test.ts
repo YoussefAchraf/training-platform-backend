@@ -77,6 +77,35 @@ describe('AttachmentStorageService', () => {
     );
   });
 
+  it('accepts a real browser-recorded audio/webm voice note even though it is only detectable as video/webm', async () => {
+    const service = new AttachmentStorageService();
+    const key = 'voice-note.webm';
+    const filePath = service.resolvePath(5, key);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const webmHeader = Buffer.from(
+      'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAAAH1+EU2bdLlNu4tTq4QVSalmUw==',
+      'base64'
+    );
+    fs.writeFileSync(filePath, webmHeader);
+
+    const result = await service.validateUploadedFile(5, key, 'voice');
+    expect(result.mime).toBe('audio/webm');
+  });
+
+  it('rejects a voice message whose content is not audio at all', async () => {
+    const service = new AttachmentStorageService();
+    const key = 'not-audio.png';
+    const filePath = service.resolvePath(6, key);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    const tinyPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64'
+    );
+    fs.writeFileSync(filePath, tinyPng);
+
+    await expect(service.validateUploadedFile(6, key, 'voice')).rejects.toThrow('does not look like a valid voice');
+  });
+
   it('rejects a file larger than the configured limit for its type', async () => {
     const service = new AttachmentStorageService();
     const key = 'too-big.png';
