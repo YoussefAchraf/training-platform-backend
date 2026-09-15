@@ -9,6 +9,20 @@ function sanitizeExtension(originalName) {
   return /^\.[a-z0-9]{1,10}$/.test(ext) ? ext : '';
 }
 
+function toSafeConversationId(conversationId) {
+  const id = Number(conversationId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error('Invalid conversation id');
+  }
+  return String(id);
+}
+
+function assertSafeAttachmentKey(key) {
+  if (typeof key !== 'string' || key.includes('..') || !/^[A-Za-z0-9._-]{1,255}$/.test(key)) {
+    throw new Error('Invalid attachment key');
+  }
+}
+
 class AttachmentStorageService {
   root: string;
   sizeLimitsBytes: Record<string, number>;
@@ -23,7 +37,7 @@ class AttachmentStorageService {
   }
 
   conversationDir(conversationId) {
-    return path.join(this.root, String(conversationId));
+    return path.join(this.root, toSafeConversationId(conversationId));
   }
 
   maxUploadSizeBytes() {
@@ -35,7 +49,13 @@ class AttachmentStorageService {
   }
 
   ensureConversationDir(conversationId, callback) {
-    const dir = this.conversationDir(conversationId);
+    let dir;
+    try {
+      dir = this.conversationDir(conversationId);
+    } catch (err) {
+      callback(err, undefined);
+      return;
+    }
     fs.mkdir(dir, { recursive: true }, (err) => callback(err, dir));
   }
 
@@ -44,6 +64,7 @@ class AttachmentStorageService {
   }
 
   resolvePath(conversationId, key) {
+    assertSafeAttachmentKey(key);
     return path.join(this.conversationDir(conversationId), key);
   }
 

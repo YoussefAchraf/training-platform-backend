@@ -91,4 +91,34 @@ describe('AttachmentStorageService', () => {
     const service = new AttachmentStorageService();
     await expect(service.delete(999, 'never-existed.png')).resolves.toBeUndefined();
   });
+
+  describe('path-traversal hardening', () => {
+    it('rejects a non-numeric conversation id instead of using it as a path segment', () => {
+      const service = new AttachmentStorageService();
+      expect(() => service.conversationDir('../../etc')).toThrow('Invalid conversation id');
+      expect(() => service.resolvePath('../../etc', 'a.png')).toThrow('Invalid conversation id');
+    });
+
+    it('surfaces an invalid conversation id as a callback error, not a thrown exception, from ensureConversationDir', (done) => {
+      const service = new AttachmentStorageService();
+      service.ensureConversationDir('../../etc', (err, dir) => {
+        expect(err).toBeInstanceOf(Error);
+        expect(err.message).toBe('Invalid conversation id');
+        expect(dir).toBeUndefined();
+        done();
+      });
+    });
+
+    it('rejects an attachment key containing path separators or traversal sequences', () => {
+      const service = new AttachmentStorageService();
+      expect(() => service.resolvePath(1, '../../etc/passwd')).toThrow('Invalid attachment key');
+      expect(() => service.resolvePath(1, 'sub/dir/file.png')).toThrow('Invalid attachment key');
+      expect(() => service.resolvePath(1, '..')).toThrow('Invalid attachment key');
+    });
+
+    it('never resolves outside the configured storage root for any input', () => {
+      const service = new AttachmentStorageService();
+      expect(() => service.resolvePath(1, '..\\..\\windows\\system32')).toThrow('Invalid attachment key');
+    });
+  });
 });
