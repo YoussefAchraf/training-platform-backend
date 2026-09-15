@@ -47,6 +47,9 @@ COPY --chown=node:node package.json ecosystem.config.js ./
 RUN mkdir -p "$PM2_HOME" && chown -R node:node "$PM2_HOME" \
     && chgrp -R 0 "$PM2_HOME" && chmod -R g=u "$PM2_HOME"
 
+RUN mkdir -p /app/storage/attachments && chown -R node:node /app/storage/attachments \
+    && chgrp -R 0 /app/storage/attachments && chmod -R g=u /app/storage/attachments
+
 USER node
 
 EXPOSE 4000

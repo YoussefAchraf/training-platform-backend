@@ -2,7 +2,17 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-const MIME_PREFIX_BY_TYPE = { image: 'image/', voice: 'audio/' };
+const ALLOWED_MIME_PREFIXES_BY_TYPE = {
+  image: ['image/'],
+  voice: ['audio/', 'video/webm', 'video/ogg'],
+};
+
+function isDetectedMimeAllowed(declaredType, detectedMime) {
+  const allowedPrefixes = ALLOWED_MIME_PREFIXES_BY_TYPE[declaredType];
+  if (!allowedPrefixes) return true;
+  if (!detectedMime) return false;
+  return allowedPrefixes.some((prefix) => detectedMime.startsWith(prefix));
+}
 
 function sanitizeExtension(originalName) {
   const ext = path.extname(originalName || '').toLowerCase();
@@ -91,12 +101,14 @@ class AttachmentStorageService {
     }
 
     const detectedMime = await this.detectMime(filePath);
-    const requiredPrefix = MIME_PREFIX_BY_TYPE[declaredType];
-    if (requiredPrefix && (!detectedMime || !detectedMime.startsWith(requiredPrefix))) {
+    if (!isDetectedMimeAllowed(declaredType, detectedMime)) {
       throw new Error(`The uploaded file does not look like a valid ${declaredType}`);
     }
 
-    return { mime: detectedMime, sizeBytes: stats.size };
+    const normalizedMime =
+      declaredType === 'voice' && detectedMime?.startsWith('video/') ? detectedMime.replace('video/', 'audio/') : detectedMime;
+
+    return { mime: normalizedMime, sizeBytes: stats.size };
   }
 
   async delete(conversationId, key) {
