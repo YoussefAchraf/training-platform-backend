@@ -10,3 +10,4 @@ REBUILD-PLAN.md
 PRISMA-MIGRATION-PLAN.md
 
 /src/generated/prisma
+/storage/

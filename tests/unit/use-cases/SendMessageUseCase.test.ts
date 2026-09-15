@@ -70,6 +70,52 @@ describe('SendMessageUseCase', () => {
     );
   });
 
+  describe('attachment validation', () => {
+    it('persists the sniffed mime/size instead of the caller-supplied values', async () => {
+      const repos = buildRepos();
+      repos.messageRepository.create.mockResolvedValue({ id: 200, type: 'image' });
+      const attachmentStorageService = {
+        validateUploadedFile: jest.fn().mockResolvedValue({ mime: 'image/png', sizeBytes: 1234 }),
+        delete: jest.fn(),
+      };
+      const useCase = new SendMessageUseCase({ ...repos, attachmentStorageService });
+
+      await useCase.execute({
+        requester: buildRequester(),
+        conversationId: 10,
+        type: 'image',
+        attachment: { key: 'abc.png', originalName: 'photo.png', mime: 'application/octet-stream', sizeBytes: 999 },
+      });
+
+      expect(attachmentStorageService.validateUploadedFile).toHaveBeenCalledWith(10, 'abc.png', 'image');
+      expect(repos.messageRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ attachmentMime: 'image/png', attachmentSizeBytes: 1234 })
+      );
+      expect(attachmentStorageService.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes the uploaded file and rejects the message when validation fails', async () => {
+      const repos = buildRepos();
+      const attachmentStorageService = {
+        validateUploadedFile: jest.fn().mockRejectedValue(new Error('does not look like a valid image')),
+        delete: jest.fn().mockResolvedValue(undefined),
+      };
+      const useCase = new SendMessageUseCase({ ...repos, attachmentStorageService });
+
+      await expect(
+        useCase.execute({
+          requester: buildRequester(),
+          conversationId: 10,
+          type: 'image',
+          attachment: { key: 'abc.png', originalName: 'photo.png' },
+        })
+      ).rejects.toThrow('does not look like a valid image');
+
+      expect(attachmentStorageService.delete).toHaveBeenCalledWith(10, 'abc.png');
+      expect(repos.messageRepository.create).not.toHaveBeenCalled();
+    });
+  });
+
   it('rejects replying to a message from a different conversation', async () => {
     const repos = buildRepos();
     repos.messageRepository.findById.mockResolvedValue({ id: 5, conversationId: 99 });

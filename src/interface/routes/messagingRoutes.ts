@@ -30,7 +30,19 @@ export const messagingRoutesDocs: Record<string, any> = {
   },
   '/messaging/conversations/{id}/messages': {
     get: { tags: ['Messaging'], summary: 'List messages in a conversation (keyset paginated)', responses: { 200: { description: 'OK' } } },
-    post: { tags: ['Messaging'], summary: 'Send a message', responses: { 201: { description: 'Created' } } },
+    post: {
+      tags: ['Messaging'],
+      summary: 'Send a message (multipart/form-data with a `file` field for image/voice/file types)',
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/attachments/{messageId}': {
+    get: {
+      tags: ['Messaging'],
+      summary: "Download a message's attachment (participants of that conversation only)",
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } },
+    },
   },
 };
 
@@ -38,6 +50,8 @@ export default function messagingRoutes({
   conversationsController,
   messagesController,
   messagingDirectoryController,
+  attachmentsController,
+  uploadMessageAttachment,
   authMiddleware,
   requireRole,
 }) {
@@ -54,7 +68,15 @@ export default function messagingRoutes({
   router.post('/conversations/:id/read', authMiddleware, requireMessagingRole, conversationsController.markRead);
 
   router.get('/conversations/:id/messages', authMiddleware, requireMessagingRole, messagesController.list);
-  router.post('/conversations/:id/messages', authMiddleware, requireMessagingRole, messagesController.send);
+  router.post(
+    '/conversations/:id/messages',
+    authMiddleware,
+    requireMessagingRole,
+    uploadMessageAttachment,
+    messagesController.send,
+  );
+
+  router.get('/attachments/:messageId', authMiddleware, requireMessagingRole, attachmentsController.download);
 
   return router;
 }
