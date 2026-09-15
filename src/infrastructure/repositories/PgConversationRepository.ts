@@ -28,6 +28,7 @@ function mapParticipantRow(row) {
 function mapConversationRow(row, unreadCount = 0) {
   if (!row) return null;
   const lastMessageRow = row.messages?.[0];
+  const isLastMessageDeleted = Boolean(lastMessageRow?.deleted_at);
   return new Conversation({
     id: row.id,
     type: row.type,
@@ -39,9 +40,10 @@ function mapConversationRow(row, unreadCount = 0) {
       ? {
           id: lastMessageRow.id,
           type: lastMessageRow.type,
-          body: lastMessageRow.body,
+          body: isLastMessageDeleted ? null : lastMessageRow.body,
           senderId: lastMessageRow.sender_id,
           createdAt: lastMessageRow.created_at,
+          deletedAt: lastMessageRow.deleted_at,
         }
       : null,
     unreadCount,
@@ -137,7 +139,11 @@ class PgConversationRepository extends IConversationRepository {
       where: { participants: { some: { user_id: userId } } },
       include: {
         ...PARTICIPANTS_INCLUDE,
-        messages: { orderBy: { id: 'desc' }, take: 1 },
+        messages: {
+          where: { NOT: { message_deletions: { some: { user_id: userId } } } },
+          orderBy: { id: 'desc' },
+          take: 1,
+        },
       },
     });
 
