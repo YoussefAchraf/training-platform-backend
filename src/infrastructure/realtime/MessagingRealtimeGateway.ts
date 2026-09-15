@@ -57,6 +57,14 @@ class MessagingRealtimeGateway {
       lastDeliveredAt: participant.lastDeliveredAt,
     });
   }
+
+  broadcastMessageDeleted(conversationId, messageId, scope) {
+    this.messaging?.to(conversationRoom(conversationId)).emit('message:deleted', { conversationId, messageId, scope });
+  }
+
+  notifyMessageHiddenForUser(userId, conversationId, messageId) {
+    this.messaging?.to(userRoom(userId)).emit('message:deleted', { conversationId, messageId, scope: 'me' });
+  }
 }
 
 export { MessagingRealtimeGateway };

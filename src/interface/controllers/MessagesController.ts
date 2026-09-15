@@ -4,13 +4,22 @@ class MessagesController {
   translateMessageUseCase: any;
   forwardMessageUseCase: any;
   editMessageUseCase: any;
+  deleteMessageUseCase: any;
 
-  constructor({ sendMessageUseCase, listMessagesUseCase, translateMessageUseCase, forwardMessageUseCase, editMessageUseCase }) {
+  constructor({
+    sendMessageUseCase,
+    listMessagesUseCase,
+    translateMessageUseCase,
+    forwardMessageUseCase,
+    editMessageUseCase,
+    deleteMessageUseCase,
+  }) {
     this.sendMessageUseCase = sendMessageUseCase;
     this.listMessagesUseCase = listMessagesUseCase;
     this.translateMessageUseCase = translateMessageUseCase;
     this.forwardMessageUseCase = forwardMessageUseCase;
     this.editMessageUseCase = editMessageUseCase;
+    this.deleteMessageUseCase = deleteMessageUseCase;
   }
 
   list = async (req, res) => {
@@ -84,6 +93,19 @@ class MessagesController {
         body: req.body.body,
       });
       res.status(200).json(message);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  remove = async (req, res) => {
+    try {
+      const result = await this.deleteMessageUseCase.execute({
+        requester: req.user,
+        messageId: Number(req.params.messageId),
+        scope: req.body.scope,
+      });
+      res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
