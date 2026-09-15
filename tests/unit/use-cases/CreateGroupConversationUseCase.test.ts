@@ -86,4 +86,13 @@ describe('CreateGroupConversationUseCase', () => {
       memberUserIds: [2],
     });
   });
+
+  it('notifies the new group members in real time', async () => {
+    const repos = buildRepos();
+    const messagingRealtime = { notifyGroupCreated: jest.fn().mockResolvedValue(undefined) };
+    const useCase = new CreateGroupConversationUseCase({ ...repos, messagingRealtime });
+
+    const group = await useCase.execute({ requester: buildRequester(), name: 'Onboarding', memberUserIds: [2] });
+    expect(messagingRealtime.notifyGroupCreated).toHaveBeenCalledWith(group, 1);
+  });
 });

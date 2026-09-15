@@ -166,7 +166,7 @@ import feedbackRoutes from './interface/routes/feedbackRoutes';
 import announcementRoutes from './interface/routes/announcementRoutes';
 import messagingRoutes from './interface/routes/messagingRoutes';
 
-function buildApp() {
+function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = null }: any = {}) {
   const passwordHasher = new PasswordHasher();
   const tokenService = new TokenService();
   const refreshTokenStore = new RefreshTokenStore({ redisClient: redis });
@@ -398,14 +398,21 @@ function buildApp() {
   const rateFeatureAnnouncementUseCase = new RateFeatureAnnouncementUseCase({ announcementRepository });
 
   const createDirectConversationUseCase = new CreateDirectConversationUseCase({ conversationRepository, userRepository });
-  const createGroupConversationUseCase = new CreateGroupConversationUseCase({ conversationRepository, userRepository });
-  const addParticipantUseCase = new AddParticipantUseCase({ conversationRepository, userRepository });
-  const removeParticipantUseCase = new RemoveParticipantUseCase({ conversationRepository });
+  const createGroupConversationUseCase = new CreateGroupConversationUseCase({ conversationRepository, userRepository, messagingRealtime });
+  const addParticipantUseCase = new AddParticipantUseCase({ conversationRepository, userRepository, messagingRealtime });
+  const removeParticipantUseCase = new RemoveParticipantUseCase({ conversationRepository, messagingRealtime });
   const listConversationsUseCase = new ListConversationsUseCase({ conversationRepository });
   const listReachablePeopleUseCase = new ListReachablePeopleUseCase({ conversationRepository });
-  const sendMessageUseCase = new SendMessageUseCase({ conversationRepository, messageRepository });
+  const sendMessageUseCase = new SendMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    messagingRealtime,
+    presenceStore,
+    pushSubscriptionRepository,
+    webPushService,
+  });
   const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository });
-  const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository });
+  const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
 
   const authController = new AuthController({
     signupUseCase,
@@ -536,7 +543,7 @@ function buildApp() {
     prefix: 'developer-login',
   });
 
-  const app = express();
+  const app = providedApp || express();
   if (process.env.TRUST_PROXY === 'true') {
     app.set('trust proxy', 1);
   }

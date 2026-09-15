@@ -1,14 +1,30 @@
 import { MESSAGING_ALLOWED_ROLES } from '../../domain/constants/messagingRoles';
 
 const VALID_TYPES = ['text', 'image', 'voice', 'file'];
+const ATTACHMENT_LABELS = { image: 'Sent a photo', voice: 'Sent a voice message', file: 'Sent a file' };
 
 class SendMessageUseCase {
   conversationRepository: any;
   messageRepository: any;
+  messagingRealtime: any;
+  presenceStore: any;
+  pushSubscriptionRepository: any;
+  webPushService: any;
 
-  constructor({ conversationRepository, messageRepository }) {
+  constructor({
+    conversationRepository,
+    messageRepository,
+    messagingRealtime = null,
+    presenceStore = null,
+    pushSubscriptionRepository = null,
+    webPushService = null,
+  }) {
     this.conversationRepository = conversationRepository;
     this.messageRepository = messageRepository;
+    this.messagingRealtime = messagingRealtime;
+    this.presenceStore = presenceStore;
+    this.pushSubscriptionRepository = pushSubscriptionRepository;
+    this.webPushService = webPushService;
   }
 
   async execute({
@@ -55,7 +71,7 @@ class SendMessageUseCase {
       }
     }
 
-    return this.messageRepository.create({
+    const message = await this.messageRepository.create({
       conversationId,
       senderId: requester.id,
       type,
@@ -67,6 +83,45 @@ class SendMessageUseCase {
       attachmentDurationSeconds: attachment?.durationSeconds,
       replyToMessageId: replyToMessageId || null,
     });
+
+    this.messagingRealtime?.broadcastMessage(conversationId, message);
+    this.notifyOfflineParticipants(conversationId, requester, message).catch((err) => {
+      console.error('[SendMessage] Failed to notify offline participants:', err.message);
+    });
+
+    return message;
+  }
+
+  async notifyOfflineParticipants(conversationId, sender, message) {
+    if (!this.presenceStore || !this.pushSubscriptionRepository || !this.webPushService) return;
+
+    const participants = await this.conversationRepository.listParticipants(conversationId);
+    const recipients = participants.filter((p) => Number(p.userId) !== Number(sender.id));
+
+    await Promise.all(
+      recipients.map(async (participant) => {
+        const online = await this.presenceStore.isOnline(participant.userId);
+        if (online) return;
+
+        const subscriptions = await this.pushSubscriptionRepository.listByUserId(participant.userId);
+        await Promise.all(
+          subscriptions.map((subscription) =>
+            this.webPushService
+              .send(subscription, {
+                title: `${sender.firstname} ${sender.lastname}`,
+                body: message.type === 'text' ? message.body : ATTACHMENT_LABELS[message.type],
+                url: '/messages',
+              })
+              .catch((err) => {
+                if (err.expired) {
+                  return this.pushSubscriptionRepository.deleteByEndpointForUser(subscription.endpoint, participant.userId);
+                }
+                console.error('[SendMessage] Failed to send push notification:', err.message);
+              })
+          )
+        );
+      })
+    );
   }
 }
 

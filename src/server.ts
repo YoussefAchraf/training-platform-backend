@@ -1,13 +1,38 @@
 import 'dotenv/config';
+import express from 'express';
+import http from 'http';
 import { pool } from './infrastructure/database/connection';
 import { redis } from './infrastructure/cache/RedisClient';
+import { prismaClient } from './infrastructure/database/prismaClient';
+import { TokenService } from './infrastructure/security/TokenService';
+import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
+import { PgConversationRepository } from './infrastructure/repositories/PgConversationRepository';
+import { PresenceStore } from './infrastructure/services/PresenceStore';
+import { createMessagingSocketServer } from './infrastructure/realtime/SocketServer';
+import { MessagingRealtimeGateway } from './infrastructure/realtime/MessagingRealtimeGateway';
 import { buildApp } from './app';
 
-const { app, reportScheduler, sessionReminderScheduler, certificationExpiryScheduler } = buildApp();
+const presenceStore = new PresenceStore({ redis });
+
+const app = express();
+const httpServer = http.createServer(app);
+const { messaging } = createMessagingSocketServer(httpServer, {
+  tokenService: new TokenService(),
+  userRepository: new PgUserRepository(prismaClient),
+  conversationRepository: new PgConversationRepository(prismaClient),
+  presenceStore,
+});
+const messagingRealtime = new MessagingRealtimeGateway({ messaging });
+
+const { reportScheduler, sessionReminderScheduler, certificationExpiryScheduler } = buildApp({
+  app,
+  messagingRealtime,
+  presenceStore,
+});
 
 const PORT = process.env.PORT || 4000;
 
-const server = app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Training platform API listening on port ${PORT}`);
   reportScheduler.start();
   sessionReminderScheduler.start();
@@ -16,7 +41,7 @@ const server = app.listen(PORT, () => {
 
 function shutdown(signal: string) {
   console.log(`${signal} received, shutting down gracefully...`);
-  server.close(async (err?: Error) => {
+  httpServer.close(async (err?: Error) => {
     if (err) {
       console.error('Error while closing HTTP server', err);
       process.exitCode = 1;

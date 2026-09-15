@@ -3,10 +3,12 @@ import { MESSAGING_ALLOWED_ROLES } from '../../domain/constants/messagingRoles';
 class CreateGroupConversationUseCase {
   conversationRepository: any;
   userRepository: any;
+  messagingRealtime: any;
 
-  constructor({ conversationRepository, userRepository }) {
+  constructor({ conversationRepository, userRepository, messagingRealtime = null }) {
     this.conversationRepository = conversationRepository;
     this.userRepository = userRepository;
+    this.messagingRealtime = messagingRealtime;
   }
 
   async execute({ requester, name, memberUserIds }: { requester: any; name: any; memberUserIds: any[] }) {
@@ -35,11 +37,17 @@ class CreateGroupConversationUseCase {
       }
     }
 
-    return this.conversationRepository.createGroup({
+    const conversation = await this.conversationRepository.createGroup({
       createdBy: requester.id,
       name: name.trim(),
       memberUserIds: uniqueMemberIds,
     });
+
+    this.messagingRealtime?.notifyGroupCreated(conversation, requester.id).catch((err) => {
+      console.error('[CreateGroupConversation] Failed to notify members in real time:', err.message);
+    });
+
+    return conversation;
   }
 }
 
