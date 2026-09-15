@@ -11,6 +11,10 @@ class MessagingRealtimeGateway {
     this.messaging?.to(conversationRoom(conversationId)).emit('message:new', { message });
   }
 
+  broadcastMessageUpdated(conversationId, message) {
+    this.messaging?.to(conversationRoom(conversationId)).emit('message:updated', { message });
+  }
+
   async notifyParticipantAdded(conversationId, conversation, participant) {
     if (!this.messaging) return;
     await this.messaging.in(userRoom(participant.userId)).socketsJoin(conversationRoom(conversationId));
