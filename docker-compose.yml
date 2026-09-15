@@ -101,6 +101,8 @@ services:
       PORT: 4000
     ports:
       - "${PORT:-4000}:4000"
+    volumes:
+      - attachments:/app/storage/attachments
     depends_on:
       postgres:
         condition: service_healthy
@@ -114,6 +116,7 @@ services:
 volumes:
   pgdata:
   redisdata:
+  attachments:
 
 networks:
   internal:

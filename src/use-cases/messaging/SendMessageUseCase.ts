@@ -11,6 +11,8 @@ class SendMessageUseCase {
   pushSubscriptionRepository: any;
   webPushService: any;
 
+  attachmentStorageService: any;
+
   constructor({
     conversationRepository,
     messageRepository,
@@ -18,6 +20,7 @@ class SendMessageUseCase {
     presenceStore = null,
     pushSubscriptionRepository = null,
     webPushService = null,
+    attachmentStorageService = null,
   }) {
     this.conversationRepository = conversationRepository;
     this.messageRepository = messageRepository;
@@ -25,6 +28,7 @@ class SendMessageUseCase {
     this.presenceStore = presenceStore;
     this.pushSubscriptionRepository = pushSubscriptionRepository;
     this.webPushService = webPushService;
+    this.attachmentStorageService = attachmentStorageService;
   }
 
   async execute({
@@ -71,6 +75,19 @@ class SendMessageUseCase {
       }
     }
 
+    let trustedMime = attachment?.mime;
+    let trustedSizeBytes = attachment?.sizeBytes;
+    if (attachment && this.attachmentStorageService) {
+      try {
+        const validated = await this.attachmentStorageService.validateUploadedFile(conversationId, attachment.key, type);
+        trustedMime = validated.mime;
+        trustedSizeBytes = validated.sizeBytes;
+      } catch (err) {
+        await this.attachmentStorageService.delete(conversationId, attachment.key);
+        throw err;
+      }
+    }
+
     const message = await this.messageRepository.create({
       conversationId,
       senderId: requester.id,
@@ -78,8 +95,8 @@ class SendMessageUseCase {
       body: type === 'text' ? body.trim() : null,
       attachmentKey: attachment?.key,
       attachmentOriginalName: attachment?.originalName,
-      attachmentMime: attachment?.mime,
-      attachmentSizeBytes: attachment?.sizeBytes,
+      attachmentMime: trustedMime,
+      attachmentSizeBytes: trustedSizeBytes,
       attachmentDurationSeconds: attachment?.durationSeconds,
       replyToMessageId: replyToMessageId || null,
     });

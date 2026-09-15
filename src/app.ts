@@ -19,6 +19,7 @@ import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
 import { AttendeeFileParserService } from './infrastructure/services/AttendeeFileParserService';
+import { AttachmentStorageService } from './infrastructure/services/AttachmentStorageService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -125,6 +126,7 @@ import { ListReachablePeopleUseCase } from './use-cases/messaging/ListReachableP
 import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
 import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
 import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
+import { DownloadAttachmentUseCase } from './use-cases/messaging/DownloadAttachmentUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
@@ -142,6 +144,7 @@ import { AnnouncementController } from './interface/controllers/AnnouncementCont
 import { ConversationsController } from './interface/controllers/ConversationsController';
 import { MessagesController } from './interface/controllers/MessagesController';
 import { MessagingDirectoryController } from './interface/controllers/MessagingDirectoryController';
+import { AttachmentsController } from './interface/controllers/AttachmentsController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
@@ -150,6 +153,7 @@ import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
 import uploadAttendeesFile from './interface/middlewares/uploadMiddleware';
+import uploadMessageAttachmentFactory from './interface/middlewares/uploadMessageAttachmentMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
 import adminRoutes from './interface/routes/adminRoutes';
@@ -175,6 +179,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   const qrCodeService = new QRCodeService();
   const pdfReportService = new PdfReportService();
   const webPushService = new WebPushService();
+  const attachmentStorageService = new AttachmentStorageService();
   const attendeeFileParserService = new AttendeeFileParserService();
 
   const userRepository = new PgUserRepository(prismaClient);
@@ -410,9 +415,11 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     presenceStore,
     pushSubscriptionRepository,
     webPushService,
+    attachmentStorageService,
   });
   const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository });
   const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
+  const downloadAttachmentUseCase = new DownloadAttachmentUseCase({ conversationRepository, messageRepository });
 
   const authController = new AuthController({
     signupUseCase,
@@ -507,6 +514,8 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   });
   const messagesController = new MessagesController({ sendMessageUseCase, listMessagesUseCase });
   const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
+  const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });
+  const uploadMessageAttachment = uploadMessageAttachmentFactory({ attachmentStorageService });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
   const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
@@ -594,7 +603,15 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   app.use('/announcements', announcementRoutes({ announcementController, authMiddleware, requireRole }));
   app.use(
     '/messaging',
-    messagingRoutes({ conversationsController, messagesController, messagingDirectoryController, authMiddleware, requireRole }),
+    messagingRoutes({
+      conversationsController,
+      messagesController,
+      messagingDirectoryController,
+      attachmentsController,
+      uploadMessageAttachment,
+      authMiddleware,
+      requireRole,
+    }),
   );
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));

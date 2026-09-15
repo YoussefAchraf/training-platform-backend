@@ -25,13 +25,17 @@ class MessagesController {
 
   send = async (req, res) => {
     try {
-      const { type, body, replyToMessageId, attachment } = req.body;
+      const { type, body, replyToMessageId } = req.body;
+      const attachment = req.file
+        ? { key: req.file.filename, originalName: req.file.originalname, sizeBytes: req.file.size }
+        : undefined;
+
       const message = await this.sendMessageUseCase.execute({
         requester: req.user,
         conversationId: Number(req.params.id),
         type,
         body,
-        replyToMessageId,
+        replyToMessageId: replyToMessageId ? Number(replyToMessageId) : undefined,
         attachment,
       });
       res.status(201).json(message);
