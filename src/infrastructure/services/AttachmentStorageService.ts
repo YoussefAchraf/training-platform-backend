@@ -2,14 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-const STORAGE_ROOT = process.env.ATTACHMENT_STORAGE_DIR || path.join(process.cwd(), 'storage', 'attachments');
-
-const SIZE_LIMITS_BYTES = {
-  image: Number(process.env.ATTACHMENT_MAX_IMAGE_MB || 10) * 1024 * 1024,
-  voice: Number(process.env.ATTACHMENT_MAX_VOICE_MB || 15) * 1024 * 1024,
-  file: Number(process.env.ATTACHMENT_MAX_FILE_MB || 25) * 1024 * 1024,
-};
-
 const MIME_PREFIX_BY_TYPE = { image: 'image/', voice: 'audio/' };
 
 function sanitizeExtension(originalName) {
@@ -17,25 +9,33 @@ function sanitizeExtension(originalName) {
   return /^\.[a-z0-9]{1,10}$/.test(ext) ? ext : '';
 }
 
-function conversationDir(conversationId) {
-  return path.join(STORAGE_ROOT, String(conversationId));
-}
-
 class AttachmentStorageService {
-  storageRoot() {
-    return STORAGE_ROOT;
+  root: string;
+  sizeLimitsBytes: Record<string, number>;
+
+  constructor() {
+    this.root = process.env.ATTACHMENT_STORAGE_DIR || path.join(process.cwd(), 'storage', 'attachments');
+    this.sizeLimitsBytes = {
+      image: Number(process.env.ATTACHMENT_MAX_IMAGE_MB || 10) * 1024 * 1024,
+      voice: Number(process.env.ATTACHMENT_MAX_VOICE_MB || 15) * 1024 * 1024,
+      file: Number(process.env.ATTACHMENT_MAX_FILE_MB || 25) * 1024 * 1024,
+    };
+  }
+
+  conversationDir(conversationId) {
+    return path.join(this.root, String(conversationId));
   }
 
   maxUploadSizeBytes() {
-    return Math.max(...Object.values(SIZE_LIMITS_BYTES));
+    return Math.max(...Object.values(this.sizeLimitsBytes));
   }
 
   limitFor(type) {
-    return SIZE_LIMITS_BYTES[type] || SIZE_LIMITS_BYTES.file;
+    return this.sizeLimitsBytes[type] || this.sizeLimitsBytes.file;
   }
 
   ensureConversationDir(conversationId, callback) {
-    const dir = conversationDir(conversationId);
+    const dir = this.conversationDir(conversationId);
     fs.mkdir(dir, { recursive: true }, (err) => callback(err, dir));
   }
 
@@ -44,7 +44,7 @@ class AttachmentStorageService {
   }
 
   resolvePath(conversationId, key) {
-    return path.join(conversationDir(conversationId), key);
+    return path.join(this.conversationDir(conversationId), key);
   }
 
   async detectMime(filePath) {

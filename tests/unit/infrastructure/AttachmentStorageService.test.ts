@@ -1,8 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { AttachmentStorageService } from '../../../src/infrastructure/services/AttachmentStorageService';
 
-let AttachmentStorageService: any;
 let tmpDir: string;
 
 describe('AttachmentStorageService', () => {
@@ -10,9 +10,6 @@ describe('AttachmentStorageService', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-storage-test-'));
     process.env.ATTACHMENT_STORAGE_DIR = tmpDir;
     process.env.ATTACHMENT_MAX_IMAGE_MB = '1';
-    jest.resetModules();
-    
-    ({ AttachmentStorageService } = require('../../../src/infrastructure/services/AttachmentStorageService'));
   });
 
   afterAll(() => {
