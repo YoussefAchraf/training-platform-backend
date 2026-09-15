@@ -149,5 +149,40 @@ describe('PgConversationRepository (Prisma, real database)', () => {
       expect(found.unreadCount).toBe(1);
       expect(found.lastMessage.body).toBe('from instructor');
     });
+
+    it('never leaks a soft-deleted-for-everyone message\'s body into the last-message preview', async () => {
+      const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      createdConversationIds.push(conversation.id);
+
+      const message = await prismaClient.messages.create({
+        data: { conversation_id: conversation.id, sender_id: managerId, type: 'text', body: 'secret content' },
+      });
+      await prismaClient.messages.update({ where: { id: message.id }, data: { deleted_at: new Date() } });
+
+      const conversations = await repository.listForUser(instructorId);
+      const found = conversations.find((c) => c.id === conversation.id);
+      expect(found.lastMessage.id).toBe(message.id);
+      expect(found.lastMessage.body).toBeNull();
+      expect(found.lastMessage.deletedAt).not.toBeNull();
+    });
+
+    it('skips a message the requester hid for themselves when computing their own last-message preview', async () => {
+      const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      createdConversationIds.push(conversation.id);
+
+      const earlier = await prismaClient.messages.create({
+        data: { conversation_id: conversation.id, sender_id: managerId, type: 'text', body: 'earlier message' },
+      });
+      const latest = await prismaClient.messages.create({
+        data: { conversation_id: conversation.id, sender_id: managerId, type: 'text', body: 'latest message' },
+      });
+      await prismaClient.message_deletions.create({ data: { message_id: latest.id, user_id: instructorId } });
+
+      const forInstructor = await repository.listForUser(instructorId);
+      expect(forInstructor.find((c) => c.id === conversation.id).lastMessage.id).toBe(earlier.id);
+
+      const forManager = await repository.listForUser(managerId);
+      expect(forManager.find((c) => c.id === conversation.id).lastMessage.id).toBe(latest.id);
+    });
   });
 });
