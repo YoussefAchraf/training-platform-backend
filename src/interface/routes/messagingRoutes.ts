@@ -60,6 +60,14 @@ export const messagingRoutesDocs: Record<string, any> = {
       responses: { 201: { description: 'Created' } },
     },
   },
+  '/messaging/messages/{messageId}': {
+    patch: {
+      tags: ['Messaging'],
+      summary: 'Edit a text message you sent',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
 };
 
 export default function messagingRoutes({
@@ -103,6 +111,7 @@ export default function messagingRoutes({
     messagesController.translate,
   );
   router.post('/messages/:messageId/forward', authMiddleware, requireMessagingRole, messagesController.forward);
+  router.patch('/messages/:messageId', authMiddleware, requireMessagingRole, messagesController.edit);
 
   return router;
 }

@@ -19,6 +19,7 @@ function mapRow(row) {
     attachmentDurationSeconds: row.attachment_duration_seconds,
     replyToMessageId: row.reply_to_message_id,
     createdAt: row.created_at,
+    editedAt: row.edited_at,
   });
 }
 
@@ -68,6 +69,15 @@ class PgMessageRepository extends IMessageRepository {
     return this.prisma.messages.count({
       where: { conversation_id: conversationId, id: { gt: afterMessageId || 0 } },
     });
+  }
+
+  async update(id, { body }) {
+    const row = await this.prisma.messages.update({
+      where: { id },
+      data: { body, edited_at: new Date() },
+      include: SENDER_INCLUDE,
+    });
+    return mapRow(row);
   }
 }
 
