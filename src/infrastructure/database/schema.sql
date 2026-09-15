@@ -442,3 +442,6 @@ CREATE TABLE IF NOT EXISTS message_deletions (
     PRIMARY KEY (message_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_message_deletions_user ON message_deletions(user_id);
+
+ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ;
+ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS muted_at TIMESTAMPTZ;

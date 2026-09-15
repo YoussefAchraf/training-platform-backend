@@ -28,6 +28,20 @@ export const messagingRoutesDocs: Record<string, any> = {
   '/messaging/conversations/{id}/read': {
     post: { tags: ['Messaging'], summary: 'Mark a conversation read up to a given message id', responses: { 200: { description: 'OK' } } },
   },
+  '/messaging/conversations/{id}/hide': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Hide a conversation from my own list only (non-destructive - reappears if messaged again)',
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/conversations/{id}/mute': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Mute or unmute a conversation for myself only',
+      responses: { 200: { description: 'OK' } },
+    },
+  },
   '/messaging/conversations/{id}/messages': {
     get: { tags: ['Messaging'], summary: 'List messages in a conversation (keyset paginated)', responses: { 200: { description: 'OK' } } },
     post: {
@@ -97,6 +111,8 @@ export default function messagingRoutes({
   router.post('/conversations/:id/participants', authMiddleware, requireMessagingRole, conversationsController.addParticipant);
   router.delete('/conversations/:id/participants/:userId', authMiddleware, requireMessagingRole, conversationsController.removeParticipant);
   router.post('/conversations/:id/read', authMiddleware, requireMessagingRole, conversationsController.markRead);
+  router.post('/conversations/:id/hide', authMiddleware, requireMessagingRole, conversationsController.hideConversation);
+  router.post('/conversations/:id/mute', authMiddleware, requireMessagingRole, conversationsController.setMuted);
 
   router.get('/conversations/:id/messages', authMiddleware, requireMessagingRole, messagesController.list);
   router.post(

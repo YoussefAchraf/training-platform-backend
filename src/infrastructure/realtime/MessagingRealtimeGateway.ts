@@ -65,6 +65,14 @@ class MessagingRealtimeGateway {
   notifyMessageHiddenForUser(userId, conversationId, messageId) {
     this.messaging?.to(userRoom(userId)).emit('message:deleted', { conversationId, messageId, scope: 'me' });
   }
+
+  notifyConversationHidden(userId, conversationId) {
+    this.messaging?.to(userRoom(userId)).emit('conversation:hidden', { conversationId });
+  }
+
+  notifyConversationMuted(userId, conversationId, muted) {
+    this.messaging?.to(userRoom(userId)).emit('conversation:muted', { conversationId, muted });
+  }
 }
 
 export { MessagingRealtimeGateway };
