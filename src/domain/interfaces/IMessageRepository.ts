@@ -6,6 +6,8 @@ class IMessageRepository {
   async listByConversation(conversationId, params): Promise<any> { notImplemented('IMessageRepository', 'listByConversation'); }
   async countUnread(conversationId, afterMessageId): Promise<any> { notImplemented('IMessageRepository', 'countUnread'); }
   async update(id, changes): Promise<any> { notImplemented('IMessageRepository', 'update'); }
+  async softDeleteForEveryone(id): Promise<any> { notImplemented('IMessageRepository', 'softDeleteForEveryone'); }
+  async hideForUser(messageId, userId): Promise<any> { notImplemented('IMessageRepository', 'hideForUser'); }
 }
 
 export { IMessageRepository };

@@ -13,6 +13,7 @@ class Message {
   replyToMessageId: any;
   createdAt: any;
   editedAt: any;
+  deletedAt: any;
 
   constructor({
     id,
@@ -29,6 +30,7 @@ class Message {
     replyToMessageId = null,
     createdAt,
     editedAt = null,
+    deletedAt = null,
   }: any) {
     this.id = id;
     this.conversationId = conversationId;
@@ -44,6 +46,7 @@ class Message {
     this.replyToMessageId = replyToMessageId;
     this.createdAt = createdAt;
     this.editedAt = editedAt;
+    this.deletedAt = deletedAt;
   }
 }
 
