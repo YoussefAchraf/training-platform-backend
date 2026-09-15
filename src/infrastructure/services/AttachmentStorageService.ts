@@ -23,6 +23,15 @@ function assertSafeAttachmentKey(key) {
   }
 }
 
+function resolveWithinRoot(root, ...segments) {
+  const resolvedRoot = path.resolve(root);
+  const resolvedPath = path.resolve(resolvedRoot, ...segments);
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path.sep)) {
+    throw new Error('Resolved path escapes the attachment storage root');
+  }
+  return resolvedPath;
+}
+
 class AttachmentStorageService {
   root: string;
   sizeLimitsBytes: Record<string, number>;
@@ -37,7 +46,7 @@ class AttachmentStorageService {
   }
 
   conversationDir(conversationId) {
-    return path.join(this.root, toSafeConversationId(conversationId));
+    return resolveWithinRoot(this.root, toSafeConversationId(conversationId));
   }
 
   maxUploadSizeBytes() {
@@ -65,7 +74,7 @@ class AttachmentStorageService {
 
   resolvePath(conversationId, key) {
     assertSafeAttachmentKey(key);
-    return path.join(this.conversationDir(conversationId), key);
+    return resolveWithinRoot(this.conversationDir(conversationId), key);
   }
 
   async detectMime(filePath) {
