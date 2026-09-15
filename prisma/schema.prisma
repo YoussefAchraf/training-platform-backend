@@ -143,6 +143,8 @@ model conversation_participants {
   last_read_at              DateTime?         @db.Timestamptz(6)
   last_delivered_message_id Int?
   last_delivered_at         DateTime?         @db.Timestamptz(6)
+  hidden_at                 DateTime?         @db.Timestamptz(6)
+  muted_at                  DateTime?         @db.Timestamptz(6)
 
   conversations          conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users                  users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)

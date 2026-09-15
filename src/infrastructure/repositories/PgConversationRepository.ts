@@ -18,6 +18,8 @@ function mapParticipantRow(row) {
     lastReadAt: row.last_read_at,
     lastDeliveredMessageId: row.last_delivered_message_id,
     lastDeliveredAt: row.last_delivered_at,
+    hiddenAt: row.hidden_at,
+    mutedAt: row.muted_at,
     firstname: row.users?.firstname,
     lastname: row.users?.lastname,
     email: row.users?.email,
@@ -150,6 +152,13 @@ class PgConversationRepository extends IConversationRepository {
     const results: any[] = [];
     for (const row of rows) {
       const myParticipant = row.participants.find((p) => p.user_id === userId);
+
+      if (myParticipant?.hidden_at) {
+        const lastMessageRow = row.messages?.[0];
+        const reappeared = lastMessageRow && new Date(lastMessageRow.created_at) > new Date(myParticipant.hidden_at);
+        if (!reappeared) continue;
+      }
+
       const lastReadId = myParticipant?.last_read_message_id ?? 0;
       const unreadCount = await this.prisma.messages.count({
         where: { conversation_id: row.id, id: { gt: lastReadId }, sender_id: { not: userId } },
@@ -187,6 +196,20 @@ class PgConversationRepository extends IConversationRepository {
       include: { users: PARTICIPANT_USER_SELECT },
     });
     return mapParticipantRow(row);
+  }
+
+  async hideConversation(conversationId, userId) {
+    await this.prisma.conversation_participants.update({
+      where: { conversation_id_user_id: { conversation_id: conversationId, user_id: userId } },
+      data: { hidden_at: new Date() },
+    });
+  }
+
+  async setMuted(conversationId, userId, muted) {
+    await this.prisma.conversation_participants.update({
+      where: { conversation_id_user_id: { conversation_id: conversationId, user_id: userId } },
+      data: { muted_at: muted ? new Date() : null },
+    });
   }
 
   async listReachablePeople({ excludeUserId, roleNames, search }: { excludeUserId: any; roleNames: string[]; search?: string }) {

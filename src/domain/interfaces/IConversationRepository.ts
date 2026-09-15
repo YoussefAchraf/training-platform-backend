@@ -12,6 +12,8 @@ class IConversationRepository {
   async listForUser(userId): Promise<any> { notImplemented('IConversationRepository', 'listForUser'); }
   async markRead(conversationId, userId, messageId): Promise<any> { notImplemented('IConversationRepository', 'markRead'); }
   async markDelivered(conversationId, userId, messageId): Promise<any> { notImplemented('IConversationRepository', 'markDelivered'); }
+  async hideConversation(conversationId, userId): Promise<any> { notImplemented('IConversationRepository', 'hideConversation'); }
+  async setMuted(conversationId, userId, muted): Promise<any> { notImplemented('IConversationRepository', 'setMuted'); }
   async listReachablePeople(params): Promise<any> { notImplemented('IConversationRepository', 'listReachablePeople'); }
 }
 
