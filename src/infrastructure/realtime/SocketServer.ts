@@ -87,6 +87,19 @@ function createMessagingSocketServer(httpServer, { tokenService, userRepository,
     socket.on('recording:start', ({ conversationId }) => relayIfParticipant('recording:start', conversationId));
     socket.on('recording:stop', ({ conversationId }) => relayIfParticipant('recording:stop', conversationId));
 
+    socket.on('message:delivered', async ({ conversationId, messageId }) => {
+      if (!conversationId || !messageId) return;
+      const isParticipant = await conversationRepository.isParticipant(conversationId, user.id);
+      if (!isParticipant) return;
+      const participant = await conversationRepository.markDelivered(conversationId, user.id, messageId);
+      messaging.to(conversationRoom(conversationId)).emit('conversation:delivered', {
+        conversationId,
+        userId: participant.userId,
+        lastDeliveredMessageId: participant.lastDeliveredMessageId,
+        lastDeliveredAt: participant.lastDeliveredAt,
+      });
+    });
+
     socket.on('disconnect', () => {
       if (presenceStore) {
         presenceStore.markOffline(user.id, socket.id).catch((err) => {
