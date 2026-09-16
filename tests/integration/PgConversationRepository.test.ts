@@ -185,4 +185,59 @@ describe('PgConversationRepository (Prisma, real database)', () => {
       expect(forManager.find((c) => c.id === conversation.id).lastMessage.id).toBe(latest.id);
     });
   });
+
+  describe('hideConversation', () => {
+    it('hides a conversation from the requester\'s own list, without affecting the other participant', async () => {
+      const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      createdConversationIds.push(conversation.id);
+      await prismaClient.messages.create({ data: { conversation_id: conversation.id, sender_id: managerId, type: 'text', body: 'hello' } });
+
+      await repository.hideConversation(conversation.id, instructorId);
+
+      const forInstructor = await repository.listForUser(instructorId);
+      expect(forInstructor.some((c) => c.id === conversation.id)).toBe(false);
+
+      const forManager = await repository.listForUser(managerId);
+      expect(forManager.some((c) => c.id === conversation.id)).toBe(true);
+    });
+
+    it('reappears once a new message arrives after it was hidden', async () => {
+      const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      createdConversationIds.push(conversation.id);
+      await prismaClient.messages.create({ data: { conversation_id: conversation.id, sender_id: managerId, type: 'text', body: 'before hide' } });
+
+      await repository.hideConversation(conversation.id, instructorId);
+      let forInstructor = await repository.listForUser(instructorId);
+      expect(forInstructor.some((c) => c.id === conversation.id)).toBe(false);
+
+      await prismaClient.messages.create({ data: { conversation_id: conversation.id, sender_id: managerId, type: 'text', body: 'after hide' } });
+
+      forInstructor = await repository.listForUser(instructorId);
+      expect(forInstructor.some((c) => c.id === conversation.id)).toBe(true);
+    });
+  });
+
+  describe('setMuted', () => {
+    it('mutes and unmutes a conversation for the requester only', async () => {
+      const conversation = await repository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      createdConversationIds.push(conversation.id);
+
+      await repository.setMuted(conversation.id, instructorId, true);
+      let row = await prismaClient.conversation_participants.findUnique({
+        where: { conversation_id_user_id: { conversation_id: conversation.id, user_id: instructorId } },
+      });
+      expect(row.muted_at).not.toBeNull();
+
+      const managerRow = await prismaClient.conversation_participants.findUnique({
+        where: { conversation_id_user_id: { conversation_id: conversation.id, user_id: managerId } },
+      });
+      expect(managerRow.muted_at).toBeNull();
+
+      await repository.setMuted(conversation.id, instructorId, false);
+      row = await prismaClient.conversation_participants.findUnique({
+        where: { conversation_id_user_id: { conversation_id: conversation.id, user_id: instructorId } },
+      });
+      expect(row.muted_at).toBeNull();
+    });
+  });
 });
