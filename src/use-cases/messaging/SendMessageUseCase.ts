@@ -117,6 +117,8 @@ class SendMessageUseCase {
 
     await Promise.all(
       recipients.map(async (participant) => {
+        if (participant.mutedAt) return;
+
         const online = await this.presenceStore.isOnline(participant.userId);
         if (online) return;
 

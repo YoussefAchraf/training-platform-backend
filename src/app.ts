@@ -127,6 +127,8 @@ import { ListReachablePeopleUseCase } from './use-cases/messaging/ListReachableP
 import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
 import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
 import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
+import { HideConversationUseCase } from './use-cases/messaging/HideConversationUseCase';
+import { SetConversationMutedUseCase } from './use-cases/messaging/SetConversationMutedUseCase';
 import { DownloadAttachmentUseCase } from './use-cases/messaging/DownloadAttachmentUseCase';
 import { TranslateMessageUseCase } from './use-cases/messaging/TranslateMessageUseCase';
 import { ForwardMessageUseCase } from './use-cases/messaging/ForwardMessageUseCase';
@@ -425,6 +427,8 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   });
   const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository, messagingRealtime });
   const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
+  const hideConversationUseCase = new HideConversationUseCase({ conversationRepository, messagingRealtime });
+  const setConversationMutedUseCase = new SetConversationMutedUseCase({ conversationRepository, messagingRealtime });
   const downloadAttachmentUseCase = new DownloadAttachmentUseCase({ conversationRepository, messageRepository });
   const translateMessageUseCase = new TranslateMessageUseCase({
     conversationRepository,
@@ -538,6 +542,8 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     removeParticipantUseCase,
     listConversationsUseCase,
     markConversationReadUseCase,
+    hideConversationUseCase,
+    setConversationMutedUseCase,
   });
   const messagesController = new MessagesController({
     sendMessageUseCase,

@@ -5,6 +5,8 @@ class ConversationsController {
   removeParticipantUseCase: any;
   listConversationsUseCase: any;
   markConversationReadUseCase: any;
+  hideConversationUseCase: any;
+  setConversationMutedUseCase: any;
 
   constructor({
     createDirectConversationUseCase,
@@ -13,6 +15,8 @@ class ConversationsController {
     removeParticipantUseCase,
     listConversationsUseCase,
     markConversationReadUseCase,
+    hideConversationUseCase,
+    setConversationMutedUseCase,
   }) {
     this.createDirectConversationUseCase = createDirectConversationUseCase;
     this.createGroupConversationUseCase = createGroupConversationUseCase;
@@ -20,6 +24,8 @@ class ConversationsController {
     this.removeParticipantUseCase = removeParticipantUseCase;
     this.listConversationsUseCase = listConversationsUseCase;
     this.markConversationReadUseCase = markConversationReadUseCase;
+    this.hideConversationUseCase = hideConversationUseCase;
+    this.setConversationMutedUseCase = setConversationMutedUseCase;
   }
 
   list = async (req, res) => {
@@ -87,6 +93,31 @@ class ConversationsController {
         messageId,
       });
       res.status(200).json(participant);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  hideConversation = async (req, res) => {
+    try {
+      const result = await this.hideConversationUseCase.execute({
+        requester: req.user,
+        conversationId: Number(req.params.id),
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  setMuted = async (req, res) => {
+    try {
+      const result = await this.setConversationMutedUseCase.execute({
+        requester: req.user,
+        conversationId: Number(req.params.id),
+        muted: req.body.muted,
+      });
+      res.status(200).json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
