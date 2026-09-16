@@ -24,7 +24,7 @@ const { messaging } = createMessagingSocketServer(httpServer, {
 });
 const messagingRealtime = new MessagingRealtimeGateway({ messaging });
 
-const { reportScheduler, sessionReminderScheduler, certificationExpiryScheduler } = buildApp({
+const { reportScheduler, sessionReminderScheduler, certificationExpiryScheduler, attachmentUploadGcScheduler } = buildApp({
   app,
   messagingRealtime,
   presenceStore,
@@ -37,6 +37,7 @@ httpServer.listen(PORT, () => {
   reportScheduler.start();
   sessionReminderScheduler.start();
   certificationExpiryScheduler.start();
+  attachmentUploadGcScheduler.start();
 });
 
 function shutdown(signal: string) {

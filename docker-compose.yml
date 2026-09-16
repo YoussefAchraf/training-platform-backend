@@ -103,6 +103,7 @@ services:
       - "${PORT:-4000}:4000"
     volumes:
       - attachments:/app/storage/attachments
+      - attachment-uploads:/app/storage/attachment-uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,6 +118,7 @@ volumes:
   pgdata:
   redisdata:
   attachments:
+  attachment-uploads:
 
 networks:
   internal:
