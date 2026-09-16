@@ -65,6 +65,48 @@ export const messagingRoutesDocs: Record<string, any> = {
       responses: { 200: { description: 'OK' } },
     },
   },
+  '/messaging/conversations/{id}/uploads': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Initiate a chunked attachment upload, returning an uploadId, chunkSize, and chunkCount',
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}/chunks/{index}': {
+    put: {
+      tags: ['Messaging'],
+      summary: 'Upload one chunk of a file (raw binary body)',
+      parameters: [
+        { name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } },
+        { name: 'index', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}/complete': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Complete a chunked upload once every chunk has been received, sending the resulting message',
+      parameters: [{ name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}': {
+    delete: {
+      tags: ['Messaging'],
+      summary: 'Abort a chunked upload and discard any chunks already received',
+      parameters: [{ name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}/status': {
+    get: {
+      tags: ['Messaging'],
+      summary: 'Get which chunks of an in-progress upload have already been received (for resuming)',
+      parameters: [{ name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
   '/messaging/attachments/{messageId}': {
     get: {
       tags: ['Messaging'],
@@ -111,7 +153,9 @@ export default function messagingRoutes({
   messagingDirectoryController,
   attachmentsController,
   conversationMediaController,
+  uploadsController,
   uploadMessageAttachment,
+  uploadChunkMiddleware,
   authMiddleware,
   requireRole,
   translateLimiter,
@@ -139,6 +183,18 @@ export default function messagingRoutes({
     uploadMessageAttachment,
     messagesController.send,
   );
+
+  router.post('/conversations/:id/uploads', authMiddleware, requireMessagingRole, uploadsController.initiate);
+  router.put(
+    '/uploads/:uploadId/chunks/:index',
+    authMiddleware,
+    requireMessagingRole,
+    uploadChunkMiddleware,
+    uploadsController.chunk,
+  );
+  router.post('/uploads/:uploadId/complete', authMiddleware, requireMessagingRole, uploadsController.complete);
+  router.delete('/uploads/:uploadId', authMiddleware, requireMessagingRole, uploadsController.abort);
+  router.get('/uploads/:uploadId/status', authMiddleware, requireMessagingRole, uploadsController.status);
 
   router.get('/attachments/:messageId', authMiddleware, requireMessagingRole, attachmentsController.download);
 
