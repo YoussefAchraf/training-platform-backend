@@ -14,11 +14,13 @@ class ListMessagesUseCase {
     conversationId,
     cursor,
     limit,
+    search,
   }: {
     requester: any;
     conversationId: any;
     cursor?: number;
     limit?: number;
+    search?: string;
   }) {
     if (requester.isSuperAdmin()) {
       throw new Error('SuperAdmin cannot access messaging');
@@ -33,13 +35,16 @@ class ListMessagesUseCase {
       cursor,
       limit,
       requesterId: requester.id,
+      search,
     });
 
-    const newestMessage = messages[messages.length - 1];
-    if (newestMessage) {
-      this.markDeliveredForLatest(conversationId, requester.id, newestMessage.id).catch((err) => {
-        console.error('[ListMessages] Failed to mark delivered:', err.message);
-      });
+    if (!search) {
+      const newestMessage = messages[messages.length - 1];
+      if (newestMessage) {
+        this.markDeliveredForLatest(conversationId, requester.id, newestMessage.id).catch((err) => {
+          console.error('[ListMessages] Failed to mark delivered:', err.message);
+        });
+      }
     }
 
     return messages;
