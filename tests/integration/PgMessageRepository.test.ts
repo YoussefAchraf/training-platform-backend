@@ -70,4 +70,36 @@ describe('PgMessageRepository (Prisma, real database)', () => {
     const after = await repository.countUnread(conversationId, 0);
     expect(after).toBe(before + 1);
   });
+
+  it('excludes a message from a requester\'s own list once they hide it for themselves', async () => {
+    const message = await repository.create({ conversationId, senderId: managerId, type: 'text', body: 'hide me' });
+
+    const beforeHide = await repository.listByConversation(conversationId, { requesterId: instructorId, limit: 100 });
+    expect(beforeHide.some((m) => m.id === message.id)).toBe(true);
+
+    await repository.hideForUser(message.id, instructorId);
+
+    const afterHideForInstructor = await repository.listByConversation(conversationId, { requesterId: instructorId, limit: 100 });
+    expect(afterHideForInstructor.some((m) => m.id === message.id)).toBe(false);
+
+    const afterHideForManager = await repository.listByConversation(conversationId, { requesterId: managerId, limit: 100 });
+    expect(afterHideForManager.some((m) => m.id === message.id)).toBe(true);
+  });
+
+  it('redacts body and attachment fields once a message is soft-deleted for everyone', async () => {
+    const message = await repository.create({
+      conversationId,
+      senderId: managerId,
+      type: 'text',
+      body: 'this will be deleted',
+    });
+
+    const deleted = await repository.softDeleteForEveryone(message.id);
+    expect(deleted.deletedAt).not.toBeNull();
+    expect(deleted.body).toBeNull();
+
+    const refetched = await repository.findById(message.id);
+    expect(refetched.body).toBeNull();
+    expect(refetched.deletedAt).not.toBeNull();
+  });
 });

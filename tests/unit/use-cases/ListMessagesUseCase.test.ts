@@ -42,7 +42,7 @@ describe('ListMessagesUseCase', () => {
 
     const result = await useCase.execute({ requester: buildRequester(), conversationId: 10, cursor: 50, limit: 20 });
     expect(result).toEqual([{ id: 1 }]);
-    expect(repos.messageRepository.listByConversation).toHaveBeenCalledWith(10, { cursor: 50, limit: 20 });
+    expect(repos.messageRepository.listByConversation).toHaveBeenCalledWith(10, { cursor: 50, limit: 20, requesterId: 1 });
   });
 
   it('opportunistically marks the newest fetched message delivered and broadcasts it', async () => {

@@ -5,21 +5,23 @@ const SENDER_INCLUDE = { sender: { select: { firstname: true, lastname: true } }
 
 function mapRow(row) {
   if (!row) return null;
+  const isDeleted = Boolean(row.deleted_at);
   return new Message({
     id: row.id,
     conversationId: row.conversation_id,
     senderId: row.sender_id,
     senderName: row.sender ? `${row.sender.firstname} ${row.sender.lastname}` : null,
     type: row.type,
-    body: row.body,
-    attachmentKey: row.attachment_key,
-    attachmentOriginalName: row.attachment_original_name,
-    attachmentMime: row.attachment_mime,
-    attachmentSizeBytes: row.attachment_size_bytes,
-    attachmentDurationSeconds: row.attachment_duration_seconds,
+    body: isDeleted ? null : row.body,
+    attachmentKey: isDeleted ? null : row.attachment_key,
+    attachmentOriginalName: isDeleted ? null : row.attachment_original_name,
+    attachmentMime: isDeleted ? null : row.attachment_mime,
+    attachmentSizeBytes: isDeleted ? null : row.attachment_size_bytes,
+    attachmentDurationSeconds: isDeleted ? null : row.attachment_duration_seconds,
     replyToMessageId: row.reply_to_message_id,
     createdAt: row.created_at,
     editedAt: row.edited_at,
+    deletedAt: row.deleted_at,
   });
 }
 
@@ -55,9 +57,16 @@ class PgMessageRepository extends IMessageRepository {
     return mapRow(row);
   }
 
-  async listByConversation(conversationId, { cursor, limit = 50 }: { cursor?: number; limit?: number } = {}) {
+  async listByConversation(
+    conversationId,
+    { cursor, limit = 50, requesterId }: { cursor?: number; limit?: number; requesterId?: any } = {},
+  ) {
     const rows = await this.prisma.messages.findMany({
-      where: { conversation_id: conversationId, ...(cursor ? { id: { lt: cursor } } : {}) },
+      where: {
+        conversation_id: conversationId,
+        ...(cursor ? { id: { lt: cursor } } : {}),
+        ...(requesterId ? { NOT: { message_deletions: { some: { user_id: requesterId } } } } : {}),
+      },
       include: SENDER_INCLUDE,
       orderBy: { id: 'desc' },
       take: limit,
@@ -78,6 +87,23 @@ class PgMessageRepository extends IMessageRepository {
       include: SENDER_INCLUDE,
     });
     return mapRow(row);
+  }
+
+  async softDeleteForEveryone(id) {
+    const row = await this.prisma.messages.update({
+      where: { id },
+      data: { deleted_at: new Date() },
+      include: SENDER_INCLUDE,
+    });
+    return mapRow(row);
+  }
+
+  async hideForUser(messageId, userId) {
+    await this.prisma.message_deletions.upsert({
+      where: { message_id_user_id: { message_id: messageId, user_id: userId } },
+      create: { message_id: messageId, user_id: userId },
+      update: {},
+    });
   }
 }
 
