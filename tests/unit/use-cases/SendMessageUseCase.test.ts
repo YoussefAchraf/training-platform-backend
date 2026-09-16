@@ -224,5 +224,19 @@ describe('SendMessageUseCase', () => {
         expect.objectContaining({ body: 'Sent a voice message' })
       );
     });
+
+    it('never pushes to a participant who has muted the conversation, even while offline', async () => {
+      const repos = buildRepos();
+      const realtime = buildRealtimeDeps();
+      repos.conversationRepository.listParticipants = jest
+        .fn()
+        .mockResolvedValue([{ userId: 1 }, { userId: 2, mutedAt: new Date().toISOString() }]);
+      const useCase = new SendMessageUseCase({ ...repos, ...realtime });
+
+      await useCase.notifyOfflineParticipants(10, buildRequester(), { type: 'text', body: 'hi' });
+
+      expect(realtime.presenceStore.isOnline).not.toHaveBeenCalled();
+      expect(realtime.webPushService.send).not.toHaveBeenCalled();
+    });
   });
 });
