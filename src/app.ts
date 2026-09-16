@@ -15,10 +15,13 @@ import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { SessionReminderSchedulerService } from './infrastructure/services/SessionReminderSchedulerService';
 import { CertificationExpirySchedulerService } from './infrastructure/services/CertificationExpirySchedulerService';
+import { AttachmentUploadGcService } from './infrastructure/services/AttachmentUploadGcService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
 import { AttendeeFileParserService } from './infrastructure/services/AttendeeFileParserService';
+import { AttachmentStorageService } from './infrastructure/services/AttachmentStorageService';
+import { TranslationService } from './infrastructure/services/TranslationService';
 
 import { PgUserRepository } from './infrastructure/repositories/PgUserRepository';
 import { PgProviderRepository } from './infrastructure/repositories/PgProviderRepository';
@@ -35,6 +38,8 @@ import { PgRoleRepository } from './infrastructure/repositories/PgRoleRepository
 import { PgPushSubscriptionRepository } from './infrastructure/repositories/PgPushSubscriptionRepository';
 import { PgFeedbackRepository } from './infrastructure/repositories/PgFeedbackRepository';
 import { PgFeatureAnnouncementRepository } from './infrastructure/repositories/PgFeatureAnnouncementRepository';
+import { PgConversationRepository } from './infrastructure/repositories/PgConversationRepository';
+import { PgMessageRepository } from './infrastructure/repositories/PgMessageRepository';
 
 import { SignupUseCase } from './use-cases/auth/SignupUseCase';
 import { LoginUseCase } from './use-cases/auth/LoginUseCase';
@@ -114,6 +119,29 @@ import { ListFeatureAnnouncementsUseCase } from './use-cases/announcements/ListF
 import { ListMyPendingAnnouncementsUseCase } from './use-cases/announcements/ListMyPendingAnnouncementsUseCase';
 import { RateFeatureAnnouncementUseCase } from './use-cases/announcements/RateFeatureAnnouncementUseCase';
 
+import { CreateDirectConversationUseCase } from './use-cases/messaging/CreateDirectConversationUseCase';
+import { CreateGroupConversationUseCase } from './use-cases/messaging/CreateGroupConversationUseCase';
+import { AddParticipantUseCase } from './use-cases/messaging/AddParticipantUseCase';
+import { RemoveParticipantUseCase } from './use-cases/messaging/RemoveParticipantUseCase';
+import { ListConversationsUseCase } from './use-cases/messaging/ListConversationsUseCase';
+import { ListReachablePeopleUseCase } from './use-cases/messaging/ListReachablePeopleUseCase';
+import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
+import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
+import { ListConversationMediaUseCase } from './use-cases/messaging/ListConversationMediaUseCase';
+import { InitiateUploadUseCase } from './use-cases/messaging/InitiateUploadUseCase';
+import { UploadChunkUseCase } from './use-cases/messaging/UploadChunkUseCase';
+import { CompleteUploadUseCase } from './use-cases/messaging/CompleteUploadUseCase';
+import { AbortUploadUseCase } from './use-cases/messaging/AbortUploadUseCase';
+import { StatusUploadUseCase } from './use-cases/messaging/StatusUploadUseCase';
+import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
+import { HideConversationUseCase } from './use-cases/messaging/HideConversationUseCase';
+import { SetConversationMutedUseCase } from './use-cases/messaging/SetConversationMutedUseCase';
+import { DownloadAttachmentUseCase } from './use-cases/messaging/DownloadAttachmentUseCase';
+import { TranslateMessageUseCase } from './use-cases/messaging/TranslateMessageUseCase';
+import { ForwardMessageUseCase } from './use-cases/messaging/ForwardMessageUseCase';
+import { EditMessageUseCase } from './use-cases/messaging/EditMessageUseCase';
+import { DeleteMessageUseCase } from './use-cases/messaging/DeleteMessageUseCase';
+
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
 import { ProviderController } from './interface/controllers/ProviderController';
@@ -127,6 +155,12 @@ import { SurveyController } from './interface/controllers/SurveyController';
 import { PushController } from './interface/controllers/PushController';
 import { FeedbackController } from './interface/controllers/FeedbackController';
 import { AnnouncementController } from './interface/controllers/AnnouncementController';
+import { ConversationsController } from './interface/controllers/ConversationsController';
+import { MessagesController } from './interface/controllers/MessagesController';
+import { MessagingDirectoryController } from './interface/controllers/MessagingDirectoryController';
+import { AttachmentsController } from './interface/controllers/AttachmentsController';
+import { ConversationMediaController } from './interface/controllers/ConversationMediaController';
+import { UploadsController } from './interface/controllers/UploadsController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
@@ -135,6 +169,8 @@ import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
 import uploadAttendeesFile from './interface/middlewares/uploadMiddleware';
+import uploadMessageAttachmentFactory from './interface/middlewares/uploadMessageAttachmentMiddleware';
+import uploadChunkMiddlewareFactory from './interface/middlewares/uploadChunkMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
 import adminRoutes from './interface/routes/adminRoutes';
@@ -149,8 +185,9 @@ import surveyRoutes from './interface/routes/surveyRoutes';
 import pushRoutes from './interface/routes/pushRoutes';
 import feedbackRoutes from './interface/routes/feedbackRoutes';
 import announcementRoutes from './interface/routes/announcementRoutes';
+import messagingRoutes from './interface/routes/messagingRoutes';
 
-function buildApp() {
+function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = null }: any = {}) {
   const passwordHasher = new PasswordHasher();
   const tokenService = new TokenService();
   const refreshTokenStore = new RefreshTokenStore({ redisClient: redis });
@@ -159,6 +196,8 @@ function buildApp() {
   const qrCodeService = new QRCodeService();
   const pdfReportService = new PdfReportService();
   const webPushService = new WebPushService();
+  const attachmentStorageService = new AttachmentStorageService();
+  const translationService = new TranslationService();
   const attendeeFileParserService = new AttendeeFileParserService();
 
   const userRepository = new PgUserRepository(prismaClient);
@@ -176,6 +215,8 @@ function buildApp() {
   const pushSubscriptionRepository = new PgPushSubscriptionRepository(prismaClient);
   const feedbackRepository = new PgFeedbackRepository(prismaClient);
   const announcementRepository = new PgFeatureAnnouncementRepository(prismaClient);
+  const conversationRepository = new PgConversationRepository(prismaClient);
+  const messageRepository = new PgMessageRepository(prismaClient);
 
   const signupUseCase = new SignupUseCase({
     userRepository,
@@ -379,6 +420,58 @@ function buildApp() {
   const listMyPendingAnnouncementsUseCase = new ListMyPendingAnnouncementsUseCase({ announcementRepository });
   const rateFeatureAnnouncementUseCase = new RateFeatureAnnouncementUseCase({ announcementRepository });
 
+  const createDirectConversationUseCase = new CreateDirectConversationUseCase({ conversationRepository, userRepository });
+  const createGroupConversationUseCase = new CreateGroupConversationUseCase({ conversationRepository, userRepository, messagingRealtime });
+  const addParticipantUseCase = new AddParticipantUseCase({ conversationRepository, userRepository, messagingRealtime });
+  const removeParticipantUseCase = new RemoveParticipantUseCase({ conversationRepository, messagingRealtime });
+  const listConversationsUseCase = new ListConversationsUseCase({ conversationRepository });
+  const listReachablePeopleUseCase = new ListReachablePeopleUseCase({ conversationRepository });
+  const sendMessageUseCase = new SendMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    messagingRealtime,
+    presenceStore,
+    pushSubscriptionRepository,
+    webPushService,
+    attachmentStorageService,
+  });
+  const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository, messagingRealtime });
+  const listConversationMediaUseCase = new ListConversationMediaUseCase({ conversationRepository, messageRepository });
+  const initiateUploadUseCase = new InitiateUploadUseCase({ conversationRepository, attachmentStorageService });
+  const uploadChunkUseCase = new UploadChunkUseCase({ conversationRepository, attachmentStorageService });
+  const completeUploadUseCase = new CompleteUploadUseCase({
+    conversationRepository,
+    attachmentStorageService,
+    sendMessageUseCase,
+  });
+  const abortUploadUseCase = new AbortUploadUseCase({ attachmentStorageService });
+  const statusUploadUseCase = new StatusUploadUseCase({ attachmentStorageService });
+  const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
+  const hideConversationUseCase = new HideConversationUseCase({ conversationRepository, messagingRealtime });
+  const setConversationMutedUseCase = new SetConversationMutedUseCase({ conversationRepository, messagingRealtime });
+  const downloadAttachmentUseCase = new DownloadAttachmentUseCase({ conversationRepository, messageRepository });
+  const translateMessageUseCase = new TranslateMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    translationService,
+    redis,
+  });
+  const forwardMessageUseCase = new ForwardMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    messagingRealtime,
+    presenceStore,
+    pushSubscriptionRepository,
+    webPushService,
+  });
+  const editMessageUseCase = new EditMessageUseCase({ conversationRepository, messageRepository, messagingRealtime });
+  const deleteMessageUseCase = new DeleteMessageUseCase({
+    conversationRepository,
+    messageRepository,
+    attachmentStorageService,
+    messagingRealtime,
+  });
+
   const authController = new AuthController({
     signupUseCase,
     loginUseCase,
@@ -462,6 +555,36 @@ function buildApp() {
     listMyPendingAnnouncementsUseCase,
     rateFeatureAnnouncementUseCase,
   });
+  const conversationsController = new ConversationsController({
+    createDirectConversationUseCase,
+    createGroupConversationUseCase,
+    addParticipantUseCase,
+    removeParticipantUseCase,
+    listConversationsUseCase,
+    markConversationReadUseCase,
+    hideConversationUseCase,
+    setConversationMutedUseCase,
+  });
+  const messagesController = new MessagesController({
+    sendMessageUseCase,
+    listMessagesUseCase,
+    translateMessageUseCase,
+    forwardMessageUseCase,
+    editMessageUseCase,
+    deleteMessageUseCase,
+  });
+  const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
+  const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });
+  const conversationMediaController = new ConversationMediaController({ listConversationMediaUseCase });
+  const uploadsController = new UploadsController({
+    initiateUploadUseCase,
+    uploadChunkUseCase,
+    completeUploadUseCase,
+    abortUploadUseCase,
+    statusUploadUseCase,
+  });
+  const uploadMessageAttachment = uploadMessageAttachmentFactory({ attachmentStorageService });
+  const uploadChunkMiddleware = uploadChunkMiddlewareFactory({ attachmentStorageService });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
   const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
@@ -497,8 +620,15 @@ function buildApp() {
     message: 'Too many developer login attempts, please try again later.',
     prefix: 'developer-login',
   });
+  const translateLimiter = createRateLimiter({
+    redisClient: redis,
+    windowMs: 60 * 1000,
+    limit: 20,
+    message: 'Too many translation requests, please try again in a moment.',
+    prefix: 'translate',
+  });
 
-  const app = express();
+  const app = providedApp || express();
   if (process.env.TRUST_PROXY === 'true') {
     app.set('trust proxy', 1);
   }
@@ -547,6 +677,22 @@ function buildApp() {
   app.use('/push', pushRoutes({ pushController, authMiddleware }));
   app.use('/feedback', feedbackRoutes({ feedbackController, authMiddleware, requireRole }));
   app.use('/announcements', announcementRoutes({ announcementController, authMiddleware, requireRole }));
+  app.use(
+    '/messaging',
+    messagingRoutes({
+      conversationsController,
+      messagesController,
+      messagingDirectoryController,
+      attachmentsController,
+      conversationMediaController,
+      uploadsController,
+      uploadMessageAttachment,
+      uploadChunkMiddleware,
+      authMiddleware,
+      requireRole,
+      translateLimiter,
+    }),
+  );
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
@@ -557,8 +703,15 @@ function buildApp() {
   const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase });
   const sessionReminderScheduler = new SessionReminderSchedulerService({ sendUpcomingSessionRemindersUseCase });
   const certificationExpiryScheduler = new CertificationExpirySchedulerService({ sendCertificationExpiryRemindersUseCase });
+  const attachmentUploadGcScheduler = new AttachmentUploadGcService({ attachmentStorageService });
 
-  return { app, reportScheduler, sessionReminderScheduler, certificationExpiryScheduler };
+  return {
+    app,
+    reportScheduler,
+    sessionReminderScheduler,
+    certificationExpiryScheduler,
+    attachmentUploadGcScheduler,
+  };
 }
 
 export { buildApp };

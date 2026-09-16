@@ -1,0 +1,213 @@
+import { Router } from 'express';
+import { MESSAGING_ALLOWED_ROLES } from '../../domain/constants/messagingRoles';
+
+export const messagingRoutesDocs: Record<string, any> = {
+  '/messaging/directory': {
+    get: {
+      tags: ['Messaging'],
+      summary: 'List people reachable for messaging (Manager/Instructor only, SuperAdmin never included)',
+      parameters: [{ name: 'search', in: 'query', required: false, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/conversations': {
+    get: { tags: ['Messaging'], summary: 'List my conversations, most recent activity first', responses: { 200: { description: 'OK' } } },
+  },
+  '/messaging/conversations/direct': {
+    post: { tags: ['Messaging'], summary: 'Start (or reuse) a 1:1 conversation with another user', responses: { 201: { description: 'Created' } } },
+  },
+  '/messaging/conversations/group': {
+    post: { tags: ['Messaging'], summary: 'Create a group conversation (Manager only)', responses: { 201: { description: 'Created' } } },
+  },
+  '/messaging/conversations/{id}/participants': {
+    post: { tags: ['Messaging'], summary: 'Add a participant to a group (group owner only)', responses: { 201: { description: 'Created' } } },
+  },
+  '/messaging/conversations/{id}/participants/{userId}': {
+    delete: { tags: ['Messaging'], summary: 'Remove a participant from a group (group owner only)', responses: { 204: { description: 'Deleted' } } },
+  },
+  '/messaging/conversations/{id}/read': {
+    post: { tags: ['Messaging'], summary: 'Mark a conversation read up to a given message id', responses: { 200: { description: 'OK' } } },
+  },
+  '/messaging/conversations/{id}/hide': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Hide a conversation from my own list only (non-destructive - reappears if messaged again)',
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/conversations/{id}/mute': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Mute or unmute a conversation for myself only',
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/conversations/{id}/messages': {
+    get: {
+      tags: ['Messaging'],
+      summary: 'List messages in a conversation (keyset paginated, optionally filtered by a text search)',
+      parameters: [{ name: 'search', in: 'query', required: false, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+    post: {
+      tags: ['Messaging'],
+      summary: 'Send a message (multipart/form-data with a `file` field for image/voice/file types)',
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/conversations/{id}/media': {
+    get: {
+      tags: ['Messaging'],
+      summary: 'List a conversation\'s media, files, or links (keyset paginated)',
+      parameters: [
+        { name: 'filter', in: 'query', required: true, schema: { type: 'string', enum: ['media', 'files', 'links'] } },
+      ],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/conversations/{id}/uploads': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Initiate a chunked attachment upload, returning an uploadId, chunkSize, and chunkCount',
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}/chunks/{index}': {
+    put: {
+      tags: ['Messaging'],
+      summary: 'Upload one chunk of a file (raw binary body)',
+      parameters: [
+        { name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } },
+        { name: 'index', in: 'path', required: true, schema: { type: 'integer' } },
+      ],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}/complete': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Complete a chunked upload once every chunk has been received, sending the resulting message',
+      parameters: [{ name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}': {
+    delete: {
+      tags: ['Messaging'],
+      summary: 'Abort a chunked upload and discard any chunks already received',
+      parameters: [{ name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/uploads/{uploadId}/status': {
+    get: {
+      tags: ['Messaging'],
+      summary: 'Get which chunks of an in-progress upload have already been received (for resuming)',
+      parameters: [{ name: 'uploadId', in: 'path', required: true, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/attachments/{messageId}': {
+    get: {
+      tags: ['Messaging'],
+      summary: "Download a message's attachment (participants of that conversation only)",
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+  '/messaging/messages/{messageId}/translate': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Translate a text message into the requesting user\'s language (requires GEMINI_API_KEY)',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' }, 400: { description: 'Not configured, not found, or not a participant' } },
+    },
+  },
+  '/messaging/messages/{messageId}/forward': {
+    post: {
+      tags: ['Messaging'],
+      summary: 'Forward a message to another conversation you are a participant of',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/messages/{messageId}': {
+    patch: {
+      tags: ['Messaging'],
+      summary: 'Edit a text message you sent',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+    delete: {
+      tags: ['Messaging'],
+      summary: 'Delete a message for yourself, or for everyone (sender only, within 2 minutes of sending)',
+      parameters: [{ name: 'messageId', in: 'path', required: true, schema: { type: 'integer' } }],
+      responses: { 200: { description: 'OK' } },
+    },
+  },
+};
+
+export default function messagingRoutes({
+  conversationsController,
+  messagesController,
+  messagingDirectoryController,
+  attachmentsController,
+  conversationMediaController,
+  uploadsController,
+  uploadMessageAttachment,
+  uploadChunkMiddleware,
+  authMiddleware,
+  requireRole,
+  translateLimiter,
+}) {
+  const router = Router();
+  const requireMessagingRole = requireRole(MESSAGING_ALLOWED_ROLES);
+
+  router.get('/directory', authMiddleware, requireMessagingRole, messagingDirectoryController.list);
+
+  router.get('/conversations', authMiddleware, requireMessagingRole, conversationsController.list);
+  router.post('/conversations/direct', authMiddleware, requireMessagingRole, conversationsController.createDirect);
+  router.post('/conversations/group', authMiddleware, requireMessagingRole, conversationsController.createGroup);
+  router.post('/conversations/:id/participants', authMiddleware, requireMessagingRole, conversationsController.addParticipant);
+  router.delete('/conversations/:id/participants/:userId', authMiddleware, requireMessagingRole, conversationsController.removeParticipant);
+  router.post('/conversations/:id/read', authMiddleware, requireMessagingRole, conversationsController.markRead);
+  router.post('/conversations/:id/hide', authMiddleware, requireMessagingRole, conversationsController.hideConversation);
+  router.post('/conversations/:id/mute', authMiddleware, requireMessagingRole, conversationsController.setMuted);
+
+  router.get('/conversations/:id/messages', authMiddleware, requireMessagingRole, messagesController.list);
+  router.get('/conversations/:id/media', authMiddleware, requireMessagingRole, conversationMediaController.list);
+  router.post(
+    '/conversations/:id/messages',
+    authMiddleware,
+    requireMessagingRole,
+    uploadMessageAttachment,
+    messagesController.send,
+  );
+
+  router.post('/conversations/:id/uploads', authMiddleware, requireMessagingRole, uploadsController.initiate);
+  router.put(
+    '/uploads/:uploadId/chunks/:index',
+    authMiddleware,
+    requireMessagingRole,
+    uploadChunkMiddleware,
+    uploadsController.chunk,
+  );
+  router.post('/uploads/:uploadId/complete', authMiddleware, requireMessagingRole, uploadsController.complete);
+  router.delete('/uploads/:uploadId', authMiddleware, requireMessagingRole, uploadsController.abort);
+  router.get('/uploads/:uploadId/status', authMiddleware, requireMessagingRole, uploadsController.status);
+
+  router.get('/attachments/:messageId', authMiddleware, requireMessagingRole, attachmentsController.download);
+
+  router.post(
+    '/messages/:messageId/translate',
+    authMiddleware,
+    requireMessagingRole,
+    translateLimiter,
+    messagesController.translate,
+  );
+  router.post('/messages/:messageId/forward', authMiddleware, requireMessagingRole, messagesController.forward);
+  router.patch('/messages/:messageId', authMiddleware, requireMessagingRole, messagesController.edit);
+  router.delete('/messages/:messageId', authMiddleware, requireMessagingRole, messagesController.remove);
+
+  return router;
+}

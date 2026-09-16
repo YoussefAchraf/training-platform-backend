@@ -120,6 +120,81 @@ model instructors {
   session_notes     session_notes[]
 }
 
+model conversations {
+  id         Int               @id @default(autoincrement())
+  type       conversation_type
+  name       String?           @db.VarChar(150)
+  created_by Int?
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+
+  creator      users?                      @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  participants conversation_participants[]
+  messages     messages[]
+
+  @@index([created_by], map: "idx_conversations_created_by")
+}
+
+model conversation_participants {
+  conversation_id           Int
+  user_id                   Int
+  role                      conversation_role @default(member)
+  joined_at                 DateTime          @default(now()) @db.Timestamptz(6)
+  last_read_message_id      Int?
+  last_read_at              DateTime?         @db.Timestamptz(6)
+  last_delivered_message_id Int?
+  last_delivered_at         DateTime?         @db.Timestamptz(6)
+  hidden_at                 DateTime?         @db.Timestamptz(6)
+  muted_at                  DateTime?         @db.Timestamptz(6)
+
+  conversations          conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                  users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  last_read_message      messages?     @relation("participant_last_read", fields: [last_read_message_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  last_delivered_message messages?     @relation("participant_last_delivered", fields: [last_delivered_message_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@id([conversation_id, user_id])
+  @@index([user_id], map: "idx_conversation_participants_user")
+}
+
+model messages {
+  id                          Int          @id @default(autoincrement())
+  conversation_id             Int
+  sender_id                   Int?
+  type                        message_type
+  body                        String?      @db.Text
+  attachment_key              String?
+  attachment_original_name    String?
+  attachment_mime             String?
+  attachment_size_bytes       Int?
+  attachment_duration_seconds Int?
+  reply_to_message_id         Int?
+  created_at                  DateTime     @default(now()) @db.Timestamptz(6)
+  edited_at                   DateTime?    @db.Timestamptz(6)
+  deleted_at                  DateTime?    @db.Timestamptz(6)
+
+  conversations     conversations               @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sender            users?                      @relation(fields: [sender_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  reply_to          messages?                   @relation("messagesTomessages", fields: [reply_to_message_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  replies           messages[]                  @relation("messagesTomessages")
+  read_markers      conversation_participants[] @relation("participant_last_read")
+  delivered_markers conversation_participants[] @relation("participant_last_delivered")
+  message_deletions message_deletions[]
+
+  @@index([conversation_id, id], map: "idx_messages_conversation_id_id")
+  @@index([sender_id], map: "idx_messages_sender")
+}
+
+model message_deletions {
+  message_id Int
+  user_id    Int
+  deleted_at DateTime @default(now()) @db.Timestamptz(6)
+
+  messages messages @relation(fields: [message_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users    users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([message_id, user_id])
+  @@index([user_id], map: "idx_message_deletions_user")
+}
+
 model providers {
   id          Int         @id @default(autoincrement())
   name        String      @unique(map: "idx_providers_name_active", where: raw("(deleted_at IS NULL)")) @db.VarChar(150)
@@ -284,6 +359,10 @@ model users {
   push_subscriptions push_subscriptions[]
   training_sessions  training_sessions[]
   trainings          trainings[]
+  conversations              conversations[]
+  conversation_participants  conversation_participants[]
+  messages                   messages[]
+  message_deletions          message_deletions[]
   users              users?               @relation("usersTousers", fields: [approved_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   other_users        users[]              @relation("usersTousers")
   roles              roles                @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -335,4 +414,21 @@ enum user_status {
   approved
   rejected
   deactivated
+}
+
+enum conversation_type {
+  direct
+  group
+}
+
+enum conversation_role {
+  owner
+  member
+}
+
+enum message_type {
+  text
+  image
+  voice
+  file
 }
