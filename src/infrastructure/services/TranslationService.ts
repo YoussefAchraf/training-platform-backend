@@ -1,4 +1,4 @@
-const MODEL = 'gemini-3.5-flash-lite';
+const MODEL = 'gemini-3.1-flash-lite-preview';
 
 const LANGUAGE_NAMES = { en: 'English', fr: 'French' };
 
