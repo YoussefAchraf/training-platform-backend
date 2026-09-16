@@ -130,6 +130,7 @@ import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversat
 import { DownloadAttachmentUseCase } from './use-cases/messaging/DownloadAttachmentUseCase';
 import { TranslateMessageUseCase } from './use-cases/messaging/TranslateMessageUseCase';
 import { ForwardMessageUseCase } from './use-cases/messaging/ForwardMessageUseCase';
+import { EditMessageUseCase } from './use-cases/messaging/EditMessageUseCase';
 
 import { AuthController } from './interface/controllers/AuthController';
 import { AdminController } from './interface/controllers/AdminController';
@@ -438,6 +439,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     pushSubscriptionRepository,
     webPushService,
   });
+  const editMessageUseCase = new EditMessageUseCase({ conversationRepository, messageRepository, messagingRealtime });
 
   const authController = new AuthController({
     signupUseCase,
@@ -535,6 +537,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     listMessagesUseCase,
     translateMessageUseCase,
     forwardMessageUseCase,
+    editMessageUseCase,
   });
   const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
   const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });

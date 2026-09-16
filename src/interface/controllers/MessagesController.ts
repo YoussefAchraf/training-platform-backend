@@ -3,12 +3,14 @@ class MessagesController {
   listMessagesUseCase: any;
   translateMessageUseCase: any;
   forwardMessageUseCase: any;
+  editMessageUseCase: any;
 
-  constructor({ sendMessageUseCase, listMessagesUseCase, translateMessageUseCase, forwardMessageUseCase }) {
+  constructor({ sendMessageUseCase, listMessagesUseCase, translateMessageUseCase, forwardMessageUseCase, editMessageUseCase }) {
     this.sendMessageUseCase = sendMessageUseCase;
     this.listMessagesUseCase = listMessagesUseCase;
     this.translateMessageUseCase = translateMessageUseCase;
     this.forwardMessageUseCase = forwardMessageUseCase;
+    this.editMessageUseCase = editMessageUseCase;
   }
 
   list = async (req, res) => {
@@ -69,6 +71,19 @@ class MessagesController {
         targetConversationId: Number(req.body.targetConversationId),
       });
       res.status(201).json(message);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  };
+
+  edit = async (req, res) => {
+    try {
+      const message = await this.editMessageUseCase.execute({
+        requester: req.user,
+        messageId: Number(req.params.messageId),
+        body: req.body.body,
+      });
+      res.status(200).json(message);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }

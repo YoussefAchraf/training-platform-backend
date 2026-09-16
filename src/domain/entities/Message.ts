@@ -12,6 +12,7 @@ class Message {
   attachmentDurationSeconds: any;
   replyToMessageId: any;
   createdAt: any;
+  editedAt: any;
 
   constructor({
     id,
@@ -27,6 +28,7 @@ class Message {
     attachmentDurationSeconds = null,
     replyToMessageId = null,
     createdAt,
+    editedAt = null,
   }: any) {
     this.id = id;
     this.conversationId = conversationId;
@@ -41,6 +43,7 @@ class Message {
     this.attachmentDurationSeconds = attachmentDurationSeconds;
     this.replyToMessageId = replyToMessageId;
     this.createdAt = createdAt;
+    this.editedAt = editedAt;
   }
 }
 
