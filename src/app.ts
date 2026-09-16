@@ -421,7 +421,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     webPushService,
     attachmentStorageService,
   });
-  const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository });
+  const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository, messagingRealtime });
   const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
   const downloadAttachmentUseCase = new DownloadAttachmentUseCase({ conversationRepository, messageRepository });
   const translateMessageUseCase = new TranslateMessageUseCase({

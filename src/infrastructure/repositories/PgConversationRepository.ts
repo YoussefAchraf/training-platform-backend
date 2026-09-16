@@ -16,6 +16,8 @@ function mapParticipantRow(row) {
     joinedAt: row.joined_at,
     lastReadMessageId: row.last_read_message_id,
     lastReadAt: row.last_read_at,
+    lastDeliveredMessageId: row.last_delivered_message_id,
+    lastDeliveredAt: row.last_delivered_at,
     firstname: row.users?.firstname,
     lastname: row.users?.lastname,
     email: row.users?.email,
@@ -158,6 +160,20 @@ class PgConversationRepository extends IConversationRepository {
       UPDATE conversation_participants
       SET last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), ${messageId}),
           last_read_at = now()
+      WHERE conversation_id = ${conversationId} AND user_id = ${userId}
+    `;
+    const row = await this.prisma.conversation_participants.findUnique({
+      where: { conversation_id_user_id: { conversation_id: conversationId, user_id: userId } },
+      include: { users: PARTICIPANT_USER_SELECT },
+    });
+    return mapParticipantRow(row);
+  }
+
+  async markDelivered(conversationId, userId, messageId) {
+    await this.prisma.$executeRaw`
+      UPDATE conversation_participants
+      SET last_delivered_message_id = GREATEST(COALESCE(last_delivered_message_id, 0), ${messageId}),
+          last_delivered_at = now()
       WHERE conversation_id = ${conversationId} AND user_id = ${userId}
     `;
     const row = await this.prisma.conversation_participants.findUnique({

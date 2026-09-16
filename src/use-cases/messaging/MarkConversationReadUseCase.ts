@@ -21,7 +21,7 @@ class MarkConversationReadUseCase {
     }
 
     const participant = await this.conversationRepository.markRead(conversationId, requester.id, messageId);
-    this.messagingRealtime?.broadcastRead(requester.id, conversationId, participant.lastReadMessageId);
+    this.messagingRealtime?.broadcastRead(conversationId, participant);
 
     return participant;
   }
