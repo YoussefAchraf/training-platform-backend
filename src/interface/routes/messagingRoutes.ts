@@ -43,11 +43,26 @@ export const messagingRoutesDocs: Record<string, any> = {
     },
   },
   '/messaging/conversations/{id}/messages': {
-    get: { tags: ['Messaging'], summary: 'List messages in a conversation (keyset paginated)', responses: { 200: { description: 'OK' } } },
+    get: {
+      tags: ['Messaging'],
+      summary: 'List messages in a conversation (keyset paginated, optionally filtered by a text search)',
+      parameters: [{ name: 'search', in: 'query', required: false, schema: { type: 'string' } }],
+      responses: { 200: { description: 'OK' } },
+    },
     post: {
       tags: ['Messaging'],
       summary: 'Send a message (multipart/form-data with a `file` field for image/voice/file types)',
       responses: { 201: { description: 'Created' } },
+    },
+  },
+  '/messaging/conversations/{id}/media': {
+    get: {
+      tags: ['Messaging'],
+      summary: 'List a conversation\'s media, files, or links (keyset paginated)',
+      parameters: [
+        { name: 'filter', in: 'query', required: true, schema: { type: 'string', enum: ['media', 'files', 'links'] } },
+      ],
+      responses: { 200: { description: 'OK' } },
     },
   },
   '/messaging/attachments/{messageId}': {
@@ -95,6 +110,7 @@ export default function messagingRoutes({
   messagesController,
   messagingDirectoryController,
   attachmentsController,
+  conversationMediaController,
   uploadMessageAttachment,
   authMiddleware,
   requireRole,
@@ -115,6 +131,7 @@ export default function messagingRoutes({
   router.post('/conversations/:id/mute', authMiddleware, requireMessagingRole, conversationsController.setMuted);
 
   router.get('/conversations/:id/messages', authMiddleware, requireMessagingRole, messagesController.list);
+  router.get('/conversations/:id/media', authMiddleware, requireMessagingRole, conversationMediaController.list);
   router.post(
     '/conversations/:id/messages',
     authMiddleware,
