@@ -102,4 +102,61 @@ describe('PgMessageRepository (Prisma, real database)', () => {
     expect(refetched.body).toBeNull();
     expect(refetched.deletedAt).not.toBeNull();
   });
+
+  it('filters messages by a case-insensitive search term', async () => {
+    const marked = `SearchTarget-${Date.now()}`;
+    await repository.create({ conversationId, senderId: managerId, type: 'text', body: `mentions ${marked} here` });
+    await repository.create({ conversationId, senderId: managerId, type: 'text', body: 'unrelated content' });
+
+    const results = await repository.listByConversation(conversationId, { search: marked.toLowerCase(), limit: 100 });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((m) => m.body.toLowerCase().includes(marked.toLowerCase()))).toBe(true);
+  });
+
+  describe('listByConversationFiltered', () => {
+    it('returns only image messages for the media filter', async () => {
+      const conversation = await conversationRepository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      const image = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'image', attachmentKey: 'a.png', attachmentOriginalName: 'a.png' });
+      await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'text', body: 'not media' });
+
+      const results = await repository.listByConversationFiltered(conversation.id, { filter: 'media', limit: 100 });
+      expect(results.map((m) => m.id)).toEqual([image.id]);
+
+      await prismaClient.conversations.delete({ where: { id: conversation.id } });
+    });
+
+    it('returns both file and voice messages for the files filter', async () => {
+      const conversation = await conversationRepository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      const file = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'file', attachmentKey: 'a.pdf', attachmentOriginalName: 'a.pdf' });
+      const voice = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'voice', attachmentKey: 'a.webm', attachmentOriginalName: 'a.webm' });
+      await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'image', attachmentKey: 'a.png', attachmentOriginalName: 'a.png' });
+
+      const results = await repository.listByConversationFiltered(conversation.id, { filter: 'files', limit: 100 });
+      expect(results.map((m) => m.id).sort()).toEqual([file.id, voice.id].sort());
+
+      await prismaClient.conversations.delete({ where: { id: conversation.id } });
+    });
+
+    it('returns only text messages that contain a link for the links filter', async () => {
+      const conversation = await conversationRepository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      const withLink = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'text', body: 'see https://example.com/page' });
+      await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'text', body: 'no link here' });
+
+      const results = await repository.listByConversationFiltered(conversation.id, { filter: 'links', limit: 100 });
+      expect(results.map((m) => m.id)).toEqual([withLink.id]);
+
+      await prismaClient.conversations.delete({ where: { id: conversation.id } });
+    });
+
+    it('excludes a soft-deleted-for-everyone message from every filter', async () => {
+      const conversation = await conversationRepository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      const image = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'image', attachmentKey: 'a.png', attachmentOriginalName: 'a.png' });
+      await repository.softDeleteForEveryone(image.id);
+
+      const results = await repository.listByConversationFiltered(conversation.id, { filter: 'media', limit: 100 });
+      expect(results.some((m) => m.id === image.id)).toBe(false);
+
+      await prismaClient.conversations.delete({ where: { id: conversation.id } });
+    });
+  });
 });
