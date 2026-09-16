@@ -150,4 +150,103 @@ describe('AttachmentStorageService', () => {
       expect(() => service.resolvePath(1, '..\\..\\windows\\system32')).toThrow('Invalid attachment key');
     });
   });
+
+  describe('chunked uploads', () => {
+    let uploadsTmpDir: string;
+
+    beforeAll(() => {
+      uploadsTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-uploads-test-'));
+      process.env.ATTACHMENT_UPLOADS_DIR = uploadsTmpDir;
+    });
+
+    afterAll(() => {
+      fs.rmSync(uploadsTmpDir, { recursive: true, force: true });
+      delete process.env.ATTACHMENT_UPLOADS_DIR;
+    });
+
+    it('rejects an upload id that is not a valid uuid, instead of using it as a path segment', () => {
+      const service = new AttachmentStorageService();
+      expect(() => service.uploadDir('../../etc')).toThrow('Invalid upload id');
+      expect(() => service.uploadDir('not-a-uuid')).toThrow('Invalid upload id');
+    });
+
+    it('rejects an out-of-range chunk index', () => {
+      const service = new AttachmentStorageService();
+      const uploadId = '11111111-1111-1111-1111-111111111111';
+      expect(() => service.chunkPath(uploadId, -1)).toThrow('Invalid chunk index');
+      expect(() => service.chunkPath(uploadId, 'a')).toThrow('Invalid chunk index');
+    });
+
+    it('round-trips upload metadata as JSON', async () => {
+      const service = new AttachmentStorageService();
+      const uploadId = '22222222-2222-2222-2222-222222222222';
+      await service.ensureUploadDir(uploadId);
+      await service.writeUploadMeta(uploadId, { conversationId: 1, userId: 2, chunkCount: 3 });
+
+      const meta = await service.readUploadMeta(uploadId);
+      expect(meta).toEqual({ conversationId: 1, userId: 2, chunkCount: 3 });
+    });
+
+    it('returns null metadata for an upload that does not exist', async () => {
+      const service = new AttachmentStorageService();
+      const meta = await service.readUploadMeta('33333333-3333-3333-3333-333333333333');
+      expect(meta).toBeNull();
+    });
+
+    it('lists received chunk indexes in ascending order', async () => {
+      const service = new AttachmentStorageService();
+      const uploadId = '44444444-4444-4444-4444-444444444444';
+      await service.ensureUploadDir(uploadId);
+      await service.writeChunk(uploadId, 2, Buffer.from('c'));
+      await service.writeChunk(uploadId, 0, Buffer.from('a'));
+      await service.writeChunk(uploadId, 1, Buffer.from('b'));
+
+      const indexes = await service.listReceivedChunkIndexes(uploadId);
+      expect(indexes).toEqual([0, 1, 2]);
+    });
+
+    it('assembles received chunks in order into a single file under the conversation directory', async () => {
+      const service = new AttachmentStorageService();
+      const uploadId = '55555555-5555-5555-5555-555555555555';
+      await service.ensureUploadDir(uploadId);
+      await service.writeUploadMeta(uploadId, { chunkCount: 3 });
+      await service.writeChunk(uploadId, 0, Buffer.from('Hello, '));
+      await service.writeChunk(uploadId, 1, Buffer.from('chunked '));
+      await service.writeChunk(uploadId, 2, Buffer.from('world!'));
+
+      const key = await service.assembleUpload(uploadId, 7, 'greeting.txt');
+      const assembledPath = service.resolvePath(7, key);
+      expect(fs.readFileSync(assembledPath, 'utf8')).toBe('Hello, chunked world!');
+      expect(fs.existsSync(service.uploadDir(uploadId))).toBe(false);
+    });
+
+    it('aborts an upload by removing its temp directory', async () => {
+      const service = new AttachmentStorageService();
+      const uploadId = '66666666-6666-6666-6666-666666666666';
+      await service.ensureUploadDir(uploadId);
+      await service.writeChunk(uploadId, 0, Buffer.from('x'));
+
+      await service.abortUpload(uploadId);
+      expect(fs.existsSync(service.uploadDir(uploadId))).toBe(false);
+    });
+
+    it('never throws when aborting an upload that does not exist', async () => {
+      const service = new AttachmentStorageService();
+      await expect(service.abortUpload('77777777-7777-7777-7777-777777777777')).resolves.toBeUndefined();
+    });
+
+    it('identifies stale uploads older than the given max age', async () => {
+      const service = new AttachmentStorageService();
+      const freshId = '88888888-8888-8888-8888-888888888888';
+      const staleId = '99999999-9999-9999-9999-999999999999';
+      await service.ensureUploadDir(freshId);
+      await service.writeUploadMeta(freshId, { createdAt: new Date().toISOString() });
+      await service.ensureUploadDir(staleId);
+      await service.writeUploadMeta(staleId, { createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString() });
+
+      const stale = await service.listStaleUploadIds(24 * 60 * 60 * 1000);
+      expect(stale).toContain(staleId);
+      expect(stale).not.toContain(freshId);
+    });
+  });
 });

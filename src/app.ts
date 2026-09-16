@@ -15,6 +15,7 @@ import { EmailService } from './infrastructure/services/EmailService';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { SessionReminderSchedulerService } from './infrastructure/services/SessionReminderSchedulerService';
 import { CertificationExpirySchedulerService } from './infrastructure/services/CertificationExpirySchedulerService';
+import { AttachmentUploadGcService } from './infrastructure/services/AttachmentUploadGcService';
 import { QRCodeService } from './infrastructure/services/QRCodeService';
 import { PdfReportService } from './infrastructure/services/PdfReportService';
 import { WebPushService } from './infrastructure/services/WebPushService';
@@ -127,6 +128,11 @@ import { ListReachablePeopleUseCase } from './use-cases/messaging/ListReachableP
 import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
 import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
 import { ListConversationMediaUseCase } from './use-cases/messaging/ListConversationMediaUseCase';
+import { InitiateUploadUseCase } from './use-cases/messaging/InitiateUploadUseCase';
+import { UploadChunkUseCase } from './use-cases/messaging/UploadChunkUseCase';
+import { CompleteUploadUseCase } from './use-cases/messaging/CompleteUploadUseCase';
+import { AbortUploadUseCase } from './use-cases/messaging/AbortUploadUseCase';
+import { StatusUploadUseCase } from './use-cases/messaging/StatusUploadUseCase';
 import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
 import { HideConversationUseCase } from './use-cases/messaging/HideConversationUseCase';
 import { SetConversationMutedUseCase } from './use-cases/messaging/SetConversationMutedUseCase';
@@ -154,6 +160,7 @@ import { MessagesController } from './interface/controllers/MessagesController';
 import { MessagingDirectoryController } from './interface/controllers/MessagingDirectoryController';
 import { AttachmentsController } from './interface/controllers/AttachmentsController';
 import { ConversationMediaController } from './interface/controllers/ConversationMediaController';
+import { UploadsController } from './interface/controllers/UploadsController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
@@ -163,6 +170,7 @@ import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
 import uploadAttendeesFile from './interface/middlewares/uploadMiddleware';
 import uploadMessageAttachmentFactory from './interface/middlewares/uploadMessageAttachmentMiddleware';
+import uploadChunkMiddlewareFactory from './interface/middlewares/uploadChunkMiddleware';
 
 import authRoutes from './interface/routes/authRoutes';
 import adminRoutes from './interface/routes/adminRoutes';
@@ -429,6 +437,15 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   });
   const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository, messagingRealtime });
   const listConversationMediaUseCase = new ListConversationMediaUseCase({ conversationRepository, messageRepository });
+  const initiateUploadUseCase = new InitiateUploadUseCase({ conversationRepository, attachmentStorageService });
+  const uploadChunkUseCase = new UploadChunkUseCase({ conversationRepository, attachmentStorageService });
+  const completeUploadUseCase = new CompleteUploadUseCase({
+    conversationRepository,
+    attachmentStorageService,
+    sendMessageUseCase,
+  });
+  const abortUploadUseCase = new AbortUploadUseCase({ attachmentStorageService });
+  const statusUploadUseCase = new StatusUploadUseCase({ attachmentStorageService });
   const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
   const hideConversationUseCase = new HideConversationUseCase({ conversationRepository, messagingRealtime });
   const setConversationMutedUseCase = new SetConversationMutedUseCase({ conversationRepository, messagingRealtime });
@@ -559,7 +576,15 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
   const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });
   const conversationMediaController = new ConversationMediaController({ listConversationMediaUseCase });
+  const uploadsController = new UploadsController({
+    initiateUploadUseCase,
+    uploadChunkUseCase,
+    completeUploadUseCase,
+    abortUploadUseCase,
+    statusUploadUseCase,
+  });
   const uploadMessageAttachment = uploadMessageAttachmentFactory({ attachmentStorageService });
+  const uploadChunkMiddleware = uploadChunkMiddlewareFactory({ attachmentStorageService });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
   const optionalAuthMiddleware = optionalAuthMiddlewareFactory({ tokenService, userRepository });
@@ -660,7 +685,9 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
       messagingDirectoryController,
       attachmentsController,
       conversationMediaController,
+      uploadsController,
       uploadMessageAttachment,
+      uploadChunkMiddleware,
       authMiddleware,
       requireRole,
       translateLimiter,
@@ -676,8 +703,15 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase });
   const sessionReminderScheduler = new SessionReminderSchedulerService({ sendUpcomingSessionRemindersUseCase });
   const certificationExpiryScheduler = new CertificationExpirySchedulerService({ sendCertificationExpiryRemindersUseCase });
+  const attachmentUploadGcScheduler = new AttachmentUploadGcService({ attachmentStorageService });
 
-  return { app, reportScheduler, sessionReminderScheduler, certificationExpiryScheduler };
+  return {
+    app,
+    reportScheduler,
+    sessionReminderScheduler,
+    certificationExpiryScheduler,
+    attachmentUploadGcScheduler,
+  };
 }
 
 export { buildApp };
