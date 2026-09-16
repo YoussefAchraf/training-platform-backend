@@ -126,6 +126,7 @@ import { ListConversationsUseCase } from './use-cases/messaging/ListConversation
 import { ListReachablePeopleUseCase } from './use-cases/messaging/ListReachablePeopleUseCase';
 import { SendMessageUseCase } from './use-cases/messaging/SendMessageUseCase';
 import { ListMessagesUseCase } from './use-cases/messaging/ListMessagesUseCase';
+import { ListConversationMediaUseCase } from './use-cases/messaging/ListConversationMediaUseCase';
 import { MarkConversationReadUseCase } from './use-cases/messaging/MarkConversationReadUseCase';
 import { HideConversationUseCase } from './use-cases/messaging/HideConversationUseCase';
 import { SetConversationMutedUseCase } from './use-cases/messaging/SetConversationMutedUseCase';
@@ -152,6 +153,7 @@ import { ConversationsController } from './interface/controllers/ConversationsCo
 import { MessagesController } from './interface/controllers/MessagesController';
 import { MessagingDirectoryController } from './interface/controllers/MessagingDirectoryController';
 import { AttachmentsController } from './interface/controllers/AttachmentsController';
+import { ConversationMediaController } from './interface/controllers/ConversationMediaController';
 
 import authMiddlewareFactory from './interface/middlewares/authMiddleware';
 import optionalAuthMiddlewareFactory from './interface/middlewares/optionalAuthMiddleware';
@@ -426,6 +428,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     attachmentStorageService,
   });
   const listMessagesUseCase = new ListMessagesUseCase({ conversationRepository, messageRepository, messagingRealtime });
+  const listConversationMediaUseCase = new ListConversationMediaUseCase({ conversationRepository, messageRepository });
   const markConversationReadUseCase = new MarkConversationReadUseCase({ conversationRepository, messagingRealtime });
   const hideConversationUseCase = new HideConversationUseCase({ conversationRepository, messagingRealtime });
   const setConversationMutedUseCase = new SetConversationMutedUseCase({ conversationRepository, messagingRealtime });
@@ -555,6 +558,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   });
   const messagingDirectoryController = new MessagingDirectoryController({ listReachablePeopleUseCase });
   const attachmentsController = new AttachmentsController({ downloadAttachmentUseCase, attachmentStorageService });
+  const conversationMediaController = new ConversationMediaController({ listConversationMediaUseCase });
   const uploadMessageAttachment = uploadMessageAttachmentFactory({ attachmentStorageService });
 
   const authMiddleware = authMiddlewareFactory({ tokenService, userRepository, csrfCheckPasses });
@@ -655,6 +659,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
       messagesController,
       messagingDirectoryController,
       attachmentsController,
+      conversationMediaController,
       uploadMessageAttachment,
       authMiddleware,
       requireRole,

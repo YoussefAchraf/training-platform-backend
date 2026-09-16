@@ -1,5 +1,6 @@
 import { Message } from '../../domain/entities/Message';
 import { IMessageRepository } from '../../domain/interfaces/IMessageRepository';
+import { extractUrls } from '../../domain/utils/extractUrls';
 
 const SENDER_INCLUDE = { sender: { select: { firstname: true, lastname: true } } };
 
@@ -59,11 +60,40 @@ class PgMessageRepository extends IMessageRepository {
 
   async listByConversation(
     conversationId,
-    { cursor, limit = 50, requesterId }: { cursor?: number; limit?: number; requesterId?: any } = {},
+    { cursor, limit = 50, requesterId, search }: { cursor?: number; limit?: number; requesterId?: any; search?: string } = {},
   ) {
+    const trimmedSearch = search && search.trim();
     const rows = await this.prisma.messages.findMany({
       where: {
         conversation_id: conversationId,
+        ...(cursor ? { id: { lt: cursor } } : {}),
+        ...(requesterId ? { NOT: { message_deletions: { some: { user_id: requesterId } } } } : {}),
+        ...(trimmedSearch ? { body: { contains: trimmedSearch, mode: 'insensitive' } } : {}),
+      },
+      include: SENDER_INCLUDE,
+      orderBy: { id: 'desc' },
+      take: limit,
+    });
+    return rows.map(mapRow).reverse();
+  }
+
+  async listByConversationFiltered(
+    conversationId,
+    {
+      filter,
+      cursor,
+      limit = 50,
+      requesterId,
+    }: { filter: 'media' | 'files' | 'links'; cursor?: number; limit?: number; requesterId?: any },
+  ) {
+    const typeWhere =
+      filter === 'media' ? { type: 'image' } : filter === 'files' ? { type: { in: ['file', 'voice'] } } : { type: 'text' };
+
+    const rows = await this.prisma.messages.findMany({
+      where: {
+        conversation_id: conversationId,
+        deleted_at: null,
+        ...typeWhere,
         ...(cursor ? { id: { lt: cursor } } : {}),
         ...(requesterId ? { NOT: { message_deletions: { some: { user_id: requesterId } } } } : {}),
       },
@@ -71,7 +101,9 @@ class PgMessageRepository extends IMessageRepository {
       orderBy: { id: 'desc' },
       take: limit,
     });
-    return rows.map(mapRow).reverse();
+
+    const mapped = rows.map(mapRow);
+    return filter === 'links' ? mapped.filter((message) => extractUrls(message.body).length > 0) : mapped;
   }
 
   async countUnread(conversationId, afterMessageId) {

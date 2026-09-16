@@ -72,4 +72,28 @@ describe('ListMessagesUseCase', () => {
 
     expect(conversationRepository.markDelivered).not.toHaveBeenCalled();
   });
+
+  it('passes a search term through to the repository', async () => {
+    const repos = buildRepos();
+    const useCase = new ListMessagesUseCase(repos);
+
+    await useCase.execute({ requester: buildRequester(), conversationId: 10, search: 'invoice' });
+
+    expect(repos.messageRepository.listByConversation).toHaveBeenCalledWith(10, {
+      cursor: undefined,
+      limit: undefined,
+      requesterId: 1,
+      search: 'invoice',
+    });
+  });
+
+  it('does not mark delivered while searching, since the newest match is not necessarily the newest message', async () => {
+    const repos = buildRepos();
+    const conversationRepository = { ...repos.conversationRepository, markDelivered: jest.fn() };
+    const useCase = new ListMessagesUseCase({ ...repos, conversationRepository });
+
+    await useCase.execute({ requester: buildRequester(), conversationId: 10, search: 'invoice' });
+
+    expect(conversationRepository.markDelivered).not.toHaveBeenCalled();
+  });
 });

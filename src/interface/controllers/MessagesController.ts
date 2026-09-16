@@ -31,6 +31,7 @@ class MessagesController {
         conversationId: Number(req.params.id),
         cursor,
         limit,
+        search: req.query.search,
       });
       res.status(200).json(messages);
     } catch (err) {
