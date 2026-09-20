@@ -4,7 +4,12 @@ import { spawnSync } from 'child_process';
 const PRISMA_INVISIBLE = {
   tables: ['schema_migrations'],
   indexes: [] as string[],
-  constraints: [] as string[],
+  constraints: [
+    'fk_surveys_attendee_session',
+    'fk_messages_reply_same_conversation',
+    'fk_participants_last_read_same_conversation',
+    'fk_participants_last_delivered_same_conversation',
+  ],
 };
 
 const quoted = (names: string[]) => names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');

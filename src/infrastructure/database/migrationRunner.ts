@@ -319,31 +319,26 @@ export async function planMigrations(pool: Pool, files: MigrationFile[], options
 
     if (state.pending.length === 0) {
       logger.log('Nothing to apply.');
-      return { pending: [] as MigrationFile[], verified: [] as string[], skipped: [] as string[] };
+      return { pending: [] as MigrationFile[], verified: [] as string[] };
     }
     for (const migration of state.pending) {
       logger.log(`Pending: ${migration.filename}${migration.noTransaction ? ' (no-transaction)' : ''}${migration.destructive ? ' (DESTRUCTIVE)' : ''}`);
     }
-    if (!options.verify) return { pending: state.pending, verified: [] as string[], skipped: [] as string[] };
+    if (!options.verify) return { pending: state.pending, verified: [] as string[] };
 
     const verified: string[] = [];
-    const skipped: string[] = [];
     try {
       await client.query('BEGIN');
       for (const migration of state.pending) {
-        if (migration.noTransaction) {
-          skipped.push(migration.filename);
-          continue;
-        }
-        await client.query(migration.sql);
+        const sql = migration.noTransaction ? migration.sql.replace(/\bCONCURRENTLY\b/gi, '') : migration.sql;
+        await client.query(sql);
         verified.push(migration.filename);
       }
     } finally {
       await client.query('ROLLBACK').catch(() => undefined);
     }
     for (const filename of verified) logger.log(`Verified (executed then rolled back): ${filename}`);
-    for (const filename of skipped) logger.warn(`Not verifiable in a rolled-back transaction (uses CONCURRENTLY): ${filename}`);
-    return { pending: state.pending, verified, skipped };
+    return { pending: state.pending, verified };
   }, { createTable: false });
 }
 

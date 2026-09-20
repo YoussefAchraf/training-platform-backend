@@ -387,7 +387,11 @@ real data can never email or push to real users. Set
 **The promotion flow** — code and migrations move dev → prod; *data
 never does*:
 
-1. Write the migration; `npm run db:lint`.
+1. Write the migration; `npm run db:lint`. Before promoting anywhere,
+   run `npm run db:plan` against that database: it executes the pending
+   migrations in a rolled-back transaction, and the read-only preflight
+   (`0002`) reports any existing row that would violate a new rule —
+   without changing a single row.
 2. `docker compose --profile dev run --rm migrate-dev` applies it to the
    dev database; `docker compose --profile dev run --rm test-dev` runs
    the whole test suite against it as the restricted runtime role.
