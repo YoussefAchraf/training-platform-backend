@@ -700,6 +700,11 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
+    const status = Number(err?.status ?? err?.statusCode);
+    if (Number.isInteger(status) && status >= 400 && status < 500) {
+      const message = status === 413 ? 'Request body is too large' : status === 400 ? 'Malformed request body' : 'Bad request';
+      return res.status(status).json({ error: message });
+    }
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   });

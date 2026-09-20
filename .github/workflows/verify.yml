@@ -141,6 +141,8 @@ jobs:
       - run: npm run db:status
       - name: Prisma schema matches the migrated database
         run: npx ts-node scripts/checkPrismaDrift.ts
+      - name: Generated database docs are current
+        run: npm run docs:db -- --check
 
   upgrade-safety:
     name: upgrade-safety

@@ -6,6 +6,7 @@ import {
   loadMigrations,
   MigrationError,
   migrateUp,
+  reconcileRuntimePrivileges,
   migrationStatus,
   planMigrations,
   verifyPromotion,
@@ -38,6 +39,15 @@ describe('migration runner (real database, throwaway schemas)', () => {
     for (const [name, sql] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), sql);
     return dir;
   }
+
+  beforeAll(async () => {
+    const stale = await admin.query("SELECT nspname FROM pg_namespace WHERE nspname LIKE 'migtest!_%' ESCAPE '!'");
+    const cutoff = Date.now() - 10 * 60 * 1000;
+    for (const { nspname } of stale.rows) {
+      const startedAt = Number(nspname.split('_').pop());
+      if (Number.isFinite(startedAt) && startedAt < cutoff) await admin.query(`DROP SCHEMA IF EXISTS ${nspname} CASCADE`);
+    }
+  });
 
   afterAll(async () => {
     await Promise.all(pools.map((pool) => pool.end()));
@@ -126,7 +136,7 @@ describe('migration runner (real database, throwaway schemas)', () => {
     );
     await migrateUp(pool, files, { logger: quiet });
     const { rows } = await pool.query(
-      `SELECT indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = 'n_email_idx'`
+      `SELECT indisvalid FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname = 'n_email_idx' AND c.relnamespace = current_schema()::regnamespace`
     );
     expect(rows).toEqual([{ indisvalid: true }]);
   });
@@ -177,6 +187,41 @@ describe('migration runner (real database, throwaway schemas)', () => {
       [1, 'applied'],
       [2, 'pending'],
     ]);
+  });
+
+  it('reconciles the runtime role: audit_log becomes append-only with column-limited UPDATE and the migration history is hidden', async () => {
+    const can = await admin.query('SELECT (rolsuper OR rolcreaterole) AS ok FROM pg_roles WHERE rolname = current_user');
+    if (!can.rows[0].ok) return;
+    const role = `migtest_rt_${process.pid}_${Date.now()}`;
+    const pool = await scratch('privileges');
+    await admin.query(`CREATE ROLE ${role}`);
+    try {
+      await pool.query(`CREATE TABLE audit_log (id serial PRIMARY KEY, action text, before jsonb, after jsonb, actor_deleted boolean DEFAULT false)`);
+      await migrateUp(pool, loadMigrations(migrationsDir({ '0001_a.sql': 'SELECT 1;' })), { logger: quiet });
+      await pool.query('CREATE TABLE ordinary_table (id serial PRIMARY KEY, note text)');
+      await reconcileRuntimePrivileges(pool, role, quiet);
+      const has = async (table: string, privilege: string) => (await pool.query('SELECT has_table_privilege($1, $2, $3) AS p', [role, table, privilege])).rows[0].p;
+      const hasColumn = async (column: string) => (await pool.query("SELECT has_column_privilege($1, 'audit_log', $2, 'UPDATE') AS p", [role, column])).rows[0].p;
+      expect(await has('ordinary_table', 'SELECT')).toBe(true);
+      expect(await has('ordinary_table', 'DELETE')).toBe(true);
+      expect(await has('ordinary_table', 'TRUNCATE')).toBe(false);
+      await pool.query('CREATE TABLE created_later (id serial PRIMARY KEY)');
+      expect(await has('created_later', 'INSERT')).toBe(true);
+      expect(await has('audit_log', 'SELECT')).toBe(true);
+      expect(await has('audit_log', 'INSERT')).toBe(true);
+      expect(await has('audit_log', 'DELETE')).toBe(false);
+      expect(await has('audit_log', 'TRUNCATE')).toBe(false);
+      expect(await has('audit_log', 'UPDATE')).toBe(false);
+      expect(await hasColumn('actor_deleted')).toBe(true);
+      expect(await hasColumn('before')).toBe(true);
+      expect(await hasColumn('after')).toBe(true);
+      expect(await hasColumn('action')).toBe(false);
+      expect(await has('schema_migrations', 'SELECT')).toBe(false);
+      await expect(reconcileRuntimePrivileges(pool, 'bad role; DROP', quiet)).rejects.toThrow(/Invalid runtime role/);
+    } finally {
+      await admin.query(`DROP OWNED BY ${role}`).catch(() => undefined);
+      await admin.query(`DROP ROLE IF EXISTS ${role}`);
+    }
   });
 
   it('promotion gate blocks migrations that were not proven on the source (dev) database', async () => {

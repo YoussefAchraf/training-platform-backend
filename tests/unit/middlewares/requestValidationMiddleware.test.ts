@@ -146,6 +146,26 @@ describe('requestValidationMiddleware', () => {
     });
   });
 
+  describe('query strings', () => {
+    it('rejects non-numeric, oversized and repeated (array) parameters for authenticated callers', async () => {
+      const app = buildApp();
+      expect((await authed(request(app).get('/messaging/conversations/1/messages?limit=abc'))).status).toBe(400);
+      expect((await authed(request(app).get('/messaging/conversations/1/messages?cursor=99999999999'))).status).toBe(400);
+      expect((await authed(request(app).get('/messaging/conversations/1/messages?search=a&search=b'))).status).toBe(400);
+      expect((await authed(request(app).get('/admin/audit-log?entityId=1;DROP'))).status).toBe(400);
+      expect((await authed(request(app).get('/trainings?providerId=-1'))).status).toBe(400);
+      expect((await authed(request(app).get('/messaging/directory?search=' + 'x'.repeat(201)))).status).toBe(400);
+      const res = await authed(request(app).get('/messaging/conversations/1/media?filter=images&limit=20&cursor=5'));
+      expect(res.status).toBe(200);
+    });
+
+    it('leaves unauthenticated requests to the auth middleware and ignores unknown parameters', async () => {
+      const app = buildApp();
+      expect((await request(app).get('/messaging/conversations/1/messages?limit=abc')).status).toBe(200);
+      expect((await authed(request(app).get('/trainings?providerId=3&somethingElse=x'))).status).toBe(200);
+    });
+  });
+
   it('documents each rule with a unique method+path so none silently shadows another', () => {
     const keys = RULES.map((rule) => `${rule.method} ${rule.pattern.source}`);
     expect(new Set(keys).size).toBe(keys.length);

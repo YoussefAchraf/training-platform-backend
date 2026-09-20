@@ -60,7 +60,8 @@ export function lintMigration(file: MigrationFile): LintIssue[] {
   const newTables = createdTables(codeOnly(file.sql));
 
   for (const statement of statements) {
-    const code = codeOnly(statement).replace(/\s+/g, ' ').trim();
+    const definesRoutine = /^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\b/i.test(statement);
+    const code = codeOnly(statement, { includeDollarBodies: !definesRoutine }).replace(/\s+/g, ' ').trim();
     if (!code) continue;
 
     if (TX_CONTROL.test(code)) {

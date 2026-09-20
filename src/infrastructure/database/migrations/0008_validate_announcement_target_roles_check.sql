@@ -1,0 +1,1 @@
+ALTER TABLE feature_announcements VALIDATE CONSTRAINT ck_announcements_target_roles_array;

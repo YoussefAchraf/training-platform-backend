@@ -241,8 +241,30 @@ services:
     networks:
       - internal
 
+  pgadmin:
+    profiles: ["tools"]
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-local-only-never-exposed}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5051}:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./tools/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
 volumes:
   pgdata:
+  pgadmin-data:
   redisdata:
   attachments:
   attachment-uploads:

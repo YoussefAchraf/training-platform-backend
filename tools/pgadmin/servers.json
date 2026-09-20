@@ -1,0 +1,22 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Training Platform (main database)",
+      "Group": "Training Platform",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "training_platform",
+      "Username": "app_runtime",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Training Platform (dev database)",
+      "Group": "Training Platform",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "training_platform_dev",
+      "Username": "app_runtime_dev",
+      "SSLMode": "prefer"
+    }
+  }
+}

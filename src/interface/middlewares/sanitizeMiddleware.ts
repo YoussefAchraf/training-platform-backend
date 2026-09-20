@@ -1,6 +1,7 @@
 import xssFilter from 'xss';
 
-const SKIP_KEYS = new Set(['password', 'refreshToken']);
+const SKIP_KEYS = new Set(['password', 'newPassword', 'currentPassword', 'refreshToken']);
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function sanitizeString(value) {
   return xssFilter(value.trim(), { whiteList: {}, stripIgnoreTag: true, stripIgnoreTagBody: ['script'] });
@@ -22,6 +23,7 @@ function sanitizeValue(value) {
 function sanitizeObject(obj) {
   const result = {};
   for (const key of Object.keys(obj)) {
+    if (FORBIDDEN_KEYS.has(key)) continue;
     result[key] = SKIP_KEYS.has(key) ? obj[key] : sanitizeValue(obj[key]);
   }
   return result;
