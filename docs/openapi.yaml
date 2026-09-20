@@ -2,9 +2,21 @@ openapi: 3.0.3
 info:
   title: Training Platform API
   version: 1.0.0
-  description: "Backend for training management platform (providers, trainings,
-    sessions, instructors, surveys, reports). Clean architecture: interface
-    (controllers/routes) -> use-cases -> domain <- infrastructure."
+  description: >-
+    Backend for training management platform (providers, trainings, sessions,
+    instructors, surveys, reports). Clean architecture: interface
+    (controllers/routes) -> use-cases -> domain <- infrastructure.
+
+
+    Input validation: every JSON request body and the query strings of the list
+    endpoints are validated before they reach a controller. A malformed value
+    (wrong type, too long for its column, an id outside the 32-bit integer
+    range, a non-numeric limit) returns 400 with the ValidationError schema.
+    Unknown body fields are ignored, and account emails are trimmed and
+    lower-cased. Whether a field is required is decided by the use case, so its
+    own error message applies. Database constraint violations (duplicates, blank
+    names, invalid country codes, ...) return a specific message rather than an
+    internal error.
 servers:
   - url: http://localhost:{port}
     description: Local
@@ -23,6 +35,8 @@ tags:
   - name: Reports
   - name: Admin
   - name: Push
+  - name: Feedback
+  - name: Announcements
 components:
   securitySchemes:
     cookieAuth:
@@ -66,6 +80,25 @@ components:
         error:
           type: string
           example: Invalid credentials
+    ValidationError:
+      type: object
+      description: Returned with HTTP 400 when a request body, query string or path
+        identifier is malformed.
+      properties:
+        error:
+          type: string
+          example: "email: Invalid input: expected string, received object"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: "Invalid input: expected string, received object"
     Role:
       type: string
       enum:
@@ -102,6 +135,10 @@ components:
             exposed here.
         status:
           $ref: "#/components/schemas/UserStatus"
+        hasSeenTour:
+          type: boolean
+          description: Whether this account has already had the guided-tour dashboard
+            auto-launch.
     Provider:
       type: object
       properties:
@@ -217,6 +254,20 @@ components:
           $ref: "#/components/schemas/SessionStatus"
         assignmentStatus:
           $ref: "#/components/schemas/AssignmentStatus"
+        includeWeekends:
+          type: boolean
+          description: Whether Saturday/Sunday count as real training days for this session.
+        locationType:
+          type: string
+          enum:
+            - onsite
+            - remote
+        teachingLanguage:
+          type: string
+          enum:
+            - french
+            - english
+          description: The language the training will be delivered in.
         createdBy:
           type: integer
           nullable: true
@@ -239,6 +290,12 @@ components:
           nullable: true
         surveySubmitted:
           type: boolean
+        attendanceStatus:
+          type: string
+          enum:
+            - pending
+            - present
+            - absent
     InstructorSkill:
       type: object
       properties:
@@ -366,6 +423,27 @@ components:
         generatedAt:
           type: string
           format: date-time
+    SessionNote:
+      type: object
+      description: A free-text note left by a session's assigned Instructor.
+        Sales/Manager/SuperAdmin can view but not create/edit/delete these.
+      properties:
+        id:
+          type: integer
+          example: 1
+        sessionId:
+          type: integer
+        instructorId:
+          type: integer
+        body:
+          type: string
+          example: Group struggled with chapter 3, plan a recap next session.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     AuditLogEntry:
       type: object
       properties:
@@ -377,6 +455,11 @@ components:
         actorName:
           type: string
           example: Jane Doe
+        actorDeleted:
+          type: boolean
+          description: True if the actor was a real user whose account has since been
+            permanently deleted (actorId/actorName are null because of this, not
+            because it was an automated/system action).
         action:
           type: string
           example: update
@@ -461,6 +544,87 @@ components:
           type: integer
         hasReport:
           type: boolean
+    FeedbackReport:
+      type: object
+      description: A bug report / enhancement idea / other message submitted to the
+        Developer, with the submitter joined in.
+      properties:
+        id:
+          type: integer
+          example: 1
+        submittedBy:
+          type: integer
+        submitterName:
+          type: string
+          example: Jane Doe
+        submitterEmail:
+          type: string
+          example: jane.doe@example.com
+        submitterRole:
+          type: string
+          example: Sales
+        category:
+          type: string
+          enum:
+            - bug
+            - enhancement
+            - other
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    FeatureAnnouncement:
+      type: object
+      description: A feature/enhancement published by the Developer to one or more roles.
+      properties:
+        id:
+          type: integer
+          example: 1
+        createdBy:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        targetRoles:
+          type: array
+          items:
+            type: string
+            enum:
+              - Sales
+              - Manager
+              - Instructor
+              - SuperAdmin
+        createdAt:
+          type: string
+          format: date-time
+    FeatureAnnouncementWithRatings:
+      allOf:
+        - $ref: "#/components/schemas/FeatureAnnouncement"
+        - type: object
+          properties:
+            overallAverageStars:
+              type: number
+              nullable: true
+              example: 4.25
+            overallRatingCount:
+              type: integer
+              example: 8
+            byRole:
+              type: array
+              items:
+                type: object
+                properties:
+                  role:
+                    type: string
+                    example: Sales
+                  averageStars:
+                    type: number
+                    example: 4.5
+                  ratingCount:
+                    type: integer
+                    example: 4
 security:
   - cookieAuth: []
   - bearerAuth: []
@@ -563,6 +727,81 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Not a SuperAdmin
+  /admin/users/{id}/purge:
+    delete:
+      tags:
+        - Admin
+      summary: Permanently delete a user
+      description: >
+        SuperAdmin only. Irreversible - unlike DELETE /admin/users/{id} (which
+        only deactivates), this removes the account row entirely. Requires the
+        account to already be deactivated first, and refuses to target the
+        requester's own account.
+        Trainings/sessions/providers/clients/feedback/announcements this user
+        created are kept, just detached (created_by/submitted_by becomes null) -
+        business records aren't deleted. If they were an assigned Instructor,
+        sessions/surveys referencing them are unassigned (instructor_id becomes
+        null), not deleted. This user's audit log footprint is anonymized rather
+        than deleted: entries where they were the actor now show as from a
+        deleted user instead of System, and entries about their own account
+        (signup, approval, edits) have their name/email scrubbed - the audit
+        trail itself is preserved.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  deleted:
+                    type: boolean
+        "400":
+          description: User not found, not yet deactivated, or is the requester's own
+            account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a SuperAdmin
+  /admin/users/{id}/send-password-reset:
+    post:
+      tags:
+        - Admin
+      summary: Email a password reset link for another user's account
+      description: >
+        SuperAdmin only, and cannot target another SuperAdmin account. Sends a
+        single-use, short-lived reset link to the account's own email and
+        immediately revokes every refresh token that account currently holds,
+        signing out any active sessions as a precaution. No password is ever
+        generated or transmitted by this endpoint - the emailed link only lets
+        the recipient set their own new one, via POST /auth/reset-password.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK - email sent
+        "400":
+          description: User not found, target is a SuperAdmin, or the email failed to send
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a SuperAdmin
   /admin/sessions:
     get:
       tags:
@@ -602,6 +841,31 @@ paths:
           required: false
           schema:
             type: integer
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Only entries created at or after this instant
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Only entries created at or before this instant
+        - name: roleName
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - Sales
+              - Manager
+              - Instructor
+              - SuperAdmin
+          description: Only entries whose actor holds this role
       responses:
         "200":
           description: OK
@@ -619,6 +883,131 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Not a Manager or SuperAdmin
+  /announcements:
+    post:
+      tags:
+        - Announcements
+      summary: Publish a feature announcement to one or more roles
+      description: >
+        Developer only. Publishes immediately - there is no draft state.
+        targetRoles can be any of Sales, Manager, Instructor, SuperAdmin (never
+        Developer itself).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - targetRoles
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                targetRoles:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - Sales
+                      - Manager
+                      - Instructor
+                      - SuperAdmin
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeatureAnnouncement"
+        "400":
+          description: Missing title/description, or targetRoles empty/invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Developer
+    get:
+      tags:
+        - Announcements
+      summary: List every published announcement, with its star ratings
+      description: >
+        Developer only. Each entry includes an overall average + rating count,
+        plus a per-role breakdown (average and count for each role that has
+        actually rated it so far).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeatureAnnouncementWithRatings"
+        "403":
+          description: Not Developer
+  /announcements/mine:
+    get:
+      tags:
+        - Announcements
+      summary: List announcements targeted at my role that I have not rated yet
+      description: >
+        Sales, Manager, Instructor, or SuperAdmin only. Oldest first, and only
+        announcements published since my account was created - a brand-new
+        account is never handed a backlog of everything the role has ever been
+        sent. Drives the mandatory-rating popup.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeatureAnnouncement"
+  /announcements/{id}/rate:
+    patch:
+      tags:
+        - Announcements
+      summary: Rate a feature announcement 1-5 stars
+      description: >
+        Sales, Manager, Instructor, or SuperAdmin only, and only for an
+        announcement actually targeted at my role. Idempotent - rating the same
+        announcement again updates the existing rating rather than creating a
+        second one.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - stars
+              properties:
+                stars:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: stars out of range, announcement not found, or not targeted at my
+            role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /auth/signup:
     post:
       tags:
@@ -765,6 +1154,53 @@ paths:
                 $ref: "#/components/schemas/Error"
         "429":
           description: Rate limited (much lower threshold than /auth/login)
+  /auth/developer-login:
+    post:
+      tags:
+        - Auth
+      summary: Log in as Developer
+      description: >
+        Only succeeds for Developer accounts - a correct password for a
+        non-Developer account is rejected with the same "Invalid credentials"
+        message a wrong password would produce. Subject to a much stricter,
+        dedicated rate limit than /auth/login. Sets the same session cookies as
+        /auth/login on success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: OK. Session cookies set via Set-Cookie.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials, non-Developer account, pending, or rejected
+            account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited (much lower threshold than /auth/login)
   /auth/refresh:
     post:
       tags:
@@ -828,9 +1264,13 @@ paths:
     patch:
       tags:
         - Auth
-      summary: Update my own profile (firstname/lastname only)
-      description: Response body is the updated User object directly, not wrapped in {
-        user }, unlike GET /auth/me.
+      summary: Update my own profile (firstname/lastname), or mark the guided tour as
+        seen
+      description: >
+        Response body is the updated User object directly, not wrapped in { user
+        }, unlike GET /auth/me. Passing hasSeenTour: true (typically fired the
+        moment the dashboard auto-launches its guided tour) does not create an
+        audit-log entry - only firstname/lastname edits do.
       requestBody:
         content:
           application/json:
@@ -841,6 +1281,8 @@ paths:
                   type: string
                 lastname:
                   type: string
+                hasSeenTour:
+                  type: boolean
       responses:
         "200":
           description: OK
@@ -850,6 +1292,88 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           description: Missing/invalid access token
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Complete a password reset using the token from a reset email
+      description: >
+        Public - the token (not a session) is what authorizes this call, exactly
+        like the survey-submission flow is authorized by knowing a session ID
+        rather than logging in. Single-use: the token is consumed the moment
+        this succeeds, whether or not it was already close to expiring. Revokes
+        every refresh token the account holds and sends a confirmation email.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  format: password
+                  description: At least 10 characters, with at least one letter and one number.
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Token invalid/expired/already used, or newPassword too weak
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+  /auth/me/password:
+    patch:
+      tags:
+        - Auth
+      summary: Change my own password
+      description: >
+        Requires the current password even though the caller is already
+        authenticated, so a hijacked-but-idle session can't silently take over
+        the account. On success, every OTHER session for this account is signed
+        out (a fresh session is issued for the device that made this call, via
+        updated Set-Cookie headers) and a confirmation email is sent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                  description: At least 10 characters, with at least one letter and one number.
+                    Must differ from currentPassword.
+      responses:
+        "200":
+          description: OK. New session cookies set via Set-Cookie.
+        "400":
+          description: Current password incorrect, newPassword too weak, or newPassword
+            equals currentPassword
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing/invalid access token
+        "429":
+          description: Rate limited
   /auth/service-token:
     get:
       tags:
@@ -1168,6 +1692,63 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Not Sales or Manager
+  /feedback:
+    post:
+      tags:
+        - Feedback
+      summary: Submit a feedback report to the Developer
+      description: Sales, Manager, Instructor, or SuperAdmin only - Developer accounts
+        have no reason to submit feedback to themselves.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - category
+                - message
+              properties:
+                category:
+                  type: string
+                  enum:
+                    - bug
+                    - enhancement
+                    - other
+                message:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackReport"
+        "400":
+          description: Invalid category or missing message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales, Manager, Instructor, or SuperAdmin
+    get:
+      tags:
+        - Feedback
+      summary: List every feedback report ever submitted
+      description: Developer only. Newest first, with the submitter's name, email, and
+        role already joined in.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedbackReport"
+        "403":
+          description: Not Developer
   /instructors:
     get:
       tags:
@@ -1213,11 +1794,23 @@ paths:
               properties:
                 bio:
                   type: string
-                trainingIds:
+                skills:
                   type: array
-                  items:
-                    type: integer
                   description: Full replacement list of trainings this instructor can deliver.
+                  items:
+                    type: object
+                    required:
+                      - trainingId
+                    properties:
+                      trainingId:
+                        type: integer
+                      certificateId:
+                        type: string
+                        nullable: true
+                      certificateExpiresAt:
+                        type: string
+                        format: date
+                        nullable: true
       responses:
         "200":
           description: OK
@@ -1247,10 +1840,22 @@ paths:
               properties:
                 bio:
                   type: string
-                trainingIds:
+                skills:
                   type: array
                   items:
-                    type: integer
+                    type: object
+                    required:
+                      - trainingId
+                    properties:
+                      trainingId:
+                        type: integer
+                      certificateId:
+                        type: string
+                        nullable: true
+                      certificateExpiresAt:
+                        type: string
+                        format: date
+                        nullable: true
       responses:
         "200":
           description: OK
@@ -1260,6 +1865,272 @@ paths:
                 $ref: "#/components/schemas/Instructor"
         "403":
           description: Not a Manager
+  /messaging/directory:
+    get:
+      tags:
+        - Messaging
+      summary: List people reachable for messaging (Manager/Instructor only,
+        SuperAdmin never included)
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /messaging/conversations:
+    get:
+      tags:
+        - Messaging
+      summary: List my conversations, most recent activity first
+      responses:
+        "200":
+          description: OK
+  /messaging/conversations/direct:
+    post:
+      tags:
+        - Messaging
+      summary: Start (or reuse) a 1:1 conversation with another user
+      responses:
+        "201":
+          description: Created
+  /messaging/conversations/group:
+    post:
+      tags:
+        - Messaging
+      summary: Create a group conversation (Manager only)
+      responses:
+        "201":
+          description: Created
+  /messaging/conversations/{id}/participants:
+    post:
+      tags:
+        - Messaging
+      summary: Add a participant to a group (group owner only)
+      responses:
+        "201":
+          description: Created
+  /messaging/conversations/{id}/participants/{userId}:
+    delete:
+      tags:
+        - Messaging
+      summary: Remove a participant from a group (group owner only)
+      responses:
+        "204":
+          description: Deleted
+  /messaging/conversations/{id}/read:
+    post:
+      tags:
+        - Messaging
+      summary: Mark a conversation read up to a given message id
+      responses:
+        "200":
+          description: OK
+  /messaging/conversations/{id}/hide:
+    post:
+      tags:
+        - Messaging
+      summary: Hide a conversation from my own list only (non-destructive - reappears
+        if messaged again)
+      responses:
+        "200":
+          description: OK
+  /messaging/conversations/{id}/mute:
+    post:
+      tags:
+        - Messaging
+      summary: Mute or unmute a conversation for myself only
+      responses:
+        "200":
+          description: OK
+  /messaging/conversations/{id}/messages:
+    get:
+      tags:
+        - Messaging
+      summary: List messages in a conversation (keyset paginated, optionally filtered
+        by a text search)
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    post:
+      tags:
+        - Messaging
+      summary: Send a message (multipart/form-data with a `file` field for
+        image/voice/file types)
+      responses:
+        "201":
+          description: Created
+  /messaging/conversations/{id}/media:
+    get:
+      tags:
+        - Messaging
+      summary: List a conversation's media, files, or links (keyset paginated)
+      parameters:
+        - name: filter
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - media
+              - files
+              - links
+      responses:
+        "200":
+          description: OK
+  /messaging/conversations/{id}/uploads:
+    post:
+      tags:
+        - Messaging
+      summary: Initiate a chunked attachment upload, returning an uploadId, chunkSize,
+        and chunkCount
+      responses:
+        "201":
+          description: Created
+  /messaging/uploads/{uploadId}/chunks/{index}:
+    put:
+      tags:
+        - Messaging
+      summary: Upload one chunk of a file (raw binary body)
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /messaging/uploads/{uploadId}/complete:
+    post:
+      tags:
+        - Messaging
+      summary: Complete a chunked upload once every chunk has been received, sending
+        the resulting message
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+  /messaging/uploads/{uploadId}:
+    delete:
+      tags:
+        - Messaging
+      summary: Abort a chunked upload and discard any chunks already received
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /messaging/uploads/{uploadId}/status:
+    get:
+      tags:
+        - Messaging
+      summary: Get which chunks of an in-progress upload have already been received
+        (for resuming)
+      parameters:
+        - name: uploadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /messaging/attachments/{messageId}:
+    get:
+      tags:
+        - Messaging
+      summary: Download a message's attachment (participants of that conversation only)
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /messaging/messages/{messageId}/translate:
+    post:
+      tags:
+        - Messaging
+      summary: Translate a text message into the requesting user's language (requires
+        GEMINI_API_KEY)
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Not configured, not found, or not a participant
+  /messaging/messages/{messageId}/forward:
+    post:
+      tags:
+        - Messaging
+      summary: Forward a message to another conversation you are a participant of
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Created
+  /messaging/messages/{messageId}:
+    patch:
+      tags:
+        - Messaging
+      summary: Edit a text message you sent
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags:
+        - Messaging
+      summary: Delete a message for yourself, or for everyone (sender only, within 2
+        minutes of sending)
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
   /providers:
     get:
       tags:
@@ -1406,6 +2277,13 @@ paths:
                       type: string
                     auth:
                       type: string
+                silent:
+                  type: boolean
+                  description: Skip the "Notifications enabled" confirmation push - set by the
+                    frontend when this call is reconciling an already-known
+                    subscription (e.g. on every app load) rather than a genuine
+                    first-time opt-in.
+                  default: false
       responses:
         "201":
           description: Created
@@ -1548,7 +2426,12 @@ paths:
       tags:
         - Sessions
       summary: Create a training session
-      description: Sales or Manager only. Also creates the matching global calendar entry.
+      description: >
+        Sales, Manager, or SuperAdmin only. Also creates the matching global
+        calendar entry. includeWeekends (default false) is only meaningful for a
+        multi-day session - it records whether Saturday/Sunday count as real
+        training days, so the calendar can correctly show the session as
+        occupying (or skipping) those days.
       requestBody:
         required: true
         content:
@@ -1571,6 +2454,22 @@ paths:
                 endDate:
                   type: string
                   format: date-time
+                includeWeekends:
+                  type: boolean
+                  default: false
+                locationType:
+                  type: string
+                  enum:
+                    - onsite
+                    - remote
+                  default: onsite
+                teachingLanguage:
+                  type: string
+                  enum:
+                    - french
+                    - english
+                  default: french
+                  description: The language the training will be delivered in.
       responses:
         "201":
           description: Created
@@ -1585,15 +2484,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not Sales or Manager
+          description: Not Sales, Manager, or SuperAdmin
   /sessions/{id}:
     patch:
       tags:
         - Sessions
       summary: Update a training session (dates only)
-      description: Sales or Manager only, and only for a session you created
+      description: >
+        Sales, Manager, or SuperAdmin only, and only for a session you created
         (SuperAdmin can update any). Rejected once the session already has a
-        survey or report attached.
+        survey or report attached. includeWeekends follows the same meaning as
+        on POST /sessions - update it here too if a reschedule changes whether
+        the session should span weekends.
       parameters:
         - name: id
           in: path
@@ -1612,6 +2514,19 @@ paths:
                 endDate:
                   type: string
                   format: date-time
+                includeWeekends:
+                  type: boolean
+                locationType:
+                  type: string
+                  enum:
+                    - onsite
+                    - remote
+                teachingLanguage:
+                  type: string
+                  enum:
+                    - french
+                    - english
+                  description: The language the training will be delivered in.
       responses:
         "200":
           description: OK
@@ -1663,8 +2578,11 @@ paths:
       tags:
         - Sessions
       summary: Assign a session to an instructor
-      description: Manager only (Sales cannot). Resets assignmentStatus to "pending"
-        so the instructor can accept/refuse.
+      description: Manager only (Sales cannot). The session must already have at least
+        one attendee. Assignment is immediate and final (assignmentStatus is set
+        straight to "accepted" - there is no accept/refuse step). Rejected if
+        the instructor is already assigned to a different session at the exact
+        same start time (a different start time on the same day is fine).
       parameters:
         - name: id
           in: path
@@ -1689,55 +2607,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TrainingSession"
-        "403":
-          description: Not a Manager
-  /sessions/{id}/respond:
-    post:
-      tags:
-        - Sessions
-      summary: Accept or refuse an assigned session
-      description: Instructor only, and only for a session assigned to them.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - decision
-              properties:
-                decision:
-                  type: string
-                  enum:
-                    - accept
-                    - refuse
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TrainingSession"
         "400":
-          description: Session not assigned to this instructor
+          description: No attendees yet, instructor not found/not approved/not qualified,
+            or already engaged in another session at the same start time
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: Not an Instructor
+          description: Not a Manager
   /sessions/{id}/attendees:
     post:
       tags:
         - Sessions
       summary: Add an attendee to a session
-      description: Sales or Manager only.
+      description: Sales, Manager, or SuperAdmin only.
       parameters:
         - name: id
           in: path
@@ -1765,14 +2649,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/SessionAttendee"
         "403":
-          description: Not Sales or Manager
+          description: Not Sales, Manager, or SuperAdmin
     get:
       tags:
         - Sessions
       summary: List a session's attendees
       description: >
-        Sales/Manager can view any session's attendees; an Instructor can only
-        view attendees of a session assigned to them.
+        Sales/Manager/SuperAdmin can view any session's attendees; an Instructor
+        can only view attendees of a session assigned to them.
       parameters:
         - name: id
           in: path
@@ -1791,6 +2675,337 @@ paths:
         "400":
           description: Not allowed to view this session's attendees, or the session does
             not exist
+  /sessions/{id}/attendees/import:
+    post:
+      tags:
+        - Sessions
+      summary: Bulk-import attendees from a spreadsheet
+      description: 'Sales, Manager, or SuperAdmin only. Upload a .xlsx or .csv file
+        with a header row containing a "Name" column and an optional "Email"
+        column. Rows are imported best-effort: a row is skipped (with a reason)
+        rather than failing the whole file if the name is missing, the email is
+        invalid, the email is duplicated within the file, or the attendee is
+        already registered in a different session that overlaps this one in
+        time.'
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  importedCount:
+                    type: integer
+                  skippedCount:
+                    type: integer
+                  attendees:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionAttendee"
+                  skipped:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        row:
+                          type: integer
+                        name:
+                          type: string
+                          nullable: true
+                        email:
+                          type: string
+                          nullable: true
+                        reason:
+                          type: string
+        "400":
+          description: No file uploaded, unsupported file type, unreadable file, or
+            session does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales, Manager, or SuperAdmin
+  /sessions/{id}/attendees/{attendeeId}/attendance:
+    patch:
+      tags:
+        - Sessions
+      summary: Mark an attendee's attendance
+      description: Only the session's assigned Instructor can mark an attendee Present
+        or Absent.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attendeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - present
+                    - absent
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAttendee"
+        "400":
+          description: Invalid status, session/attendee not found, or attendee does not
+            belong to this session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not the assigned Instructor
+  /sessions/{id}/attendees/{attendeeId}:
+    patch:
+      tags:
+        - Sessions
+      summary: Edit an attendee's name/email
+      description: >
+        Sales, Manager, or SuperAdmin only. Locked once the session's attendance
+        has started being marked - callers should stop offering this once any
+        attendee on the session has a non-pending attendanceStatus, though the
+        backend itself doesn't separately enforce that (there's nothing wrong
+        with fixing a typo after the fact via the API).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attendeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAttendee"
+        "400":
+          description: Invalid name/email, session/attendee not found, attendee does not
+            belong to this session, or the new email overlaps another session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales, Manager, or SuperAdmin
+    delete:
+      tags:
+        - Sessions
+      summary: Remove an attendee from a session
+      description: >
+        Sales, Manager, or SuperAdmin only. Rejected if the attendee has already
+        submitted a survey (their response would be left pointing at a deleted
+        attendee). Same as editing, callers should stop offering this once the
+        session's attendance has started being marked, though the backend itself
+        doesn't separately enforce that.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: attendeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Session/attendee not found, attendee does not belong to this
+            session, or the attendee already submitted a survey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not Sales, Manager, or SuperAdmin
+  /sessions/{id}/notes:
+    post:
+      tags:
+        - Sessions
+      summary: Add a note to a session
+      description: Only the session's assigned Instructor can add a note.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNote"
+        "400":
+          description: Session not found, empty/too-long note body, or requester is not
+            the assigned Instructor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags:
+        - Sessions
+      summary: List a session's notes
+      description: >
+        Sales/Manager/SuperAdmin can view any session's notes (read-only); the
+        assigned Instructor can view (and manage) their own session's notes.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionNote"
+        "400":
+          description: Not allowed to view this session's notes, or the session does not
+            exist
+  /sessions/{id}/notes/{noteId}:
+    patch:
+      tags:
+        - Sessions
+      summary: Edit a session note
+      description: Only the note's author (the assigned Instructor) can edit it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - body
+              properties:
+                body:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionNote"
+        "400":
+          description: Note/session not found, empty/too-long note body, or requester is
+            not the note author
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - Sessions
+      summary: Delete a session note
+      description: Only the note's author (the assigned Instructor) can delete it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Note/session not found, or requester is not the note author
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /survey/{sessionId}/qr-code:
     get:
       tags:

@@ -378,6 +378,8 @@ convention):
 | `db:plan` | List pending migrations and execute them inside a transaction that is **rolled back** — a real dry run. Read-only. |
 | `db:lint` | Static safety checks on the migration files. No database needed. |
 | `db:promote-check` | Verify every pending migration was already applied, with an identical checksum, on the dev database. |
+| `db:audit` | Read-only data-quality report: legacy rows the constraints tolerate (with example ids), plus structural problems (unvalidated constraints, invalid indexes, announcement roles out of sync). Nothing is modified. |
+| `docs:db` | Regenerate `docs/database/` (schema reference, ERDs, interactive `erd.html`, `schema.json`) from a migrated database; `-- --check` fails if the committed copy is stale (run in CI). |
 
 **Dev and prod databases.** `docker compose --profile dev up -d backend-dev` adds a
 completely separate database (`training_platform_dev`) with its own
@@ -416,6 +418,22 @@ To refresh the dev database with a copy of prod data, restore a
 `pg_dump` of prod into `training_platform_dev` (`pg_restore --no-owner
 --no-privileges`, then re-run `provision-dev-db`) — never the other way
 round. Treat that copy as containing personal data.
+
+**Seeing the schema and its links.** The full design, normalisation
+analysis, integrity model and growth notes are in
+[docs/DATABASE-ARCHITECTURE.md](docs/DATABASE-ARCHITECTURE.md), backed by
+generated, always-current files in `docs/database/`. For a GUI:
+
+- `docker compose --profile tools up -d pgadmin` starts pgAdmin at
+  <http://127.0.0.1:5051> (localhost only, no login) with the main and dev
+  databases pre-registered; right-click a database → **ERD Tool** to draw
+  every table and its foreign keys. Descriptions come from `COMMENT ON`
+  statements in the migrations. Enter the `app_runtime` (or
+  `app_runtime_dev`) password from `.env` when asked. Set `PGADMIN_PORT`
+  to change the port.
+- Open `docs/database/erd.html` in a browser for zoomable diagrams of the
+  whole schema and each domain, with a filterable table list — no server
+  needed.
 
 Tables: `roles`, `users`, `providers`, `trainings`, `clients`,
 `instructors`, `instructor_skills`, `training_sessions`,

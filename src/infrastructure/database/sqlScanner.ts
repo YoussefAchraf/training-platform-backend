@@ -135,11 +135,12 @@ export function splitStatements(sql: string): string[] {
   return statements;
 }
 
-export function codeOnly(sql: string): string {
+export function codeOnly(sql: string, options: { includeDollarBodies?: boolean } = {}): string {
+  const includeDollarBodies = options.includeDollarBodies !== false;
   let out = '';
   for (const segment of scanSql(sql)) {
     if (segment.kind === 'code') out += segment.text;
-    else if (segment.kind === 'dollar') out += ` ${codeOnly(dollarBody(segment.text))} `;
+    else if (segment.kind === 'dollar' && includeDollarBodies) out += ` ${codeOnly(dollarBody(segment.text))} `;
     else out += ' ';
   }
   return out;

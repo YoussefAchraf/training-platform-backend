@@ -230,3 +230,38 @@ export const uploadInitiate = z.object({
 export const uploadComplete = z.object({
   replyToMessageId: opt(id.nullable()),
 });
+
+const queryText = (max: number) => z.string().max(max).optional();
+const queryInt = z
+  .string()
+  .regex(/^\d{1,10}$/, 'must be a non-negative integer')
+  .refine((value) => Number(value) <= MAX_INT, 'is too large')
+  .optional();
+
+export const auditLogQuery = z.object({
+  entityType: queryText(50),
+  entityId: queryInt,
+  startDate: queryText(40),
+  endDate: queryText(40),
+  roleName: queryText(50),
+});
+
+export const trainingListQuery = z.object({
+  providerId: queryInt,
+});
+
+export const searchQuery = z.object({
+  search: queryText(200),
+});
+
+export const messageListQuery = z.object({
+  cursor: queryInt,
+  limit: queryInt,
+  search: queryText(200),
+});
+
+export const mediaListQuery = z.object({
+  cursor: queryInt,
+  limit: queryInt,
+  filter: queryText(20),
+});

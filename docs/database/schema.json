@@ -1,0 +1,2902 @@
+{
+  "tables": [
+    {
+      "name": "audit_log",
+      "comment": "Append-only history of create/update/delete/approve/reject/cancel actions. The application role cannot delete rows or rewrite history.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('audit_log_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "action",
+          "type": "character varying(40)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "actor_deleted",
+          "type": "boolean",
+          "notNull": true,
+          "default": "false",
+          "comment": "True once the acting account has been purged and its entries redacted."
+        },
+        {
+          "name": "actor_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "Who acted. Becomes NULL if the account is purged; actor_deleted then marks it."
+        },
+        {
+          "name": "after",
+          "type": "jsonb",
+          "notNull": false,
+          "default": null,
+          "comment": "Snapshot after the change. The GDPR purge may redact personal fields here."
+        },
+        {
+          "name": "before",
+          "type": "jsonb",
+          "notNull": false,
+          "default": null,
+          "comment": "Snapshot before the change. The GDPR purge may redact personal fields here."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "entity_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "entity_type",
+          "type": "character varying(50)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "audit_log_actor_id_fkey",
+          "columns": [
+            "actor_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "audit_log_pkey",
+          "definition": "CREATE UNIQUE INDEX audit_log_pkey ON public.audit_log USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_audit_log_actor",
+          "definition": "CREATE INDEX idx_audit_log_actor ON public.audit_log USING btree (actor_id) WHERE (actor_id IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_audit_log_created_at",
+          "definition": "CREATE INDEX idx_audit_log_created_at ON public.audit_log USING btree (created_at)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_audit_log_entity",
+          "definition": "CREATE INDEX idx_audit_log_entity ON public.audit_log USING btree (entity_type, entity_id)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "calendar",
+      "comment": "Calendar entry generated with a session; a deliberate copy of the session dates so the calendar can be edited independently.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('calendar_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "end_date",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "event_date",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "session_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "title",
+          "type": "character varying(200)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "calendar_session_id_fkey",
+          "columns": [
+            "session_id"
+          ],
+          "refTable": "training_sessions",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_calendar_title_not_blank",
+          "definition": "CHECK ((char_length(btrim((title)::text)) > 0))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "calendar_pkey",
+          "definition": "CREATE UNIQUE INDEX calendar_pkey ON public.calendar USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_calendar_session",
+          "definition": "CREATE INDEX idx_calendar_session ON public.calendar USING btree (session_id)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "clients",
+      "comment": "Client companies that training sessions are delivered to. Soft-deleted via deleted_at.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('clients_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "company_name",
+          "type": "character varying(150)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "country",
+          "type": "character varying(2)",
+          "notNull": false,
+          "default": null,
+          "comment": "ISO 3166-1 alpha-2 code in upper case; used to validate the phone number."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "created_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "email",
+          "type": "character varying(150)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "phone",
+          "type": "character varying(30)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "clients_created_by_fkey",
+          "columns": [
+            "created_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_clients_company_name_not_blank",
+          "definition": "CHECK ((char_length(btrim((company_name)::text)) > 0))",
+          "validated": true
+        },
+        {
+          "name": "ck_clients_country_iso2",
+          "definition": "CHECK (((country IS NULL) OR ((country)::text ~ '^[A-Z]{2}$'::text)))",
+          "validated": true
+        },
+        {
+          "name": "ck_clients_email_format",
+          "definition": "CHECK (((email IS NULL) OR ((email)::text = ''::text) OR ((email)::text ~ '^[^@[:space:]]+@[^@[:space:]]+$'::text)))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "clients_pkey",
+          "definition": "CREATE UNIQUE INDEX clients_pkey ON public.clients USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_clients_active",
+          "definition": "CREATE INDEX idx_clients_active ON public.clients USING btree (id) WHERE (deleted_at IS NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_clients_created_by",
+          "definition": "CREATE INDEX idx_clients_created_by ON public.clients USING btree (created_by) WHERE (created_by IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "conversation_participants",
+      "comment": "Membership, per-user read/delivered markers and hide/mute state for a conversation.",
+      "columns": [
+        {
+          "name": "conversation_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "hidden_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": "Set when the user hides the conversation from their list; a new message can bring it back."
+        },
+        {
+          "name": "joined_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "last_delivered_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "last_delivered_message_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "Delivery marker; must reference a message of the same conversation."
+        },
+        {
+          "name": "last_read_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "last_read_message_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "Read marker; must reference a message of the same conversation."
+        },
+        {
+          "name": "muted_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": "Set when the user mutes notifications for the conversation."
+        },
+        {
+          "name": "role",
+          "type": "conversation_role",
+          "notNull": true,
+          "default": "'member'::conversation_role",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "conversation_id",
+        "user_id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "conversation_participants_conversation_id_fkey",
+          "columns": [
+            "conversation_id"
+          ],
+          "refTable": "conversations",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "conversation_participants_last_delivered_message_id_fkey",
+          "columns": [
+            "last_delivered_message_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "conversation_participants_last_read_message_id_fkey",
+          "columns": [
+            "last_read_message_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "conversation_participants_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "fk_participants_last_delivered_same_conversation",
+          "columns": [
+            "last_delivered_message_id",
+            "conversation_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id",
+            "conversation_id"
+          ],
+          "onDelete": "SET NULL (last_delivered_message_id)",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "fk_participants_last_read_same_conversation",
+          "columns": [
+            "last_read_message_id",
+            "conversation_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id",
+            "conversation_id"
+          ],
+          "onDelete": "SET NULL (last_read_message_id)",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "conversation_participants_pkey",
+          "definition": "CREATE UNIQUE INDEX conversation_participants_pkey ON public.conversation_participants USING btree (conversation_id, user_id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_conversation_participants_last_delivered",
+          "definition": "CREATE INDEX idx_conversation_participants_last_delivered ON public.conversation_participants USING btree (last_delivered_message_id) WHERE (last_delivered_message_id IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_conversation_participants_last_read",
+          "definition": "CREATE INDEX idx_conversation_participants_last_read ON public.conversation_participants USING btree (last_read_message_id) WHERE (last_read_message_id IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_conversation_participants_user",
+          "definition": "CREATE INDEX idx_conversation_participants_user ON public.conversation_participants USING btree (user_id)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "conversations",
+      "comment": "A direct (two-person) or group conversation in the messaging module.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('conversations_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "created_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "name",
+          "type": "character varying(150)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "type",
+          "type": "conversation_type",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "conversations_created_by_fkey",
+          "columns": [
+            "created_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "conversations_pkey",
+          "definition": "CREATE UNIQUE INDEX conversations_pkey ON public.conversations USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_conversations_created_by",
+          "definition": "CREATE INDEX idx_conversations_created_by ON public.conversations USING btree (created_by)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "feature_announcement_ratings",
+      "comment": "One 1-5 star rating per user per announcement.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('feature_announcement_ratings_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "announcement_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "stars",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "feature_announcement_ratings_announcement_id_user_id_key",
+          "columns": [
+            "announcement_id",
+            "user_id"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "feature_announcement_ratings_announcement_id_fkey",
+          "columns": [
+            "announcement_id"
+          ],
+          "refTable": "feature_announcements",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "feature_announcement_ratings_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "feature_announcement_ratings_stars_check",
+          "definition": "CHECK (((stars >= 1) AND (stars <= 5)))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "feature_announcement_ratings_announcement_id_user_id_key",
+          "definition": "CREATE UNIQUE INDEX feature_announcement_ratings_announcement_id_user_id_key ON public.feature_announcement_ratings USING btree (announcement_id, user_id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "feature_announcement_ratings_pkey",
+          "definition": "CREATE UNIQUE INDEX feature_announcement_ratings_pkey ON public.feature_announcement_ratings USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_feature_announcement_ratings_announcement",
+          "definition": "CREATE INDEX idx_feature_announcement_ratings_announcement ON public.feature_announcement_ratings USING btree (announcement_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_feature_announcement_ratings_user",
+          "definition": "CREATE INDEX idx_feature_announcement_ratings_user ON public.feature_announcement_ratings USING btree (user_id)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "feature_announcement_target_roles",
+      "comment": "Which roles an announcement targets (junction table; replaces the JSON list, giving first normal form and foreign-key integrity).",
+      "columns": [
+        {
+          "name": "announcement_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "announcement_id",
+        "role_id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "feature_announcement_target_roles_announcement_id_fkey",
+          "columns": [
+            "announcement_id"
+          ],
+          "refTable": "feature_announcements",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "feature_announcement_target_roles_role_id_fkey",
+          "columns": [
+            "role_id"
+          ],
+          "refTable": "roles",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "NO ACTION",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "feature_announcement_target_roles_pkey",
+          "definition": "CREATE UNIQUE INDEX feature_announcement_target_roles_pkey ON public.feature_announcement_target_roles USING btree (announcement_id, role_id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_announcement_target_roles_role",
+          "definition": "CREATE INDEX idx_announcement_target_roles_role ON public.feature_announcement_target_roles USING btree (role_id)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "feature_announcements",
+      "comment": "Product announcements written by the Developer role and shown to targeted roles until rated.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('feature_announcements_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "created_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "target_roles",
+          "type": "jsonb",
+          "notNull": true,
+          "default": null,
+          "comment": "DEPRECATED write-through copy of the targeted role names. The relational source is feature_announcement_target_roles, kept in sync by a trigger. To be dropped in a later, explicitly approved migration."
+        },
+        {
+          "name": "title",
+          "type": "character varying(150)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "feature_announcements_created_by_fkey",
+          "columns": [
+            "created_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_announcements_target_roles_array",
+          "definition": "CHECK ((jsonb_typeof(target_roles) = 'array'::text))",
+          "validated": true
+        },
+        {
+          "name": "ck_feature_announcements_title_not_blank",
+          "definition": "CHECK ((char_length(btrim((title)::text)) > 0))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "feature_announcements_pkey",
+          "definition": "CREATE UNIQUE INDEX feature_announcements_pkey ON public.feature_announcements USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_feature_announcements_created_at",
+          "definition": "CREATE INDEX idx_feature_announcements_created_at ON public.feature_announcements USING btree (created_at)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_feature_announcements_created_by",
+          "definition": "CREATE INDEX idx_feature_announcements_created_by ON public.feature_announcements USING btree (created_by) WHERE (created_by IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_sync_announcement_target_roles",
+          "definition": "CREATE TRIGGER trg_sync_announcement_target_roles AFTER INSERT OR UPDATE OF target_roles ON public.feature_announcements FOR EACH ROW EXECUTE FUNCTION sync_announcement_target_roles()"
+        }
+      ]
+    },
+    {
+      "name": "feedback_reports",
+      "comment": "Bug reports and enhancement requests submitted by users; read by the Developer role.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('feedback_reports_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "category",
+          "type": "feedback_category",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "submitted_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "feedback_reports_submitted_by_fkey",
+          "columns": [
+            "submitted_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "feedback_reports_pkey",
+          "definition": "CREATE UNIQUE INDEX feedback_reports_pkey ON public.feedback_reports USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "idx_feedback_reports_created_at",
+          "definition": "CREATE INDEX idx_feedback_reports_created_at ON public.feedback_reports USING btree (created_at)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_feedback_reports_submitted_by",
+          "definition": "CREATE INDEX idx_feedback_reports_submitted_by ON public.feedback_reports USING btree (submitted_by)",
+          "unique": false,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "instructor_skills",
+      "comment": "Which trainings an instructor can teach (many-to-many), with an optional certificate and its expiry.",
+      "columns": [
+        {
+          "name": "instructor_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "training_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "certificate_expires_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "certificate_id",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "expiry_reminder_sent_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": "Set once the one-time certificate-expiry reminder has been emailed."
+        }
+      ],
+      "primaryKey": [
+        "instructor_id",
+        "training_id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "instructor_skills_instructor_id_fkey",
+          "columns": [
+            "instructor_id"
+          ],
+          "refTable": "instructors",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "instructor_skills_training_id_fkey",
+          "columns": [
+            "training_id"
+          ],
+          "refTable": "trainings",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "idx_instructor_skills_training",
+          "definition": "CREATE INDEX idx_instructor_skills_training ON public.instructor_skills USING btree (training_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "instructor_skills_pkey",
+          "definition": "CREATE UNIQUE INDEX instructor_skills_pkey ON public.instructor_skills USING btree (instructor_id, training_id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "instructors",
+      "comment": "Instructor profile, one per instructor user (user_id is unique).",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('instructors_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "bio",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "instructors_user_id_key",
+          "columns": [
+            "user_id"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "instructors_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "instructors_pkey",
+          "definition": "CREATE UNIQUE INDEX instructors_pkey ON public.instructors USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "instructors_user_id_key",
+          "definition": "CREATE UNIQUE INDEX instructors_user_id_key ON public.instructors USING btree (user_id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "message_deletions",
+      "comment": "Per-user \"delete for me\" markers; the message stays visible to everyone else.",
+      "columns": [
+        {
+          "name": "message_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "message_id",
+        "user_id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "message_deletions_message_id_fkey",
+          "columns": [
+            "message_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "message_deletions_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "idx_message_deletions_user",
+          "definition": "CREATE INDEX idx_message_deletions_user ON public.message_deletions USING btree (user_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "message_deletions_pkey",
+          "definition": "CREATE UNIQUE INDEX message_deletions_pkey ON public.message_deletions USING btree (message_id, user_id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "messages",
+      "comment": "Chat messages: text, image, voice or file. Attachments live on disk; only their key and metadata are stored here. Soft-deleted via deleted_at.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('messages_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "attachment_duration_seconds",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "attachment_key",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "attachment_mime",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "attachment_original_name",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "attachment_size_bytes",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "conversation_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": "Set when deleted for everyone; content is then no longer shown."
+        },
+        {
+          "name": "edited_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "reply_to_message_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "The message being replied to; must be in the same conversation."
+        },
+        {
+          "name": "sender_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "type",
+          "type": "message_type",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "uq_messages_id_conversation",
+          "columns": [
+            "id",
+            "conversation_id"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "fk_messages_reply_same_conversation",
+          "columns": [
+            "reply_to_message_id",
+            "conversation_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id",
+            "conversation_id"
+          ],
+          "onDelete": "SET NULL (reply_to_message_id)",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "messages_conversation_id_fkey",
+          "columns": [
+            "conversation_id"
+          ],
+          "refTable": "conversations",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "messages_reply_to_message_id_fkey",
+          "columns": [
+            "reply_to_message_id"
+          ],
+          "refTable": "messages",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "messages_sender_id_fkey",
+          "columns": [
+            "sender_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_messages_attachment_non_negative",
+          "definition": "CHECK ((((attachment_size_bytes IS NULL) OR (attachment_size_bytes >= 0)) AND ((attachment_duration_seconds IS NULL) OR (attachment_duration_seconds >= 0))))",
+          "validated": true
+        },
+        {
+          "name": "ck_messages_content_shape",
+          "definition": "CHECK (((deleted_at IS NOT NULL) OR ((type = 'text'::message_type) AND (body IS NOT NULL) AND (attachment_key IS NULL)) OR ((type <> 'text'::message_type) AND (attachment_key IS NOT NULL))))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_messages_conversation_id_id",
+          "definition": "CREATE INDEX idx_messages_conversation_id_id ON public.messages USING btree (conversation_id, id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_messages_reply_to",
+          "definition": "CREATE INDEX idx_messages_reply_to ON public.messages USING btree (reply_to_message_id) WHERE (reply_to_message_id IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_messages_sender",
+          "definition": "CREATE INDEX idx_messages_sender ON public.messages USING btree (sender_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "messages_pkey",
+          "definition": "CREATE UNIQUE INDEX messages_pkey ON public.messages USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "uq_messages_id_conversation",
+          "definition": "CREATE UNIQUE INDEX uq_messages_id_conversation ON public.messages USING btree (id, conversation_id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "providers",
+      "comment": "Training providers (e.g. Red Hat). Soft-deleted via deleted_at; names are unique among active providers.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('providers_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "created_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "logo_url",
+          "type": "character varying(500)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "name",
+          "type": "character varying(150)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "providers_created_by_fkey",
+          "columns": [
+            "created_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_providers_name_not_blank",
+          "definition": "CHECK ((char_length(btrim((name)::text)) > 0))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_providers_active",
+          "definition": "CREATE INDEX idx_providers_active ON public.providers USING btree (id) WHERE (deleted_at IS NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_providers_created_by",
+          "definition": "CREATE INDEX idx_providers_created_by ON public.providers USING btree (created_by) WHERE (created_by IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_providers_name_active",
+          "definition": "CREATE UNIQUE INDEX idx_providers_name_active ON public.providers USING btree (name) WHERE (deleted_at IS NULL)",
+          "unique": true,
+          "partial": true
+        },
+        {
+          "name": "providers_pkey",
+          "definition": "CREATE UNIQUE INDEX providers_pkey ON public.providers USING btree (id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "push_subscriptions",
+      "comment": "Web-push endpoints per user and device (unique per user and endpoint). Endpoints must be https.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('push_subscriptions_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "auth",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "endpoint",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "p256dh",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "user_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "push_subscriptions_user_id_endpoint_key",
+          "columns": [
+            "user_id",
+            "endpoint"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "push_subscriptions_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_push_subscriptions_endpoint_https",
+          "definition": "CHECK ((endpoint ~ '^https://'::text))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_push_subscriptions_endpoint",
+          "definition": "CREATE INDEX idx_push_subscriptions_endpoint ON public.push_subscriptions USING btree (endpoint)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_push_subscriptions_user",
+          "definition": "CREATE INDEX idx_push_subscriptions_user ON public.push_subscriptions USING btree (user_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "push_subscriptions_pkey",
+          "definition": "CREATE UNIQUE INDEX push_subscriptions_pkey ON public.push_subscriptions USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "push_subscriptions_user_id_endpoint_key",
+          "definition": "CREATE UNIQUE INDEX push_subscriptions_user_id_endpoint_key ON public.push_subscriptions USING btree (user_id, endpoint)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "reports",
+      "comment": "Generated report per session (session_id unique) with the averaged scores frozen at generation time.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('reports_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "average_score",
+          "type": "numeric(4,2)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "generated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "nps_average",
+          "type": "numeric(5,2)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "pdf_url",
+          "type": "character varying(255)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "session_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "reports_session_id_key",
+          "columns": [
+            "session_id"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "reports_session_id_fkey",
+          "columns": [
+            "session_id"
+          ],
+          "refTable": "training_sessions",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "reports_pkey",
+          "definition": "CREATE UNIQUE INDEX reports_pkey ON public.reports USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "reports_session_id_key",
+          "definition": "CREATE UNIQUE INDEX reports_session_id_key ON public.reports USING btree (session_id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "roles",
+      "comment": "Fixed set of application roles (Sales, Manager, Instructor, SuperAdmin, Developer). Reference data seeded by the baseline migration.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('roles_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "name",
+          "type": "character varying(50)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "roles_name_key",
+          "columns": [
+            "name"
+          ]
+        }
+      ],
+      "foreignKeys": [],
+      "checks": [],
+      "indexes": [
+        {
+          "name": "roles_name_key",
+          "definition": "CREATE UNIQUE INDEX roles_name_key ON public.roles USING btree (name)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "roles_pkey",
+          "definition": "CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "session_attendees",
+      "comment": "People registered on a session. Identity is the name plus an optional email; an email may appear once per session (case-insensitive).",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('session_attendees_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "attendance_status",
+          "type": "attendance_status",
+          "notNull": true,
+          "default": "'pending'::attendance_status",
+          "comment": "pending, present or absent, marked by the instructor."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "email",
+          "type": "character varying(150)",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "name",
+          "type": "character varying(150)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "session_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "survey_submitted",
+          "type": "boolean",
+          "notNull": true,
+          "default": "false",
+          "comment": "Denormalised flag kept in step with the existence of a survey row for this attendee."
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "uq_session_attendees_id_session",
+          "columns": [
+            "id",
+            "session_id"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "session_attendees_session_id_fkey",
+          "columns": [
+            "session_id"
+          ],
+          "refTable": "training_sessions",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_session_attendees_email_format",
+          "definition": "CHECK (((email IS NULL) OR ((email)::text = ''::text) OR ((email)::text ~ '^[^@[:space:]]+@[^@[:space:]]+$'::text)))",
+          "validated": true
+        },
+        {
+          "name": "ck_session_attendees_name_not_blank",
+          "definition": "CHECK ((char_length(btrim((name)::text)) > 0))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_attendees_email",
+          "definition": "CREATE INDEX idx_attendees_email ON public.session_attendees USING btree (lower((email)::text))",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_attendees_session",
+          "definition": "CREATE INDEX idx_attendees_session ON public.session_attendees USING btree (session_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "session_attendees_pkey",
+          "definition": "CREATE UNIQUE INDEX session_attendees_pkey ON public.session_attendees USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "session_attendees_session_email_key",
+          "definition": "CREATE UNIQUE INDEX session_attendees_session_email_key ON public.session_attendees USING btree (session_id, lower((email)::text)) WHERE ((email IS NOT NULL) AND ((email)::text <> ''::text))",
+          "unique": true,
+          "partial": true
+        },
+        {
+          "name": "uq_session_attendees_id_session",
+          "definition": "CREATE UNIQUE INDEX uq_session_attendees_id_session ON public.session_attendees USING btree (id, session_id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "session_notes",
+      "comment": "Free-text notes an assigned instructor leaves on a session. Only the author may edit or delete.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('session_notes_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "instructor_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "session_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "session_notes_instructor_id_fkey",
+          "columns": [
+            "instructor_id"
+          ],
+          "refTable": "instructors",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "session_notes_session_id_fkey",
+          "columns": [
+            "session_id"
+          ],
+          "refTable": "training_sessions",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_session_notes_body_not_blank",
+          "definition": "CHECK ((char_length(btrim(body)) > 0))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_session_notes_instructor",
+          "definition": "CREATE INDEX idx_session_notes_instructor ON public.session_notes USING btree (instructor_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_session_notes_session_id",
+          "definition": "CREATE INDEX idx_session_notes_session_id ON public.session_notes USING btree (session_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "session_notes_pkey",
+          "definition": "CREATE UNIQUE INDEX session_notes_pkey ON public.session_notes USING btree (id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "surveys",
+      "comment": "One survey answer per attendee (attendee_id unique when present). Scores: instructor 0-5, NPS 0-10.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('surveys_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "attendee_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "comments",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "instructor_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "Snapshot of the instructor at submission time; deliberately not derived from the session, which may be reassigned later."
+        },
+        {
+          "name": "instructor_score",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "nps_score",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "session_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "fk_surveys_attendee_session",
+          "columns": [
+            "attendee_id",
+            "session_id"
+          ],
+          "refTable": "session_attendees",
+          "refColumns": [
+            "id",
+            "session_id"
+          ],
+          "onDelete": "NO ACTION",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "surveys_attendee_id_fkey",
+          "columns": [
+            "attendee_id"
+          ],
+          "refTable": "session_attendees",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "NO ACTION",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "surveys_instructor_id_fkey",
+          "columns": [
+            "instructor_id"
+          ],
+          "refTable": "instructors",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "surveys_session_id_fkey",
+          "columns": [
+            "session_id"
+          ],
+          "refTable": "training_sessions",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "surveys_instructor_score_check",
+          "definition": "CHECK (((instructor_score >= 0) AND (instructor_score <= 5)))",
+          "validated": true
+        },
+        {
+          "name": "surveys_nps_score_check",
+          "definition": "CHECK (((nps_score >= 0) AND (nps_score <= 10)))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_surveys_instructor",
+          "definition": "CREATE INDEX idx_surveys_instructor ON public.surveys USING btree (instructor_id) WHERE (instructor_id IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_surveys_session",
+          "definition": "CREATE INDEX idx_surveys_session ON public.surveys USING btree (session_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "surveys_attendee_id_key",
+          "definition": "CREATE UNIQUE INDEX surveys_attendee_id_key ON public.surveys USING btree (attendee_id) WHERE (attendee_id IS NOT NULL)",
+          "unique": true,
+          "partial": true
+        },
+        {
+          "name": "surveys_pkey",
+          "definition": "CREATE UNIQUE INDEX surveys_pkey ON public.surveys USING btree (id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "training_sessions",
+      "comment": "A scheduled delivery of one training for one client, optionally assigned to one instructor. The central table of the domain.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('training_sessions_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "assignment_status",
+          "type": "assignment_status",
+          "notNull": true,
+          "default": "'unassigned'::assignment_status",
+          "comment": "unassigned or accepted in current use. pending and refused are legacy states of a retired accept/refuse flow."
+        },
+        {
+          "name": "client_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "created_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "end_date",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "include_weekends",
+          "type": "boolean",
+          "notNull": true,
+          "default": "false",
+          "comment": "Whether the session runs on weekends between start_date and end_date."
+        },
+        {
+          "name": "instructor_id",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "location_type",
+          "type": "session_location_type",
+          "notNull": true,
+          "default": "'onsite'::session_location_type",
+          "comment": null
+        },
+        {
+          "name": "reminder_1h_sent_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": "Set when the 1-hour push reminder was sent, so it is sent once."
+        },
+        {
+          "name": "reminder_24h_sent_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": "Set when the 24-hour push reminder was sent, so it is sent once."
+        },
+        {
+          "name": "session_status",
+          "type": "session_status",
+          "notNull": true,
+          "default": "'scheduled'::session_status",
+          "comment": null
+        },
+        {
+          "name": "start_date",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "teaching_language",
+          "type": "session_teaching_language",
+          "notNull": true,
+          "default": "'french'::session_teaching_language",
+          "comment": null
+        },
+        {
+          "name": "training_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "training_sessions_client_id_fkey",
+          "columns": [
+            "client_id"
+          ],
+          "refTable": "clients",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "NO ACTION",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "training_sessions_created_by_fkey",
+          "columns": [
+            "created_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "training_sessions_instructor_id_fkey",
+          "columns": [
+            "instructor_id"
+          ],
+          "refTable": "instructors",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "training_sessions_training_id_fkey",
+          "columns": [
+            "training_id"
+          ],
+          "refTable": "trainings",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "NO ACTION",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "training_sessions_check",
+          "definition": "CHECK ((end_date > start_date))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_sessions_client",
+          "definition": "CREATE INDEX idx_sessions_client ON public.training_sessions USING btree (client_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_sessions_created_by",
+          "definition": "CREATE INDEX idx_sessions_created_by ON public.training_sessions USING btree (created_by) WHERE (created_by IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_sessions_instructor",
+          "definition": "CREATE INDEX idx_sessions_instructor ON public.training_sessions USING btree (instructor_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_sessions_start_date",
+          "definition": "CREATE INDEX idx_sessions_start_date ON public.training_sessions USING btree (start_date)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_sessions_status",
+          "definition": "CREATE INDEX idx_sessions_status ON public.training_sessions USING btree (session_status)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "idx_sessions_training",
+          "definition": "CREATE INDEX idx_sessions_training ON public.training_sessions USING btree (training_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "training_sessions_instructor_start_key",
+          "definition": "CREATE UNIQUE INDEX training_sessions_instructor_start_key ON public.training_sessions USING btree (instructor_id, start_date) WHERE ((instructor_id IS NOT NULL) AND (session_status <> 'cancelled'::session_status))",
+          "unique": true,
+          "partial": true
+        },
+        {
+          "name": "training_sessions_pkey",
+          "definition": "CREATE UNIQUE INDEX training_sessions_pkey ON public.training_sessions USING btree (id)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "training_sessions_training_start_key",
+          "definition": "CREATE UNIQUE INDEX training_sessions_training_start_key ON public.training_sessions USING btree (training_id, start_date) WHERE (session_status <> 'cancelled'::session_status)",
+          "unique": true,
+          "partial": true
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "trainings",
+      "comment": "Catalog of trainings offered, each belonging to one provider. Soft-deleted via deleted_at.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('trainings_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "created_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "duration",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "Length in duration_unit. May be 0. Some legacy rows have a duration without a unit."
+        },
+        {
+          "name": "duration_unit",
+          "type": "training_duration_unit",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "name",
+          "type": "character varying(150)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "provider_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [],
+      "foreignKeys": [
+        {
+          "name": "trainings_created_by_fkey",
+          "columns": [
+            "created_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "trainings_provider_id_fkey",
+          "columns": [
+            "provider_id"
+          ],
+          "refTable": "providers",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "CASCADE",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_trainings_duration_non_negative",
+          "definition": "CHECK (((duration IS NULL) OR (duration >= 0)))",
+          "validated": true
+        },
+        {
+          "name": "ck_trainings_name_not_blank",
+          "definition": "CHECK ((char_length(btrim((name)::text)) > 0))",
+          "validated": true
+        },
+        {
+          "name": "ck_trainings_unit_requires_duration",
+          "definition": "CHECK (((duration_unit IS NULL) OR (duration IS NOT NULL)))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_trainings_active",
+          "definition": "CREATE INDEX idx_trainings_active ON public.trainings USING btree (id) WHERE (deleted_at IS NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_trainings_created_by",
+          "definition": "CREATE INDEX idx_trainings_created_by ON public.trainings USING btree (created_by) WHERE (created_by IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "idx_trainings_provider",
+          "definition": "CREATE INDEX idx_trainings_provider ON public.trainings USING btree (provider_id)",
+          "unique": false,
+          "partial": false
+        },
+        {
+          "name": "trainings_pkey",
+          "definition": "CREATE UNIQUE INDEX trainings_pkey ON public.trainings USING btree (id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    },
+    {
+      "name": "users",
+      "comment": "Every account. Self-signup creates status pending; a Manager approves or rejects. Emails are unique ignoring letter case.",
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "notNull": true,
+          "default": "nextval('users_id_seq'::regclass)",
+          "comment": null
+        },
+        {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "approved_by",
+          "type": "integer",
+          "notNull": false,
+          "default": null,
+          "comment": "The approving Manager. Set to NULL if that account is later purged."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        },
+        {
+          "name": "email",
+          "type": "character varying(150)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "firstname",
+          "type": "character varying(100)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "has_seen_tour",
+          "type": "boolean",
+          "notNull": true,
+          "default": "false",
+          "comment": "Whether the guided-tour dashboard has already auto-launched for this user."
+        },
+        {
+          "name": "lastname",
+          "type": "character varying(100)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "password_hash",
+          "type": "character varying(255)",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "role_id",
+          "type": "integer",
+          "notNull": true,
+          "default": null,
+          "comment": null
+        },
+        {
+          "name": "status",
+          "type": "user_status",
+          "notNull": true,
+          "default": "'pending'::user_status",
+          "comment": "pending (awaiting approval), approved, rejected, or deactivated (soft-disabled by a SuperAdmin)."
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "comment": null
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "users_email_key",
+          "columns": [
+            "email"
+          ]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "users_approved_by_fkey",
+          "columns": [
+            "approved_by"
+          ],
+          "refTable": "users",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "SET NULL",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        },
+        {
+          "name": "users_role_id_fkey",
+          "columns": [
+            "role_id"
+          ],
+          "refTable": "roles",
+          "refColumns": [
+            "id"
+          ],
+          "onDelete": "NO ACTION",
+          "onUpdate": "NO ACTION",
+          "validated": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_users_email_format",
+          "definition": "CHECK (((email)::text ~ '^[^@[:space:]]+@[^@[:space:]]+$'::text))",
+          "validated": true
+        },
+        {
+          "name": "ck_users_names_not_blank",
+          "definition": "CHECK (((char_length(btrim((firstname)::text)) > 0) AND (char_length(btrim((lastname)::text)) > 0)))",
+          "validated": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_users_approved_by",
+          "definition": "CREATE INDEX idx_users_approved_by ON public.users USING btree (approved_by) WHERE (approved_by IS NOT NULL)",
+          "unique": false,
+          "partial": true
+        },
+        {
+          "name": "users_email_key",
+          "definition": "CREATE UNIQUE INDEX users_email_key ON public.users USING btree (email)",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "users_email_lower_key",
+          "definition": "CREATE UNIQUE INDEX users_email_lower_key ON public.users USING btree (lower((email)::text))",
+          "unique": true,
+          "partial": false
+        },
+        {
+          "name": "users_pkey",
+          "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)",
+          "unique": true,
+          "partial": false
+        }
+      ],
+      "triggers": []
+    }
+  ],
+  "enums": [
+    {
+      "name": "assignment_status",
+      "values": [
+        "unassigned",
+        "pending",
+        "accepted",
+        "refused"
+      ]
+    },
+    {
+      "name": "attendance_status",
+      "values": [
+        "pending",
+        "present",
+        "absent"
+      ]
+    },
+    {
+      "name": "conversation_role",
+      "values": [
+        "owner",
+        "member"
+      ]
+    },
+    {
+      "name": "conversation_type",
+      "values": [
+        "direct",
+        "group"
+      ]
+    },
+    {
+      "name": "feedback_category",
+      "values": [
+        "bug",
+        "enhancement",
+        "other"
+      ]
+    },
+    {
+      "name": "message_type",
+      "values": [
+        "text",
+        "image",
+        "voice",
+        "file"
+      ]
+    },
+    {
+      "name": "session_location_type",
+      "values": [
+        "onsite",
+        "remote"
+      ]
+    },
+    {
+      "name": "session_status",
+      "values": [
+        "scheduled",
+        "ongoing",
+        "completed",
+        "cancelled"
+      ]
+    },
+    {
+      "name": "session_teaching_language",
+      "values": [
+        "french",
+        "english"
+      ]
+    },
+    {
+      "name": "training_duration_unit",
+      "values": [
+        "days",
+        "hours"
+      ]
+    },
+    {
+      "name": "user_status",
+      "values": [
+        "pending",
+        "approved",
+        "rejected",
+        "deactivated"
+      ]
+    }
+  ],
+  "functions": [
+    "sync_announcement_target_roles"
+  ],
+  "migrations": [
+    {
+      "version": 1,
+      "name": "baseline",
+      "flags": []
+    },
+    {
+      "version": 2,
+      "name": "preflight_hardening_checks",
+      "flags": []
+    },
+    {
+      "version": 3,
+      "name": "unique_indexes",
+      "flags": [
+        "notx"
+      ]
+    },
+    {
+      "version": 4,
+      "name": "foreign_key_indexes",
+      "flags": [
+        "notx"
+      ]
+    },
+    {
+      "version": 5,
+      "name": "add_constraints_not_valid",
+      "flags": []
+    },
+    {
+      "version": 6,
+      "name": "validate_constraints",
+      "flags": []
+    },
+    {
+      "version": 7,
+      "name": "normalize_announcement_target_roles",
+      "flags": []
+    },
+    {
+      "version": 8,
+      "name": "validate_announcement_target_roles_check",
+      "flags": []
+    },
+    {
+      "version": 9,
+      "name": "document_schema",
+      "flags": []
+    }
+  ]
+}

@@ -76,9 +76,31 @@ function hasOverflowingNumericSegment(requestPath: string): boolean {
     .some((segment) => /^\d+$/.test(segment) && (segment.length > 10 || Number(segment) > MAX_INT));
 }
 
+export const QUERY_RULES: Array<{ pattern: RegExp; schema: ZodType }> = [
+  { pattern: path('/admin/audit-log'), schema: schemas.auditLogQuery },
+  { pattern: path('/trainings'), schema: schemas.trainingListQuery },
+  { pattern: path('/messaging/directory'), schema: schemas.searchQuery },
+  { pattern: path('/messaging/conversations/:id/messages'), schema: schemas.messageListQuery },
+  { pattern: path('/messaging/conversations/:id/media'), schema: schemas.mediaListQuery },
+];
+
+function formatIssues(error: { issues: Array<{ path: PropertyKey[]; message: string }> }) {
+  const details = error.issues.map((issue) => ({ field: issue.path.map(String).join('.'), message: issue.message }));
+  const first = details[0];
+  return { error: first.field ? `${first.field}: ${first.message}` : first.message, details };
+}
+
 export default function requestValidationMiddleware(req, res, next) {
   if (hasOverflowingNumericSegment(req.path)) {
     return res.status(400).json({ error: 'Invalid identifier in path' });
+  }
+
+  if (req.method === 'GET') {
+    const queryRule = QUERY_RULES.find((candidate) => candidate.pattern.test(req.path));
+    if (!queryRule || !hasCredentials(req)) return next();
+    const parsed = queryRule.schema.safeParse(req.query ?? {});
+    if (!parsed.success) return res.status(400).json(formatIssues(parsed.error));
+    return next();
   }
 
   const rule = RULES.find((candidate) => candidate.method === req.method && candidate.pattern.test(req.path));
@@ -89,12 +111,7 @@ export default function requestValidationMiddleware(req, res, next) {
 
   const result = rule.schema.safeParse(req.body ?? {});
   if (!result.success) {
-    const details = result.error.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }));
-    const first = details[0];
-    return res.status(400).json({
-      error: first.field ? `${first.field}: ${first.message}` : first.message,
-      details,
-    });
+    return res.status(400).json(formatIssues(result.error));
   }
 
   req.body = result.data;

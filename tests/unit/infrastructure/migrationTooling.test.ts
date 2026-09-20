@@ -213,6 +213,13 @@ describe('migration linter', () => {
     expect(rules(fakeMigration('ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO x;'))).toContain('no-privileges');
   });
 
+  it('scans DO blocks (they run now) but not function bodies (they run later, on trigger or call)', () => {
+    const fn = `CREATE OR REPLACE FUNCTION sync_x() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN DELETE FROM t WHERE id = NEW.id; INSERT INTO t (id) VALUES (NEW.id); RETURN NEW; END $$;`;
+    expect(lintMigration(fakeMigration(fn))).toEqual([]);
+    const doBlock = `DO $$ BEGIN DELETE FROM t WHERE id = 1; END $$;`;
+    expect(rules(fakeMigration(doBlock))).toContain('destructive');
+  });
+
   it('rejects multi-line string literals that normalization could alter', () => {
     expect(rules(fakeMigration("SELECT 'a\n\nb';"))).toContain('multiline-string');
   });

@@ -70,6 +70,7 @@ model feature_announcements {
   created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
   users                         users?                          @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   feature_announcement_ratings  feature_announcement_ratings[]
+  feature_announcement_target_roles feature_announcement_target_roles[]
 
   @@index([created_at], map: "idx_feature_announcements_created_at")
   @@index([created_by], map: "idx_feature_announcements_created_by", where: raw("(created_by IS NOT NULL)"))
@@ -264,6 +265,7 @@ model roles {
   id    Int     @id @default(autoincrement())
   name  String  @unique @db.VarChar(50)
   users users[]
+  feature_announcement_target_roles feature_announcement_target_roles[]
 }
 
 model session_attendees {
@@ -391,6 +393,17 @@ model users {
   roles              roles                @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([approved_by], map: "idx_users_approved_by", where: raw("(approved_by IS NOT NULL)"))
+}
+
+
+model feature_announcement_target_roles {
+  announcement_id       Int
+  role_id               Int
+  feature_announcements feature_announcements @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles                 roles                 @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([announcement_id, role_id])
+  @@index([role_id], map: "idx_announcement_target_roles_role")
 }
 
 enum assignment_status {

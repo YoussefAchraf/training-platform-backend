@@ -41,6 +41,8 @@ const CHECK_MESSAGES: Record<string, string> = {
   ck_session_attendees_email_format: 'email must be a valid email address',
   ck_feature_announcements_title_not_blank: 'title must not be blank',
   ck_calendar_title_not_blank: 'title must not be blank',
+  ck_announcements_target_roles_array: 'targetRoles must be an array of role names',
+  ck_announcements_target_roles_known: 'targetRoles contains an unknown role',
   ck_session_notes_body_not_blank: 'Note body must not be blank',
   ck_push_subscriptions_endpoint_https: 'endpoint must be an https URL',
   ck_messages_attachment_non_negative: 'Attachment size and duration must not be negative',

@@ -129,6 +129,8 @@ const CREATE_TABLE_SQL = `
     execution_ms integer     NOT NULL CHECK (execution_ms >= 0)
   )`;
 
+const COMMENT_TABLE_SQL = `COMMENT ON TABLE ${MIGRATIONS_TABLE} IS 'Migration history written by the migration runner: version, checksum, who applied it and when. Not readable by the application role.'`;
+
 async function acquireLock(client: PoolClient, waitMs: number, logger: Logger) {
   const started = Date.now();
   let announced = false;
@@ -147,11 +149,7 @@ async function acquireLock(client: PoolClient, waitMs: number, logger: Logger) {
 }
 
 async function releaseLock(client: PoolClient) {
-  try {
-    await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY]);
-  } catch {
-    
-  }
+  await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY]).catch(() => undefined);
 }
 
 async function readApplied(client: PoolClient): Promise<AppliedMigration[]> {
@@ -280,7 +278,10 @@ async function withLockedClient<T>(
   try {
     await acquireLock(client, options.lockWaitMs ?? 60000, logger);
     try {
-      if (createTable) await client.query(CREATE_TABLE_SQL);
+      if (createTable) {
+        await client.query(CREATE_TABLE_SQL);
+        await client.query(COMMENT_TABLE_SQL);
+      }
       return await fn(client, logger);
     } finally {
       await releaseLock(client);
@@ -413,6 +414,14 @@ export async function reconcileRuntimePrivileges(pool: Pool, runtimeRole: string
       logger.warn(`Runtime role "${runtimeRole}" does not exist; skipping privilege reconciliation.`);
       return;
     }
+    const schemaName: string = (await client.query('SELECT current_schema() AS s')).rows[0].s;
+    const schema = `"${schemaName.replace(/"/g, '""')}"`;
+    await client.query(`GRANT USAGE ON SCHEMA ${schema} TO ${runtimeRole}`);
+    await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ${schema} TO ${runtimeRole}`);
+    await client.query(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ${schema} TO ${runtimeRole}`);
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${runtimeRole}`);
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema} GRANT USAGE, SELECT ON SEQUENCES TO ${runtimeRole}`);
+
     const tracking = await client.query('SELECT to_regclass($1) AS t', [MIGRATIONS_TABLE]);
     if (tracking.rows[0].t) {
       await client.query(`REVOKE ALL ON ${MIGRATIONS_TABLE} FROM ${runtimeRole}`);
