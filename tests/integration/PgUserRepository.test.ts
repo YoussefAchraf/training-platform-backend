@@ -4,6 +4,7 @@
 
 import { PgUserRepository } from '../../src/infrastructure/repositories/PgUserRepository';
 import { prismaClient } from '../../src/infrastructure/database/prismaClient';
+import { closeTestAdminDb, deleteAuditLogs } from '../helpers/testAdminDb';
 
 describe('PgUserRepository (Prisma, real database)', () => {
   const repo = new PgUserRepository(prismaClient);
@@ -24,6 +25,7 @@ describe('PgUserRepository (Prisma, real database)', () => {
   afterAll(async () => {
     await prismaClient.users.deleteMany({ where: { email: { startsWith: marker } } });
     await prismaClient.$disconnect();
+    await closeTestAdminDb();
   });
 
   it('create + findById/findByEmail return the joined role name', async () => {
@@ -135,6 +137,6 @@ describe('PgUserRepository (Prisma, real database)', () => {
     expect(auditRowAfter.actor_id).toBeNull();
 
     await prismaClient.providers.deleteMany({ where: { id: provider.id } });
-    await prismaClient.audit_log.deleteMany({ where: { entity_type: marker } });
+    await deleteAuditLogs({ entityType: marker });
   });
 });

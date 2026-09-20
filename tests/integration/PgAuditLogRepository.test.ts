@@ -3,6 +3,7 @@
 
 import { PgAuditLogRepository } from '../../src/infrastructure/repositories/PgAuditLogRepository';
 import { prismaClient } from '../../src/infrastructure/database/prismaClient';
+import { closeTestAdminDb, deleteAuditLogs } from '../helpers/testAdminDb';
 
 describe('PgAuditLogRepository (Prisma, real database)', () => {
   const repository = new PgAuditLogRepository(prismaClient);
@@ -26,9 +27,10 @@ describe('PgAuditLogRepository (Prisma, real database)', () => {
   });
 
   afterAll(async () => {
-    await prismaClient.audit_log.deleteMany({ where: { entity_type: marker } });
+    await deleteAuditLogs({ entityType: marker });
     await prismaClient.users.delete({ where: { id: testUserId } });
     await prismaClient.$disconnect();
+    await closeTestAdminDb();
   });
 
   it('creates an entry and lists it back with the actor name joined in', async () => {
@@ -64,7 +66,7 @@ describe('PgAuditLogRepository (Prisma, real database)', () => {
     const excluded = await repository.list({ entityType: 'User', excludeEntityTypes: ['User'] });
     expect(excluded).toHaveLength(0);
 
-    await prismaClient.audit_log.deleteMany({ where: { entity_type: 'User', actor_id: testUserId } });
+    await deleteAuditLogs({ entityType: 'User', actorId: testUserId });
   });
 
   it('filters by roleName via the actor\'s role', async () => {
@@ -127,6 +129,6 @@ describe('PgAuditLogRepository (Prisma, real database)', () => {
     const other = await prismaClient.audit_log.findUniqueOrThrow({ where: { id: actedByThemOnSomethingElse.id } });
     expect(other.actor_deleted).toBe(true);
 
-    await prismaClient.audit_log.deleteMany({ where: { entity_type: 'User', entity_id: testUserId } });
+    await deleteAuditLogs({ entityType: 'User', entityId: testUserId });
   });
 });
