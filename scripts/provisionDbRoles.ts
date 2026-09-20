@@ -95,6 +95,9 @@ async function provisionDbRoles() {
         FOR r IN SELECT sequencename FROM pg_sequences WHERE schemaname = 'public' LOOP
           EXECUTE format('ALTER SEQUENCE public.%I OWNER TO ${migratorRole}', r.sequencename);
         END LOOP;
+        FOR r IN SELECT typname FROM pg_type WHERE typtype = 'e' AND typnamespace = 'public'::regnamespace LOOP
+          EXECUTE format('ALTER TYPE public.%I OWNER TO ${migratorRole}', r.typname);
+        END LOOP;
       END
       $$;
     `);
