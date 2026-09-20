@@ -53,6 +53,11 @@ class BulkImportAttendeesUseCase {
           skipped.push({ row: entry.row, name, email, reason: 'Duplicate email in file' });
           continue;
         }
+        const alreadyInSession = await this.sessionRepository.findAttendeeByEmailInSession({ sessionId, email });
+        if (alreadyInSession) {
+          skipped.push({ row: entry.row, name, email, reason: 'Already registered in this session' });
+          continue;
+        }
         const conflict = await this.sessionRepository.findOverlappingAttendeeSession({
           email,
           sessionId,

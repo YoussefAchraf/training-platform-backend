@@ -313,6 +313,18 @@ class PgSessionRepository extends ISessionRepository {
     return rows[0] ?? null;
   }
 
+  async findAttendeeByEmailInSession({ sessionId, email, excludeAttendeeId }) {
+    const excluded = excludeAttendeeId ?? null;
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT id FROM session_attendees
+      WHERE session_id = ${sessionId}
+        AND lower(email) = lower(${email})
+        AND (${excluded}::int IS NULL OR id <> ${excluded}::int)
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async findConflictingSessionForInstructor({ instructorId, sessionId, startDate }) {
     const row = await this.prisma.training_sessions.findFirst({
       where: {

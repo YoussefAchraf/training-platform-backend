@@ -16,6 +16,7 @@ function buildRepos() {
         endDate: '2026-09-01T17:00:00Z',
       }),
       findOverlappingAttendeeSession: jest.fn().mockResolvedValue(null),
+      findAttendeeByEmailInSession: jest.fn().mockResolvedValue(null),
       addAttendeesBulk: jest.fn().mockImplementation((sessionId, attendees) =>
         Promise.resolve(attendees.map((a: any, i: number) => ({ id: i + 1, sessionId, ...a }))),
       ),
@@ -144,5 +145,23 @@ describe('BulkImportAttendeesUseCase', () => {
     expect(result.importedCount).toBe(2);
     expect(result.skippedCount).toBe(0);
     expect(result.attendees).toHaveLength(2);
+  });
+
+  it('skips a row whose email is already registered in this same session', async () => {
+    const { sessionRepository, attendeeFileParserService } = buildRepos();
+    attendeeFileParserService.parse.mockResolvedValue([
+      { row: 2, name: 'Alice', email: 'a@b.com' },
+      { row: 3, name: 'Bob', email: 'new@b.com' },
+    ]);
+    sessionRepository.findAttendeeByEmailInSession.mockImplementation(({ email }) =>
+      Promise.resolve(email === 'a@b.com' ? { id: 1 } : null),
+    );
+    const useCase = new BulkImportAttendeesUseCase({ sessionRepository, attendeeFileParserService });
+
+    const result = await useCase.execute({ requester: buildRequester(), sessionId: 5, file });
+
+    expect(result.importedCount).toBe(1);
+    expect(result.skipped).toEqual([{ row: 2, name: 'Alice', email: 'a@b.com', reason: 'Already registered in this session' }]);
+    expect(sessionRepository.addAttendeesBulk).toHaveBeenCalledWith(5, [{ name: 'Bob', email: 'new@b.com' }]);
   });
 });

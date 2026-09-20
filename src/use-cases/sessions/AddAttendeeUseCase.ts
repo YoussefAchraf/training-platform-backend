@@ -17,6 +17,10 @@ class AddAttendeeUseCase {
     if (email && !isValidEmail(email)) throw new Error('email must be a valid email address');
 
     if (email) {
+      const duplicate = await this.sessionRepository.findAttendeeByEmailInSession({ sessionId, email });
+      if (duplicate) {
+        throw new Error('This email is already registered in this session');
+      }
       const conflict = await this.sessionRepository.findOverlappingAttendeeSession({
         email,
         sessionId,

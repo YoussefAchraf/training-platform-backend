@@ -17,6 +17,7 @@ function buildRepos() {
       }),
       addAttendee: jest.fn().mockResolvedValue({ id: 1, sessionId: 5, name: 'Attendee', email: 'a@b.com' }),
       findOverlappingAttendeeSession: jest.fn().mockResolvedValue(null),
+      findAttendeeByEmailInSession: jest.fn().mockResolvedValue(null),
     },
   };
 }
@@ -94,5 +95,28 @@ describe('AddAttendeeUseCase', () => {
       startDate: '2026-09-01T09:00:00Z',
       endDate: '2026-09-01T17:00:00Z',
     });
+  });
+
+  it('rejects an email that is already registered in the same session, before any overlap check', async () => {
+    const { sessionRepository } = buildRepos();
+    sessionRepository.findAttendeeByEmailInSession.mockResolvedValue({ id: 3 });
+    const useCase = new AddAttendeeUseCase({ sessionRepository });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), sessionId: 5, name: 'X', email: 'dup@b.com' })
+    ).rejects.toThrow('This email is already registered in this session');
+    expect(sessionRepository.findAttendeeByEmailInSession).toHaveBeenCalledWith({ sessionId: 5, email: 'dup@b.com' });
+    expect(sessionRepository.findOverlappingAttendeeSession).not.toHaveBeenCalled();
+    expect(sessionRepository.addAttendee).not.toHaveBeenCalled();
+  });
+
+  it('does not look for duplicates when no email is provided (blank emails stay allowed)', async () => {
+    const { sessionRepository } = buildRepos();
+    const useCase = new AddAttendeeUseCase({ sessionRepository });
+
+    await useCase.execute({ requester: buildRequester(), sessionId: 5, name: 'No Email' });
+
+    expect(sessionRepository.findAttendeeByEmailInSession).not.toHaveBeenCalled();
+    expect(sessionRepository.addAttendee).toHaveBeenCalled();
   });
 });

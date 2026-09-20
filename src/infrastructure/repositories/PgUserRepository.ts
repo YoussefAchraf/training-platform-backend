@@ -35,8 +35,12 @@ class PgUserRepository extends IUserRepository {
   }
 
   async findByEmail(email) {
-    const row = await this.prisma.users.findUnique({ where: { email }, include: ROLE_INCLUDE });
-    return mapRow(row);
+    if (typeof email !== 'string' || email.trim() === '') return null;
+    const matches = await this.prisma.$queryRaw<Array<{ id: number }>>`
+      SELECT id FROM users WHERE lower(email) = lower(${email.trim()}) LIMIT 1
+    `;
+    if (matches.length === 0) return null;
+    return this.findById(matches[0].id);
   }
 
   async findRoleByName(roleName) {

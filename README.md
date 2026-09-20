@@ -131,6 +131,11 @@ information, gathered in one place:
 | `DATABASE_URL` | Yes | Postgres connection string the running app uses — the least-privilege `app_runtime` role (DML only, no DDL). |
 | `MIGRATOR_DATABASE_URL` | Yes | Postgres connection string for `npm run db:migrate` only — the `app_migrator` role, which owns the schema and can run DDL. Never used by the running server. |
 | `APP_RUNTIME_DB_PASSWORD` / `APP_MIGRATOR_DB_PASSWORD` | Yes | Read only by `npm run db:provision-roles` — the passwords baked into the two connection strings above. Must be at least 20 characters and different from each other. |
+| `APP_RUNTIME_ROLE` | No | Set on the migrate step: the runtime role whose privileges are reconciled after each migration (`audit_log` append-only, `schema_migrations` hidden). `docker-compose.yml` sets it. |
+| `ALLOW_DESTRUCTIVE_MIGRATIONS` | No (default `false`) | Must be `true` for the runner to apply a `*.destructive.sql` migration. |
+| `PROMOTION_SOURCE_DATABASE_URL` | No | When set, `db:migrate` refuses migrations that were not already applied, with an identical checksum, on that (dev) database. Set by the `promote-prod` compose service. |
+| `DEV_APP_RUNTIME_DB_PASSWORD` / `DEV_APP_MIGRATOR_DB_PASSWORD` / `DEV_POSTGRES_DB` / `DEV_PORT` | Only for `--profile dev` | Credentials (≥ 20 chars, different) and name (default `training_platform_dev`) of the separate dev database, and the host port of `backend-dev` (default `4001`). |
+| `TEST_ADMIN_DATABASE_URL` | Only for the DB-level tests | Owner/admin connection the integration tests use for cleanup and for creating throwaway schemas; falls back to `MIGRATOR_DATABASE_URL`, then `DATABASE_URL`. |
 | `JWT_SECRET` | Yes | Signs and verifies short-lived access tokens. Must be a long, random, real secret in anything beyond local dev. |
 | `JWT_EXPIRES_IN` | No (default `8h`) | Access token lifetime. |
 | `REDIS_URL` | Yes | Backs refresh tokens and rate limiting. `docker-compose.yml` overrides this to point at its own `redis` service with auth. |
@@ -504,6 +509,35 @@ audit log endpoints actually query.
   successful brute force is highest. All three are Redis-backed rather
   than in-memory, so the limit holds across every running replica of the
   API, not reset per-instance.
+- **Request bodies are validated at the HTTP edge** (Zod schemas in
+  `src/interface/validation/requestSchemas.ts`, one auditable rule table
+  in `requestValidationMiddleware.ts`). A field that is present must have
+  the right type and fit its column (`name` ≤ 150 characters, ids are
+  positive 32-bit integers, `null` is never silently coerced to `0`);
+  unknown fields are dropped (mass-assignment protection); account emails
+  are trimmed and lower-cased. Whether a field is *required* stays with
+  the use case, so its error messages are unchanged. Protected routes
+  are only validated once a credential is present, so an anonymous
+  caller still gets `401` first; multipart uploads are validated by
+  their own middleware. Numeric ids in a URL that overflow a 32-bit
+  integer are rejected outright.
+- **Database errors never reach the client raw.** Every Prisma call goes
+  through one wrapper (`prismaClient.ts` + `dbErrors.ts`) that turns
+  unique/check/foreign-key/length/format violations into a specific,
+  friendly message keyed by constraint name (`An account with this email
+  already exists`) and anything unmapped into `The request could not be
+  processed`. Previously a raw Prisma error string — including the source
+  file path and the offending code — was returned verbatim; the failing
+  row (which for a `users` insert includes the password hash) is now
+  never logged or attached to the error.
+- **Security headers via `helmet`** — `nosniff`, HSTS, `no-referrer`,
+  `X-Powered-By` removed, and a `default-src 'none'` content security
+  policy on every API response (relaxed only for the Swagger UI).
+  `Cross-Origin-Resource-Policy: cross-origin` is intentional: the
+  frontend is a different origin and loads attachments from this API.
+- **Emails are case-insensitive.** Login and signup look users up with
+  `lower(email)` (backed by a unique functional index), so `Foo@x.com`
+  and `foo@x.com` can never be two accounts.
 
 ## API reference
 
