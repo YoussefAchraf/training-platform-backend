@@ -352,4 +352,15 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
     const refetched = await repo.findAttendeeById(attendee.id);
     expect(refetched.attendanceStatus).toBe('present');
   });
+
+  it('finds an attendee by email within one session, ignoring case, and can exclude one attendee', async () => {
+    const sessionA = await createSession({ startDate: new Date('2031-05-01T09:00:00Z'), endDate: new Date('2031-05-01T11:00:00Z') });
+    const sessionB = await createSession({ startDate: new Date('2031-05-02T09:00:00Z'), endDate: new Date('2031-05-02T11:00:00Z') });
+    const attendee = await repo.addAttendee(sessionA.id, { name: 'Dup Attendee', email: `${marker}-dup@example.com` });
+    const shouty = `${marker.toUpperCase()}-DUP@EXAMPLE.COM`;
+
+    expect((await repo.findAttendeeByEmailInSession({ sessionId: sessionA.id, email: shouty }))?.id).toBe(attendee.id);
+    expect(await repo.findAttendeeByEmailInSession({ sessionId: sessionA.id, email: shouty, excludeAttendeeId: attendee.id })).toBeNull();
+    expect(await repo.findAttendeeByEmailInSession({ sessionId: sessionB.id, email: shouty })).toBeNull();
+  });
 });

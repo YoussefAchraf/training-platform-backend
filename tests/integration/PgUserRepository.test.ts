@@ -48,6 +48,19 @@ describe('PgUserRepository (Prisma, real database)', () => {
     expect(await repo.findByEmail('does-not-exist@example.com')).toBeNull();
   });
 
+  it('findByEmail ignores letter case and surrounding whitespace, and tolerates non-string input', async () => {
+    const user = await repo.findByEmail(`  ${marker.toUpperCase()}@EXAMPLE.COM `);
+    expect(user?.id).toBe(userId);
+    expect(await repo.findByEmail('')).toBeNull();
+    expect(await repo.findByEmail(undefined)).toBeNull();
+    expect(await repo.findByEmail({ $ne: null })).toBeNull();
+  });
+
+  it('findByEmail treats LIKE wildcards literally', async () => {
+    expect(await repo.findByEmail('%@example.com')).toBeNull();
+    expect(await repo.findByEmail(`${marker.slice(0, 5)}_%`)).toBeNull();
+  });
+
   it('findRoleByName resolves a real role and null for a fake one', async () => {
     const role = await repo.findRoleByName('Manager');
     expect(role.id).toBe(managerRoleId);
