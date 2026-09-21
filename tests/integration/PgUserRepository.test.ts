@@ -4,6 +4,7 @@
 
 import { PgUserRepository } from '../../src/infrastructure/repositories/PgUserRepository';
 import { prismaClient } from '../../src/infrastructure/database/prismaClient';
+import { closeTestAdminDb, deleteAuditLogs } from '../helpers/testAdminDb';
 
 describe('PgUserRepository (Prisma, real database)', () => {
   const repo = new PgUserRepository(prismaClient);
@@ -24,6 +25,7 @@ describe('PgUserRepository (Prisma, real database)', () => {
   afterAll(async () => {
     await prismaClient.users.deleteMany({ where: { email: { startsWith: marker } } });
     await prismaClient.$disconnect();
+    await closeTestAdminDb();
   });
 
   it('create + findById/findByEmail return the joined role name', async () => {
@@ -44,6 +46,19 @@ describe('PgUserRepository (Prisma, real database)', () => {
     expect(byEmail.id).toBe(userId);
 
     expect(await repo.findByEmail('does-not-exist@example.com')).toBeNull();
+  });
+
+  it('findByEmail ignores letter case and surrounding whitespace, and tolerates non-string input', async () => {
+    const user = await repo.findByEmail(`  ${marker.toUpperCase()}@EXAMPLE.COM `);
+    expect(user?.id).toBe(userId);
+    expect(await repo.findByEmail('')).toBeNull();
+    expect(await repo.findByEmail(undefined)).toBeNull();
+    expect(await repo.findByEmail({ $ne: null })).toBeNull();
+  });
+
+  it('findByEmail treats LIKE wildcards literally', async () => {
+    expect(await repo.findByEmail('%@example.com')).toBeNull();
+    expect(await repo.findByEmail(`${marker.slice(0, 5)}_%`)).toBeNull();
   });
 
   it('findRoleByName resolves a real role and null for a fake one', async () => {
@@ -135,6 +150,6 @@ describe('PgUserRepository (Prisma, real database)', () => {
     expect(auditRowAfter.actor_id).toBeNull();
 
     await prismaClient.providers.deleteMany({ where: { id: provider.id } });
-    await prismaClient.audit_log.deleteMany({ where: { entity_type: marker } });
+    await deleteAuditLogs({ entityType: marker });
   });
 });

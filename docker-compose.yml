@@ -78,6 +78,7 @@ services:
 
 
       MIGRATOR_DATABASE_URL: postgresql://app_migrator:${APP_MIGRATOR_DB_PASSWORD:?set APP_MIGRATOR_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-training_platform}
+      APP_RUNTIME_ROLE: app_runtime
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,6 +87,132 @@ services:
     networks:
       - internal
     restart: "no"
+
+
+
+
+
+
+
+
+
+  promote-prod:
+    profiles: ["promote"]
+    build:
+      context: .
+      target: build
+    command: ["node", "dist/infrastructure/database/migrate.js"]
+    environment:
+      MIGRATOR_DATABASE_URL: postgresql://app_migrator:${APP_MIGRATOR_DB_PASSWORD:?set APP_MIGRATOR_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-training_platform}
+      APP_RUNTIME_ROLE: app_runtime
+      PROMOTION_SOURCE_DATABASE_URL: postgresql://app_migrator_dev:${DEV_APP_MIGRATOR_DB_PASSWORD:-}@postgres:5432/${DEV_POSTGRES_DB:-training_platform_dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      provision-roles:
+        condition: service_completed_successfully
+    networks:
+      - internal
+    restart: "no"
+
+
+
+
+
+  provision-dev-db:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: build
+    command: ["npx", "ts-node", "scripts/provisionDbRoles.ts"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${DEV_POSTGRES_DB:-training_platform_dev}
+      CREATE_DATABASE_IF_MISSING: "true"
+      APP_RUNTIME_ROLE: app_runtime_dev
+      APP_MIGRATOR_ROLE: app_migrator_dev
+      APP_RUNTIME_DB_PASSWORD: ${DEV_APP_RUNTIME_DB_PASSWORD:-}
+      APP_MIGRATOR_DB_PASSWORD: ${DEV_APP_MIGRATOR_DB_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
+  migrate-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: build
+    command: ["node", "dist/infrastructure/database/migrate.js"]
+    environment:
+      MIGRATOR_DATABASE_URL: postgresql://app_migrator_dev:${DEV_APP_MIGRATOR_DB_PASSWORD:-}@postgres:5432/${DEV_POSTGRES_DB:-training_platform_dev}
+      APP_RUNTIME_ROLE: app_runtime_dev
+      ALLOW_DESTRUCTIVE_MIGRATIONS: ${ALLOW_DESTRUCTIVE_MIGRATIONS:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      provision-dev-db:
+        condition: service_completed_successfully
+    networks:
+      - internal
+    restart: "no"
+
+  test-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: build
+    command: ["npx", "jest", "--runInBand"]
+    environment:
+      NODE_OPTIONS: --experimental-vm-modules
+      DATABASE_URL: postgresql://app_runtime_dev:${DEV_APP_RUNTIME_DB_PASSWORD:-}@postgres:5432/${DEV_POSTGRES_DB:-training_platform_dev}
+      TEST_ADMIN_DATABASE_URL: postgresql://app_migrator_dev:${DEV_APP_MIGRATOR_DB_PASSWORD:-}@postgres:5432/${DEV_POSTGRES_DB:-training_platform_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      JWT_SECRET: dev-test-only-secret-not-used-outside-tests
+      CLIENT_URL: http://localhost:3000
+    volumes:
+      - ./tests:/app/tests:ro
+      - ./jest.config.js:/app/jest.config.js:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate-dev:
+        condition: service_completed_successfully
+    networks:
+      - internal
+    restart: "no"
+
+  backend-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://app_runtime_dev:${DEV_APP_RUNTIME_DB_PASSWORD:-}@postgres:5432/${DEV_POSTGRES_DB:-training_platform_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      PORT: 4000
+      SMTP_HOST: localhost
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      VAPID_PUBLIC_KEY: ""
+      VAPID_PRIVATE_KEY: ""
+    ports:
+      - "${DEV_PORT:-4001}:4000"
+    volumes:
+      - dev-attachments:/app/storage/attachments
+      - dev-attachment-uploads:/app/storage/attachment-uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate-dev:
+        condition: service_completed_successfully
+    networks:
+      - internal
 
   backend:
     build:
@@ -114,11 +241,35 @@ services:
     networks:
       - internal
 
+  pgadmin:
+    profiles: ["tools"]
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-local-only-never-exposed}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5051}:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./tools/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
 volumes:
   pgdata:
+  pgadmin-data:
   redisdata:
   attachments:
   attachment-uploads:
+  dev-attachments:
+  dev-attachment-uploads:
 
 networks:
   internal:

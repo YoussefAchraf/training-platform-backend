@@ -18,6 +18,7 @@ function buildRepos() {
       findAttendeeById: jest.fn().mockResolvedValue({ id: 1, sessionId: 5, name: 'Old Name', email: 'old@b.com' }),
       updateAttendee: jest.fn().mockResolvedValue({ id: 1, sessionId: 5, name: 'New Name', email: 'new@b.com' }),
       findOverlappingAttendeeSession: jest.fn().mockResolvedValue(null),
+      findAttendeeByEmailInSession: jest.fn().mockResolvedValue(null),
     },
   };
 }
@@ -109,5 +110,21 @@ describe('UpdateAttendeeUseCase', () => {
     await useCase.execute({ requester: buildRequester(), sessionId: 5, attendeeId: 1, name: '  New Name  ', email: 'new@b.com' });
 
     expect(sessionRepository.updateAttendee).toHaveBeenCalledWith(1, { name: 'New Name', email: 'new@b.com' });
+  });
+
+  it('rejects changing an email to one already used by another attendee in the same session', async () => {
+    const { sessionRepository } = buildRepos();
+    sessionRepository.findAttendeeByEmailInSession.mockResolvedValue({ id: 9 });
+    const useCase = new UpdateAttendeeUseCase({ sessionRepository });
+
+    await expect(
+      useCase.execute({ requester: buildRequester(), sessionId: 5, attendeeId: 1, name: 'Attendee', email: 'taken@b.com' })
+    ).rejects.toThrow('This email is already registered in this session');
+    expect(sessionRepository.findAttendeeByEmailInSession).toHaveBeenCalledWith({
+      sessionId: 5,
+      email: 'taken@b.com',
+      excludeAttendeeId: 1,
+    });
+    expect(sessionRepository.updateAttendee).not.toHaveBeenCalled();
   });
 });

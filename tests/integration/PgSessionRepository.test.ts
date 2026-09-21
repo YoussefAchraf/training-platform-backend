@@ -273,7 +273,7 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
   it('finds a conflict for an instructor already assigned at the exact same start time', async () => {
     const start = new Date('2031-04-01T10:00:00Z');
     const sessionA = await createSession({ startDate: start, endDate: new Date('2031-04-01T11:00:00Z') });
-    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-01T12:00:00Z') });
+    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-01T12:00:00Z'), trainingId: otherTrainingId });
     await repo.assignInstructor(sessionA.id, instructorId);
 
     const conflict = await repo.findConflictingSessionForInstructor({
@@ -287,7 +287,7 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
   it('does not conflict when a different instructor is engaged at that exact start time', async () => {
     const start = new Date('2031-04-02T10:00:00Z');
     const sessionA = await createSession({ startDate: start, endDate: new Date('2031-04-02T11:00:00Z') });
-    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-02T12:00:00Z') });
+    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-02T12:00:00Z'), trainingId: otherTrainingId });
     await repo.assignInstructor(sessionA.id, otherInstructorId);
 
     const conflict = await repo.findConflictingSessionForInstructor({
@@ -318,7 +318,7 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
   it('ignores a cancelled session when checking instructor start-time conflicts', async () => {
     const start = new Date('2031-04-04T10:00:00Z');
     const sessionA = await createSession({ startDate: start, endDate: new Date('2031-04-04T11:00:00Z') });
-    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-04T12:00:00Z') });
+    const sessionB = await createSession({ startDate: start, endDate: new Date('2031-04-04T12:00:00Z'), trainingId: otherTrainingId });
     await repo.assignInstructor(sessionA.id, instructorId);
     await repo.updateSessionStatus(sessionA.id, 'cancelled');
 
@@ -351,5 +351,16 @@ describe('scheduling guards and attendance (PgSessionRepository)', () => {
 
     const refetched = await repo.findAttendeeById(attendee.id);
     expect(refetched.attendanceStatus).toBe('present');
+  });
+
+  it('finds an attendee by email within one session, ignoring case, and can exclude one attendee', async () => {
+    const sessionA = await createSession({ startDate: new Date('2031-05-01T09:00:00Z'), endDate: new Date('2031-05-01T11:00:00Z') });
+    const sessionB = await createSession({ startDate: new Date('2031-05-02T09:00:00Z'), endDate: new Date('2031-05-02T11:00:00Z') });
+    const attendee = await repo.addAttendee(sessionA.id, { name: 'Dup Attendee', email: `${marker}-dup@example.com` });
+    const shouty = `${marker.toUpperCase()}-DUP@EXAMPLE.COM`;
+
+    expect((await repo.findAttendeeByEmailInSession({ sessionId: sessionA.id, email: shouty }))?.id).toBe(attendee.id);
+    expect(await repo.findAttendeeByEmailInSession({ sessionId: sessionA.id, email: shouty, excludeAttendeeId: attendee.id })).toBeNull();
+    expect(await repo.findAttendeeByEmailInSession({ sessionId: sessionB.id, email: shouty })).toBeNull();
   });
 });

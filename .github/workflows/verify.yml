@@ -98,3 +98,90 @@ jobs:
       - uses: ./.github/actions/setup-project
       - run: npm run db:migrate
       - run: npm test
+
+  migrations:
+    name: migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: training_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d training_platform"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/training_platform
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-project
+      - name: Lint migrations (data-safety rules)
+        run: npm run db:lint
+      - name: Existing migration files are immutable
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          changed=$(git diff --name-status "origin/${{ github.base_ref }}...HEAD" -- src/infrastructure/database/migrations | grep -v -E '^A[[:space:]]' || true)
+          if [ -n "$changed" ]; then
+            echo "Applied migrations must never be modified, renamed or deleted. Add a new migration instead:"
+            echo "$changed"
+            exit 1
+          fi
+      - name: Fresh install applies cleanly
+        run: npm run db:migrate
+      - name: Re-running is a no-op
+        run: |
+          npm run db:migrate | tee rerun.log
+          grep -q "Database is up to date" rerun.log
+      - run: npm run db:status
+      - name: Prisma schema matches the migrated database
+        run: npx ts-node scripts/checkPrismaDrift.ts
+      - name: Generated database docs are current
+        run: npm run docs:db -- --check
+
+  upgrade-safety:
+    name: upgrade-safety
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: training_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d training_platform"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/training_platform
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-project
+      - name: Check out the base branch (the schema production runs today)
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          git worktree add ../base "origin/${{ github.base_ref }}"
+      - name: Build the previous schema
+        run: |
+          if [ -d ../base/src/infrastructure/database/migrations ]; then
+            MIGRATIONS_DIR=../base/src/infrastructure/database/migrations npm run db:migrate
+          else
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../base/src/infrastructure/database/schema.sql
+          fi
+      - name: Load sample data (includes legacy-shaped rows)
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/db/sample-data.sql
+      - name: Snapshot existing data
+        run: npx ts-node scripts/dbSnapshot.ts capture --file "$RUNNER_TEMP/before.json"
+      - name: Apply this branch's migrations
+        run: npm run db:migrate
+      - name: Existing data must be byte-for-byte unchanged
+        run: npx ts-node scripts/dbSnapshot.ts compare --file "$RUNNER_TEMP/before.json"

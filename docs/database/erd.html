@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Training Platform database schema</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#1c2430;--card:#fff;--line:#d9dee6;--accent:#0b6bcb}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--fg:#e6e9ee;--card:#1b212a;--line:#2c3542;--accent:#6cb4ff}}
+body{margin:0;font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{padding:16px 24px;border-bottom:1px solid var(--line);background:var(--card)}
+h1{margin:0;font-size:20px}header p{margin:4px 0 0;opacity:.75}
+main{padding:16px 24px;max-width:1600px;margin:auto}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--fg);padding:6px 12px;border-radius:6px;cursor:pointer}
+nav button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:auto;padding:12px;min-height:300px}
+.zoom{margin:0 0 8px}.zoom button{padding:2px 10px}
+.diagram{position:absolute;visibility:hidden;height:0;overflow:hidden}.diagram.active{position:static;visibility:visible;height:auto;overflow:visible}
+.diagram .inner{transform-origin:top left}
+input[type=search]{width:100%;max-width:420px;padding:8px;margin:16px 0 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:6px 0;padding:8px 12px}
+.card summary{cursor:pointer}.card summary span{opacity:.7;margin-left:8px}
+table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+small{opacity:.7}
+</style></head><body>
+<header><h1>Training Platform database schema</h1>
+<p>23 tables &middot; 11 enum types &middot; 9 migrations &middot; generated from a migrated database (<code>npm run docs:db</code>)</p></header>
+<main>
+<nav id="tabs"><button data-id="all" class="active">Whole schema</button><button data-id="identity" class="">Identity, notifications and audit</button><button data-id="catalog" class="">Catalog: providers, trainings, clients, instructors</button><button data-id="delivery" class="">Delivery: sessions, attendees, surveys, reports</button><button data-id="messaging" class="">Messaging</button></nav>
+<div class="zoom"><button id="zin">+</button> <button id="zout">&minus;</button> <button id="zreset">reset</button></div>
+<div class="stage"><div class="diagram active" id="d-all"><div class="inner"><pre class="mermaid">erDiagram
+  audit_log {
+    int id PK
+    int actor_id FK
+  }
+  calendar {
+    int id PK
+    int session_id FK
+  }
+  clients {
+    int id PK
+    int created_by FK
+  }
+  conversation_participants {
+    int conversation_id PK,FK
+    int user_id PK,FK
+    int last_delivered_message_id FK
+    int last_read_message_id FK
+  }
+  conversations {
+    int id PK
+    int created_by FK
+  }
+  feature_announcement_ratings {
+    int id PK
+    int announcement_id FK
+    int user_id FK
+  }
+  feature_announcement_target_roles {
+    int announcement_id PK,FK
+    int role_id PK,FK
+  }
+  feature_announcements {
+    int id PK
+    int created_by FK
+  }
+  feedback_reports {
+    int id PK
+    int submitted_by FK
+  }
+  instructor_skills {
+    int instructor_id PK,FK
+    int training_id PK,FK
+  }
+  instructors {
+    int id PK
+    int user_id FK,UK
+  }
+  message_deletions {
+    int message_id PK,FK
+    int user_id PK,FK
+  }
+  messages {
+    int id PK
+    int conversation_id FK
+    int reply_to_message_id FK
+    int sender_id FK
+  }
+  providers {
+    int id PK
+    int created_by FK
+  }
+  push_subscriptions {
+    int id PK
+    int user_id FK
+  }
+  reports {
+    int id PK
+    int session_id FK,UK
+  }
+  roles {
+    int id PK
+    varchar(50) name UK
+  }
+  session_attendees {
+    int id PK
+    int session_id FK
+  }
+  session_notes {
+    int id PK
+    int instructor_id FK
+    int session_id FK
+  }
+  surveys {
+    int id PK
+    int attendee_id FK
+    int instructor_id FK
+    int session_id FK
+  }
+  training_sessions {
+    int id PK
+    int client_id FK
+    int created_by FK
+    int instructor_id FK
+    int training_id FK
+  }
+  trainings {
+    int id PK
+    int created_by FK
+    int provider_id FK
+  }
+  users {
+    int id PK
+    int approved_by FK
+    varchar(150) email UK
+    int role_id FK
+  }
+  clients ||..o{ training_sessions : "client_id"
+  conversations ||--o{ conversation_participants : "conversation_id"
+  conversations ||..o{ messages : "conversation_id"
+  feature_announcements ||--o{ feature_announcement_target_roles : "announcement_id"
+  feature_announcements ||..o{ feature_announcement_ratings : "announcement_id"
+  instructors o|..o{ surveys : "instructor_id"
+  instructors o|..o{ training_sessions : "instructor_id"
+  instructors ||--o{ instructor_skills : "instructor_id"
+  instructors ||..o{ session_notes : "instructor_id"
+  messages o|..o{ conversation_participants : "last_delivered_message_id"
+  messages o|..o{ conversation_participants : "last_read_message_id"
+  messages o|..o{ messages : "reply_to_message_id"
+  messages ||--o{ message_deletions : "message_id"
+  providers ||..o{ trainings : "provider_id"
+  roles ||--o{ feature_announcement_target_roles : "role_id"
+  roles ||..o{ users : "role_id"
+  session_attendees o|..o{ surveys : "attendee_id"
+  training_sessions ||..o{ calendar : "session_id"
+  training_sessions ||..o{ session_attendees : "session_id"
+  training_sessions ||..o{ session_notes : "session_id"
+  training_sessions ||..o{ surveys : "session_id"
+  training_sessions ||..o| reports : "session_id"
+  trainings ||--o{ instructor_skills : "training_id"
+  trainings ||..o{ training_sessions : "training_id"
+  users o|..o{ audit_log : "actor_id"
+  users o|..o{ clients : "created_by"
+  users o|..o{ conversations : "created_by"
+  users o|..o{ feature_announcements : "created_by"
+  users o|..o{ feedback_reports : "submitted_by"
+  users o|..o{ messages : "sender_id"
+  users o|..o{ providers : "created_by"
+  users o|..o{ training_sessions : "created_by"
+  users o|..o{ trainings : "created_by"
+  users o|..o{ users : "approved_by"
+  users ||--o{ conversation_participants : "user_id"
+  users ||--o{ message_deletions : "user_id"
+  users ||..o{ feature_announcement_ratings : "user_id"
+  users ||..o{ push_subscriptions : "user_id"
+  users ||..o| instructors : "user_id"</pre></div></div><div class="diagram " id="d-identity"><div class="inner"><pre class="mermaid">erDiagram
+  audit_log {
+    int id PK
+    int actor_id FK
+  }
+  clients {
+    int id PK
+  }
+  conversation_participants {
+    int conversation_id PK,FK
+    int user_id PK,FK
+  }
+  conversations {
+    int id PK
+  }
+  feature_announcement_ratings {
+    int id PK
+    int announcement_id FK
+    int user_id FK
+  }
+  feature_announcement_target_roles {
+    int announcement_id PK,FK
+    int role_id PK,FK
+  }
+  feature_announcements {
+    int id PK
+    int created_by FK
+  }
+  feedback_reports {
+    int id PK
+    int submitted_by FK
+  }
+  instructors {
+    int id PK
+  }
+  message_deletions {
+    int message_id PK,FK
+    int user_id PK,FK
+  }
+  messages {
+    int id PK
+  }
+  providers {
+    int id PK
+  }
+  push_subscriptions {
+    int id PK
+    int user_id FK
+  }
+  roles {
+    int id PK
+    varchar(50) name UK
+  }
+  training_sessions {
+    int id PK
+  }
+  trainings {
+    int id PK
+  }
+  users {
+    int id PK
+    int approved_by FK
+    varchar(150) email UK
+    int role_id FK
+  }
+  feature_announcements ||--o{ feature_announcement_target_roles : "announcement_id"
+  feature_announcements ||..o{ feature_announcement_ratings : "announcement_id"
+  roles ||--o{ feature_announcement_target_roles : "role_id"
+  roles ||..o{ users : "role_id"
+  users o|..o{ audit_log : "actor_id"
+  users o|..o{ clients : "created_by"
+  users o|..o{ conversations : "created_by"
+  users o|..o{ feature_announcements : "created_by"
+  users o|..o{ feedback_reports : "submitted_by"
+  users o|..o{ messages : "sender_id"
+  users o|..o{ providers : "created_by"
+  users o|..o{ training_sessions : "created_by"
+  users o|..o{ trainings : "created_by"
+  users o|..o{ users : "approved_by"
+  users ||--o{ conversation_participants : "user_id"
+  users ||--o{ message_deletions : "user_id"
+  users ||..o{ feature_announcement_ratings : "user_id"
+  users ||..o{ push_subscriptions : "user_id"
+  users ||..o| instructors : "user_id"</pre></div></div><div class="diagram " id="d-catalog"><div class="inner"><pre class="mermaid">erDiagram
+  clients {
+    int id PK
+    int created_by FK
+  }
+  instructor_skills {
+    int instructor_id PK,FK
+    int training_id PK,FK
+  }
+  instructors {
+    int id PK
+    int user_id FK,UK
+  }
+  providers {
+    int id PK
+    int created_by FK
+  }
+  session_notes {
+    int id PK
+  }
+  surveys {
+    int id PK
+  }
+  training_sessions {
+    int id PK
+  }
+  trainings {
+    int id PK
+    int created_by FK
+    int provider_id FK
+  }
+  users {
+    int id PK
+  }
+  clients ||..o{ training_sessions : "client_id"
+  instructors o|..o{ surveys : "instructor_id"
+  instructors o|..o{ training_sessions : "instructor_id"
+  instructors ||--o{ instructor_skills : "instructor_id"
+  instructors ||..o{ session_notes : "instructor_id"
+  providers ||..o{ trainings : "provider_id"
+  trainings ||--o{ instructor_skills : "training_id"
+  trainings ||..o{ training_sessions : "training_id"
+  users o|..o{ clients : "created_by"
+  users o|..o{ providers : "created_by"
+  users o|..o{ trainings : "created_by"
+  users ||..o| instructors : "user_id"</pre></div></div><div class="diagram " id="d-delivery"><div class="inner"><pre class="mermaid">erDiagram
+  calendar {
+    int id PK
+    int session_id FK
+  }
+  clients {
+    int id PK
+  }
+  instructors {
+    int id PK
+  }
+  reports {
+    int id PK
+    int session_id FK,UK
+  }
+  session_attendees {
+    int id PK
+    int session_id FK
+  }
+  session_notes {
+    int id PK
+    int instructor_id FK
+    int session_id FK
+  }
+  surveys {
+    int id PK
+    int attendee_id FK
+    int instructor_id FK
+    int session_id FK
+  }
+  training_sessions {
+    int id PK
+    int client_id FK
+    int created_by FK
+    int instructor_id FK
+    int training_id FK
+  }
+  trainings {
+    int id PK
+  }
+  users {
+    int id PK
+  }
+  clients ||..o{ training_sessions : "client_id"
+  instructors o|..o{ surveys : "instructor_id"
+  instructors o|..o{ training_sessions : "instructor_id"
+  instructors ||..o{ session_notes : "instructor_id"
+  session_attendees o|..o{ surveys : "attendee_id"
+  training_sessions ||..o{ calendar : "session_id"
+  training_sessions ||..o{ session_attendees : "session_id"
+  training_sessions ||..o{ session_notes : "session_id"
+  training_sessions ||..o{ surveys : "session_id"
+  training_sessions ||..o| reports : "session_id"
+  trainings ||..o{ training_sessions : "training_id"
+  users o|..o{ training_sessions : "created_by"</pre></div></div><div class="diagram " id="d-messaging"><div class="inner"><pre class="mermaid">erDiagram
+  conversation_participants {
+    int conversation_id PK,FK
+    int user_id PK,FK
+    int last_delivered_message_id FK
+    int last_read_message_id FK
+  }
+  conversations {
+    int id PK
+    int created_by FK
+  }
+  message_deletions {
+    int message_id PK,FK
+    int user_id PK,FK
+  }
+  messages {
+    int id PK
+    int conversation_id FK
+    int reply_to_message_id FK
+    int sender_id FK
+  }
+  users {
+    int id PK
+  }
+  conversations ||--o{ conversation_participants : "conversation_id"
+  conversations ||..o{ messages : "conversation_id"
+  messages o|..o{ conversation_participants : "last_delivered_message_id"
+  messages o|..o{ conversation_participants : "last_read_message_id"
+  messages o|..o{ messages : "reply_to_message_id"
+  messages ||--o{ message_deletions : "message_id"
+  users o|..o{ conversations : "created_by"
+  users o|..o{ messages : "sender_id"
+  users ||--o{ conversation_participants : "user_id"
+  users ||--o{ message_deletions : "user_id"</pre></div></div></div>
+<input type="search" id="filter" placeholder="Filter tables and columns...">
+<div id="cards"><details class="card" data-name="audit_log"><summary><b>audit_log</b> <span>Append-only history of create/update/delete/approve/reject/cancel actions. The application role cannot delete rows or rewrite history.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>action</td><td>character varying(40)</td><td>NOT NULL</td><td></td></tr><tr><td>actor_deleted</td><td>boolean</td><td>NOT NULL</td><td>True once the acting account has been purged and its entries redacted.</td></tr><tr><td>actor_id</td><td>integer</td><td>null</td><td>Who acted. Becomes NULL if the account is purged; actor_deleted then marks it.</td></tr><tr><td>after</td><td>jsonb</td><td>null</td><td>Snapshot after the change. The GDPR purge may redact personal fields here.</td></tr><tr><td>before</td><td>jsonb</td><td>null</td><td>Snapshot before the change. The GDPR purge may redact personal fields here.</td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>entity_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>entity_type</td><td>character varying(50)</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> actor_id &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="calendar"><summary><b>calendar</b> <span>Calendar entry generated with a session; a deliberate copy of the session dates so the calendar can be edited independently.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>end_date</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>event_date</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>session_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>title</td><td>character varying(200)</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> session_id &rarr; training_sessions <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="clients"><summary><b>clients</b> <span>Client companies that training sessions are delivered to. Soft-deleted via deleted_at.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>company_name</td><td>character varying(150)</td><td>NOT NULL</td><td></td></tr><tr><td>country</td><td>character varying(2)</td><td>null</td><td>ISO 3166-1 alpha-2 code in upper case; used to validate the phone number.</td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>created_by</td><td>integer</td><td>null</td><td></td></tr><tr><td>deleted_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>email</td><td>character varying(150)</td><td>null</td><td></td></tr><tr><td>phone</td><td>character varying(30)</td><td>null</td><td></td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> created_by &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="conversation_participants"><summary><b>conversation_participants</b> <span>Membership, per-user read/delivered markers and hide/mute state for a conversation.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>conversation_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>user_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>hidden_at</td><td>timestamp with time zone</td><td>null</td><td>Set when the user hides the conversation from their list; a new message can bring it back.</td></tr><tr><td>joined_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>last_delivered_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>last_delivered_message_id</td><td>integer</td><td>null</td><td>Delivery marker; must reference a message of the same conversation.</td></tr><tr><td>last_read_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>last_read_message_id</td><td>integer</td><td>null</td><td>Read marker; must reference a message of the same conversation.</td></tr><tr><td>muted_at</td><td>timestamp with time zone</td><td>null</td><td>Set when the user mutes notifications for the conversation.</td></tr><tr><td>role</td><td>conversation_role</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> conversation_id &rarr; conversations <small>(on delete cascade)</small> &middot; last_delivered_message_id &rarr; messages <small>(on delete set null)</small> &middot; last_read_message_id &rarr; messages <small>(on delete set null)</small> &middot; user_id &rarr; users <small>(on delete cascade)</small> &middot; last_delivered_message_id, conversation_id &rarr; messages <small>(on delete set null (last_delivered_message_id))</small> &middot; last_read_message_id, conversation_id &rarr; messages <small>(on delete set null (last_read_message_id))</small></p>
+</details>
+<details class="card" data-name="conversations"><summary><b>conversations</b> <span>A direct (two-person) or group conversation in the messaging module.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>created_by</td><td>integer</td><td>null</td><td></td></tr><tr><td>name</td><td>character varying(150)</td><td>null</td><td></td></tr><tr><td>type</td><td>conversation_type</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> created_by &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="feature_announcement_ratings"><summary><b>feature_announcement_ratings</b> <span>One 1-5 star rating per user per announcement.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>announcement_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>stars</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>user_id</td><td>integer</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> announcement_id &rarr; feature_announcements <small>(on delete cascade)</small> &middot; user_id &rarr; users <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="feature_announcement_target_roles"><summary><b>feature_announcement_target_roles</b> <span>Which roles an announcement targets (junction table; replaces the JSON list, giving first normal form and foreign-key integrity).</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>announcement_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>role_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> announcement_id &rarr; feature_announcements <small>(on delete cascade)</small> &middot; role_id &rarr; roles <small>(on delete no action)</small></p>
+</details>
+<details class="card" data-name="feature_announcements"><summary><b>feature_announcements</b> <span>Product announcements written by the Developer role and shown to targeted roles until rated.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>created_by</td><td>integer</td><td>null</td><td></td></tr><tr><td>description</td><td>text</td><td>NOT NULL</td><td></td></tr><tr><td>target_roles</td><td>jsonb</td><td>NOT NULL</td><td>DEPRECATED write-through copy of the targeted role names. The relational source is feature_announcement_target_roles, kept in sync by a trigger. To be dropped in a later, explicitly approved migration.</td></tr><tr><td>title</td><td>character varying(150)</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> created_by &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="feedback_reports"><summary><b>feedback_reports</b> <span>Bug reports and enhancement requests submitted by users; read by the Developer role.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>category</td><td>feedback_category</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>message</td><td>text</td><td>NOT NULL</td><td></td></tr><tr><td>submitted_by</td><td>integer</td><td>null</td><td></td></tr></table>
+<p><b>References:</b> submitted_by &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="instructor_skills"><summary><b>instructor_skills</b> <span>Which trainings an instructor can teach (many-to-many), with an optional certificate and its expiry.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>instructor_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>training_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>certificate_expires_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>certificate_id</td><td>text</td><td>null</td><td></td></tr><tr><td>expiry_reminder_sent_at</td><td>timestamp with time zone</td><td>null</td><td>Set once the one-time certificate-expiry reminder has been emailed.</td></tr></table>
+<p><b>References:</b> instructor_id &rarr; instructors <small>(on delete cascade)</small> &middot; training_id &rarr; trainings <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="instructors"><summary><b>instructors</b> <span>Instructor profile, one per instructor user (user_id is unique).</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>bio</td><td>text</td><td>null</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>user_id</td><td>integer</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> user_id &rarr; users <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="message_deletions"><summary><b>message_deletions</b> <span>Per-user "delete for me" markers; the message stays visible to everyone else.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>message_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>user_id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>deleted_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> message_id &rarr; messages <small>(on delete cascade)</small> &middot; user_id &rarr; users <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="messages"><summary><b>messages</b> <span>Chat messages: text, image, voice or file. Attachments live on disk; only their key and metadata are stored here. Soft-deleted via deleted_at.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>attachment_duration_seconds</td><td>integer</td><td>null</td><td></td></tr><tr><td>attachment_key</td><td>text</td><td>null</td><td></td></tr><tr><td>attachment_mime</td><td>text</td><td>null</td><td></td></tr><tr><td>attachment_original_name</td><td>text</td><td>null</td><td></td></tr><tr><td>attachment_size_bytes</td><td>integer</td><td>null</td><td></td></tr><tr><td>body</td><td>text</td><td>null</td><td></td></tr><tr><td>conversation_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>deleted_at</td><td>timestamp with time zone</td><td>null</td><td>Set when deleted for everyone; content is then no longer shown.</td></tr><tr><td>edited_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>reply_to_message_id</td><td>integer</td><td>null</td><td>The message being replied to; must be in the same conversation.</td></tr><tr><td>sender_id</td><td>integer</td><td>null</td><td></td></tr><tr><td>type</td><td>message_type</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> reply_to_message_id, conversation_id &rarr; messages <small>(on delete set null (reply_to_message_id))</small> &middot; conversation_id &rarr; conversations <small>(on delete cascade)</small> &middot; reply_to_message_id &rarr; messages <small>(on delete set null)</small> &middot; sender_id &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="providers"><summary><b>providers</b> <span>Training providers (e.g. Red Hat). Soft-deleted via deleted_at; names are unique among active providers.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>created_by</td><td>integer</td><td>null</td><td></td></tr><tr><td>deleted_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>description</td><td>text</td><td>null</td><td></td></tr><tr><td>logo_url</td><td>character varying(500)</td><td>null</td><td></td></tr><tr><td>name</td><td>character varying(150)</td><td>NOT NULL</td><td></td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> created_by &rarr; users <small>(on delete set null)</small></p>
+</details>
+<details class="card" data-name="push_subscriptions"><summary><b>push_subscriptions</b> <span>Web-push endpoints per user and device (unique per user and endpoint). Endpoints must be https.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>auth</td><td>text</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>endpoint</td><td>text</td><td>NOT NULL</td><td></td></tr><tr><td>p256dh</td><td>text</td><td>NOT NULL</td><td></td></tr><tr><td>user_id</td><td>integer</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> user_id &rarr; users <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="reports"><summary><b>reports</b> <span>Generated report per session (session_id unique) with the averaged scores frozen at generation time.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>average_score</td><td>numeric(4,2)</td><td>null</td><td></td></tr><tr><td>generated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>nps_average</td><td>numeric(5,2)</td><td>null</td><td></td></tr><tr><td>pdf_url</td><td>character varying(255)</td><td>null</td><td></td></tr><tr><td>session_id</td><td>integer</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> session_id &rarr; training_sessions <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="roles"><summary><b>roles</b> <span>Fixed set of application roles (Sales, Manager, Instructor, SuperAdmin, Developer). Reference data seeded by the baseline migration.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>name</td><td>character varying(50)</td><td>NOT NULL</td><td></td></tr></table>
+
+</details>
+<details class="card" data-name="session_attendees"><summary><b>session_attendees</b> <span>People registered on a session. Identity is the name plus an optional email; an email may appear once per session (case-insensitive).</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>attendance_status</td><td>attendance_status</td><td>NOT NULL</td><td>pending, present or absent, marked by the instructor.</td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>email</td><td>character varying(150)</td><td>null</td><td></td></tr><tr><td>name</td><td>character varying(150)</td><td>NOT NULL</td><td></td></tr><tr><td>session_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>survey_submitted</td><td>boolean</td><td>NOT NULL</td><td>Denormalised flag kept in step with the existence of a survey row for this attendee.</td></tr></table>
+<p><b>References:</b> session_id &rarr; training_sessions <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="session_notes"><summary><b>session_notes</b> <span>Free-text notes an assigned instructor leaves on a session. Only the author may edit or delete.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>body</td><td>text</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>instructor_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>session_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> instructor_id &rarr; instructors <small>(on delete cascade)</small> &middot; session_id &rarr; training_sessions <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="surveys"><summary><b>surveys</b> <span>One survey answer per attendee (attendee_id unique when present). Scores: instructor 0-5, NPS 0-10.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>attendee_id</td><td>integer</td><td>null</td><td></td></tr><tr><td>comments</td><td>text</td><td>null</td><td></td></tr><tr><td>instructor_id</td><td>integer</td><td>null</td><td>Snapshot of the instructor at submission time; deliberately not derived from the session, which may be reassigned later.</td></tr><tr><td>instructor_score</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>nps_score</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>session_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>submitted_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> attendee_id, session_id &rarr; session_attendees <small>(on delete no action)</small> &middot; attendee_id &rarr; session_attendees <small>(on delete no action)</small> &middot; instructor_id &rarr; instructors <small>(on delete set null)</small> &middot; session_id &rarr; training_sessions <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="training_sessions"><summary><b>training_sessions</b> <span>A scheduled delivery of one training for one client, optionally assigned to one instructor. The central table of the domain.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>assignment_status</td><td>assignment_status</td><td>NOT NULL</td><td>unassigned or accepted in current use. pending and refused are legacy states of a retired accept/refuse flow.</td></tr><tr><td>client_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>created_by</td><td>integer</td><td>null</td><td></td></tr><tr><td>end_date</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>include_weekends</td><td>boolean</td><td>NOT NULL</td><td>Whether the session runs on weekends between start_date and end_date.</td></tr><tr><td>instructor_id</td><td>integer</td><td>null</td><td></td></tr><tr><td>location_type</td><td>session_location_type</td><td>NOT NULL</td><td></td></tr><tr><td>reminder_1h_sent_at</td><td>timestamp with time zone</td><td>null</td><td>Set when the 1-hour push reminder was sent, so it is sent once.</td></tr><tr><td>reminder_24h_sent_at</td><td>timestamp with time zone</td><td>null</td><td>Set when the 24-hour push reminder was sent, so it is sent once.</td></tr><tr><td>session_status</td><td>session_status</td><td>NOT NULL</td><td></td></tr><tr><td>start_date</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>teaching_language</td><td>session_teaching_language</td><td>NOT NULL</td><td></td></tr><tr><td>training_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> client_id &rarr; clients <small>(on delete no action)</small> &middot; created_by &rarr; users <small>(on delete set null)</small> &middot; instructor_id &rarr; instructors <small>(on delete set null)</small> &middot; training_id &rarr; trainings <small>(on delete no action)</small></p>
+</details>
+<details class="card" data-name="trainings"><summary><b>trainings</b> <span>Catalog of trainings offered, each belonging to one provider. Soft-deleted via deleted_at.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>created_by</td><td>integer</td><td>null</td><td></td></tr><tr><td>deleted_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>description</td><td>text</td><td>null</td><td></td></tr><tr><td>duration</td><td>integer</td><td>null</td><td>Length in duration_unit. May be 0. Some legacy rows have a duration without a unit.</td></tr><tr><td>duration_unit</td><td>training_duration_unit</td><td>null</td><td></td></tr><tr><td>name</td><td>character varying(150)</td><td>NOT NULL</td><td></td></tr><tr><td>provider_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> created_by &rarr; users <small>(on delete set null)</small> &middot; provider_id &rarr; providers <small>(on delete cascade)</small></p>
+</details>
+<details class="card" data-name="users"><summary><b>users</b> <span>Every account. Self-signup creates status pending; a Manager approves or rejects. Emails are unique ignoring letter case.</span></summary>
+<table><tr><th>Column</th><th>Type</th><th>Null</th><th>Description</th></tr><tr><td>id <i>PK</i></td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>approved_at</td><td>timestamp with time zone</td><td>null</td><td></td></tr><tr><td>approved_by</td><td>integer</td><td>null</td><td>The approving Manager. Set to NULL if that account is later purged.</td></tr><tr><td>created_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr><tr><td>email</td><td>character varying(150)</td><td>NOT NULL</td><td></td></tr><tr><td>firstname</td><td>character varying(100)</td><td>NOT NULL</td><td></td></tr><tr><td>has_seen_tour</td><td>boolean</td><td>NOT NULL</td><td>Whether the guided-tour dashboard has already auto-launched for this user.</td></tr><tr><td>lastname</td><td>character varying(100)</td><td>NOT NULL</td><td></td></tr><tr><td>password_hash</td><td>character varying(255)</td><td>NOT NULL</td><td></td></tr><tr><td>role_id</td><td>integer</td><td>NOT NULL</td><td></td></tr><tr><td>status</td><td>user_status</td><td>NOT NULL</td><td>pending (awaiting approval), approved, rejected, or deactivated (soft-disabled by a SuperAdmin).</td></tr><tr><td>updated_at</td><td>timestamp with time zone</td><td>NOT NULL</td><td></td></tr></table>
+<p><b>References:</b> approved_by &rarr; users <small>(on delete set null)</small> &middot; role_id &rarr; roles <small>(on delete no action)</small></p>
+</details></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+var userZoom=1;
+function activeDiagram(){return document.querySelector(".diagram.active")}
+function fitFactor(){var d=activeDiagram();var svg=d&&d.querySelector("svg");if(!svg)return 1;
+  var w=parseFloat(svg.getAttribute("width"))||(svg.viewBox&&svg.viewBox.baseVal&&svg.viewBox.baseVal.width)||svg.getBoundingClientRect().width;
+  var stage=document.querySelector(".stage");var avail=stage.clientWidth-28;return w>0?Math.min(1,avail/w):1}
+function apply(){var f=fitFactor()*userZoom;document.querySelectorAll(".diagram .inner").forEach(function(e){e.style.zoom=f})}
+document.getElementById("zin").onclick=function(){userZoom=Math.min(4,userZoom*1.25);apply()};
+document.getElementById("zout").onclick=function(){userZoom=Math.max(0.25,userZoom/1.25);apply()};
+document.getElementById("zreset").onclick=function(){userZoom=1;apply()};
+window.addEventListener("resize",apply);
+document.querySelectorAll("#tabs button").forEach(function(b){b.onclick=function(){
+  document.querySelectorAll("#tabs button").forEach(function(x){x.classList.remove("active")});b.classList.add("active");
+  document.querySelectorAll(".diagram").forEach(function(d){d.classList.remove("active")});
+  document.getElementById("d-"+b.dataset.id).classList.add("active");userZoom=1;apply();}});
+document.getElementById("filter").oninput=function(e){var q=e.target.value.toLowerCase();
+  document.querySelectorAll(".card").forEach(function(c){c.style.display=c.textContent.toLowerCase().indexOf(q)>=0?"":"none"})};
+if(window.mermaid){mermaid.initialize({startOnLoad:false,theme:"neutral",er:{useMaxWidth:false}});
+  mermaid.run({querySelector:".mermaid"}).then(apply);}
+else{document.querySelector(".stage").insertAdjacentHTML("afterbegin","<p>The diagram library could not be loaded (offline?). Open ERD.md on GitHub, or use the pgAdmin ERD tool.</p>");}
+</script></body></html>

@@ -93,7 +93,7 @@ login.
 npm install
 cp .env.example .env               # fill in your real values - see below
 npm run db:provision-roles          # one-time: creates the app_migrator/app_runtime DB roles
-npm run db:migrate                  # applies src/infrastructure/database/schema.sql
+npm run db:migrate                  # applies pending versioned migrations (src/infrastructure/database/migrations/)
 npm run dev                         # nodemon + ts-node, restarts on save
 ```
 
@@ -131,6 +131,11 @@ information, gathered in one place:
 | `DATABASE_URL` | Yes | Postgres connection string the running app uses — the least-privilege `app_runtime` role (DML only, no DDL). |
 | `MIGRATOR_DATABASE_URL` | Yes | Postgres connection string for `npm run db:migrate` only — the `app_migrator` role, which owns the schema and can run DDL. Never used by the running server. |
 | `APP_RUNTIME_DB_PASSWORD` / `APP_MIGRATOR_DB_PASSWORD` | Yes | Read only by `npm run db:provision-roles` — the passwords baked into the two connection strings above. Must be at least 20 characters and different from each other. |
+| `APP_RUNTIME_ROLE` | No | Set on the migrate step: the runtime role whose privileges are reconciled after each migration (`audit_log` append-only, `schema_migrations` hidden). `docker-compose.yml` sets it. |
+| `ALLOW_DESTRUCTIVE_MIGRATIONS` | No (default `false`) | Must be `true` for the runner to apply a `*.destructive.sql` migration. |
+| `PROMOTION_SOURCE_DATABASE_URL` | No | When set, `db:migrate` refuses migrations that were not already applied, with an identical checksum, on that (dev) database. Set by the `promote-prod` compose service. |
+| `DEV_APP_RUNTIME_DB_PASSWORD` / `DEV_APP_MIGRATOR_DB_PASSWORD` / `DEV_POSTGRES_DB` / `DEV_PORT` | Only for `--profile dev` | Credentials (≥ 20 chars, different) and name (default `training_platform_dev`) of the separate dev database, and the host port of `backend-dev` (default `4001`). |
+| `TEST_ADMIN_DATABASE_URL` | Only for the DB-level tests | Owner/admin connection the integration tests use for cleanup and for creating throwaway schemas; falls back to `MIGRATOR_DATABASE_URL`, then `DATABASE_URL`. |
 | `JWT_SECRET` | Yes | Signs and verifies short-lived access tokens. Must be a long, random, real secret in anything beyond local dev. |
 | `JWT_EXPIRES_IN` | No (default `8h`) | Access token lifetime. |
 | `REDIS_URL` | Yes | Backs refresh tokens and rate limiting. `docker-compose.yml` overrides this to point at its own `redis` service with auth. |
@@ -298,20 +303,21 @@ CI provides.
 **Two layers, deliberately separate.** Schema *ownership* and *data
 access* are not the same job here, and the tooling reflects that split:
 
-- **Schema definition and migration**: a hand-written, idempotent
-  `src/infrastructure/database/schema.sql` (`CREATE TABLE IF NOT
-  EXISTS`, `ADD COLUMN IF NOT EXISTS` throughout), applied by
-  `npm run db:migrate` — a small script that reads the file and runs it
-  as one statement. Safe to run repeatedly against a database that
-  already has some or all of the schema, which is exactly what makes it
-  usable both for a fresh database and for rolling a schema change out
-  to one that already exists.
+- **Schema definition and migration**: numbered, immutable SQL files in
+  `src/infrastructure/database/migrations/` (`0001_baseline.sql`, then
+  `0002_...`, ...), applied in order by `npm run db:migrate` and
+  recorded — with a checksum — in a `schema_migrations` table. Each
+  migration runs exactly once, in its own transaction, under a Postgres
+  advisory lock (two deploys can never migrate concurrently), and a
+  migration file that was already applied can never be edited. See
+  [Migrations and the dev → prod workflow](#migrations-and-the-dev--prod-workflow).
 - **Data access**: every repository (`PgUserRepository`,
   `PgSessionRepository`, ...) queries through **Prisma**, using a
-  hand-written `prisma/schema.prisma` that mirrors `schema.sql` and a
-  generated client at `src/generated/prisma/`. Prisma's own migration
-  engine (`prisma migrate`) is deliberately not part of this picture —
-  `schema.sql` stays the one place the schema is actually defined, and
+  hand-written `prisma/schema.prisma` that mirrors the migrated schema
+  (CI fails if they drift apart) and a generated client at
+  `src/generated/prisma/`. Prisma's own migration engine
+  (`prisma migrate`) is deliberately not part of this picture — the
+  SQL migrations stay the one place the schema is actually defined, and
   Prisma's role is strictly "type-safe queries against that schema,"
   not "own the schema."
 - Where a query genuinely can't be expressed through Prisma's query
@@ -330,7 +336,104 @@ used exclusively by `npm run db:migrate`; `app_runtime` — what
 app process can no longer mean "attacker can drop tables." Both roles
 are created idempotently by `npm run db:provision-roles`
 (`scripts/provisionDbRoles.ts`), which needs to run once against a
-bootstrap superuser before anything else.
+bootstrap superuser before anything else. After every migration the
+runner also *reconciles* the runtime role's privileges
+(`APP_RUNTIME_ROLE`): `audit_log` becomes append-only for the running
+app (no `DELETE`/`TRUNCATE`, and `UPDATE` only on the three columns the
+GDPR redaction path needs), and `schema_migrations` is invisible to it.
+
+### Migrations and the dev → prod workflow
+
+**Rules of the road** (enforced by `npm run db:lint` in CI, not by
+convention):
+
+- Migrations are numbered `NNNN_snake_case_name.sql`, gapless, and
+  **immutable once merged** — the runner refuses to start if an applied
+  file's checksum changed (the checksum ignores comments and whitespace,
+  so a commented working copy and the comment-stripped git copy match).
+  CI also fails a PR that edits, renames or deletes an existing migration.
+- **Expand / contract.** Add new structure first (new column/table,
+  nullable or defaulted), ship the code that uses it, and only in a
+  later, explicitly reviewed migration remove the old structure.
+- A migration may not modify or destroy existing rows or structure
+  (`UPDATE`, `DELETE`, `TRUNCATE`, `DROP TABLE/COLUMN`, column type
+  changes, renames) unless its file is named `*.destructive.sql`, and
+  the runner will refuse to apply a `.destructive` file unless
+  `ALLOW_DESTRUCTIVE_MIGRATIONS=true` is set for that run.
+- New `CHECK`/`FOREIGN KEY` constraints on existing tables must be
+  `NOT VALID` (enforced for new rows immediately, validated separately),
+  `NOT NULL` columns need a `DEFAULT`, and indexes on existing tables
+  must be built `CONCURRENTLY` in a `*.notx.sql` file (which the runner
+  executes outside a transaction).
+- Migrations contain no roles or `GRANT`s — those are
+  environment-specific and are reconciled by the runner instead.
+
+**Commands** (all work with `npm run …` locally, or
+`node dist/infrastructure/database/migrate.js <command>` in the image):
+
+| Command | What it does |
+|---|---|
+| `db:migrate` | Apply pending migrations (default; the OKD `migrate` job runs exactly this). |
+| `db:status` | List applied/pending migrations. Read-only. |
+| `db:plan` | List pending migrations and execute them inside a transaction that is **rolled back** — a real dry run. Read-only. |
+| `db:lint` | Static safety checks on the migration files. No database needed. |
+| `db:promote-check` | Verify every pending migration was already applied, with an identical checksum, on the dev database. |
+| `db:audit` | Read-only data-quality report: legacy rows the constraints tolerate (with example ids), plus structural problems (unvalidated constraints, invalid indexes, announcement roles out of sync). Nothing is modified. |
+| `docs:db` | Regenerate `docs/database/` (schema reference, ERDs, interactive `erd.html`, `schema.json`) from a migrated database; `-- --check` fails if the committed copy is stale (run in CI). |
+
+**Dev and prod databases.** `docker compose --profile dev up -d backend-dev` adds a
+completely separate database (`training_platform_dev`) with its own
+roles (`app_migrator_dev` / `app_runtime_dev`) and credentials — the dev
+roles get `permission denied` on the real database's tables — plus a
+`backend-dev` API on port `4001` using Redis database `1`. `backend-dev`
+blanks the SMTP and VAPID (push) settings so a dev API holding a copy of
+real data can never email or push to real users. Set
+`DEV_APP_RUNTIME_DB_PASSWORD` and `DEV_APP_MIGRATOR_DB_PASSWORD`
+(≥ 20 chars, different) in `.env` first.
+
+**The promotion flow** — code and migrations move dev → prod; *data
+never does*:
+
+1. Write the migration; `npm run db:lint`. Before promoting anywhere,
+   run `npm run db:plan` against that database: it executes the pending
+   migrations in a rolled-back transaction, and the read-only preflight
+   (`0002`) reports any existing row that would violate a new rule —
+   without changing a single row.
+2. `docker compose --profile dev run --rm migrate-dev` applies it to the
+   dev database; `docker compose --profile dev run --rm test-dev` runs
+   the whole test suite against it as the restricted runtime role.
+3. CI's **upgrade-safety** job loads sample data into the *previous*
+   schema, applies your migrations, and fails if any pre-existing row or
+   column value changed; its **migrations** job checks lint, immutability,
+   fresh-install, idempotence and Prisma drift.
+4. Merge to `dev`, then promote `dev` → `main` as usual.
+5. `docker compose --profile promote run --rm promote-prod` applies to
+   the prod database **only if every pending migration is already
+   applied on the dev database with the same checksum**; otherwise it
+   refuses. (On OKD the same guarantee is the `dev` → `main` CI gate: the
+   image the migrate job runs was built from a commit whose migrations
+   passed all of the above.)
+
+To refresh the dev database with a copy of prod data, restore a
+`pg_dump` of prod into `training_platform_dev` (`pg_restore --no-owner
+--no-privileges`, then re-run `provision-dev-db`) — never the other way
+round. Treat that copy as containing personal data.
+
+**Seeing the schema and its links.** The full design, normalisation
+analysis, integrity model and growth notes are in
+[docs/DATABASE-ARCHITECTURE.md](docs/DATABASE-ARCHITECTURE.md), backed by
+generated, always-current files in `docs/database/`. For a GUI:
+
+- `docker compose --profile tools up -d pgadmin` starts pgAdmin at
+  <http://127.0.0.1:5051> (localhost only, no login) with the main and dev
+  databases pre-registered; right-click a database → **ERD Tool** to draw
+  every table and its foreign keys. Descriptions come from `COMMENT ON`
+  statements in the migrations. Enter the `app_runtime` (or
+  `app_runtime_dev`) password from `.env` when asked. Set `PGADMIN_PORT`
+  to change the port.
+- Open `docs/database/erd.html` in a browser for zoomable diagrams of the
+  whole schema and each domain, with a filterable table list — no server
+  needed.
 
 Tables: `roles`, `users`, `providers`, `trainings`, `clients`,
 `instructors`, `instructor_skills`, `training_sessions`,
@@ -424,6 +527,35 @@ audit log endpoints actually query.
   successful brute force is highest. All three are Redis-backed rather
   than in-memory, so the limit holds across every running replica of the
   API, not reset per-instance.
+- **Request bodies are validated at the HTTP edge** (Zod schemas in
+  `src/interface/validation/requestSchemas.ts`, one auditable rule table
+  in `requestValidationMiddleware.ts`). A field that is present must have
+  the right type and fit its column (`name` ≤ 150 characters, ids are
+  positive 32-bit integers, `null` is never silently coerced to `0`);
+  unknown fields are dropped (mass-assignment protection); account emails
+  are trimmed and lower-cased. Whether a field is *required* stays with
+  the use case, so its error messages are unchanged. Protected routes
+  are only validated once a credential is present, so an anonymous
+  caller still gets `401` first; multipart uploads are validated by
+  their own middleware. Numeric ids in a URL that overflow a 32-bit
+  integer are rejected outright.
+- **Database errors never reach the client raw.** Every Prisma call goes
+  through one wrapper (`prismaClient.ts` + `dbErrors.ts`) that turns
+  unique/check/foreign-key/length/format violations into a specific,
+  friendly message keyed by constraint name (`An account with this email
+  already exists`) and anything unmapped into `The request could not be
+  processed`. Previously a raw Prisma error string — including the source
+  file path and the offending code — was returned verbatim; the failing
+  row (which for a `users` insert includes the password hash) is now
+  never logged or attached to the error.
+- **Security headers via `helmet`** — `nosniff`, HSTS, `no-referrer`,
+  `X-Powered-By` removed, and a `default-src 'none'` content security
+  policy on every API response (relaxed only for the Swagger UI).
+  `Cross-Origin-Resource-Policy: cross-origin` is intentional: the
+  frontend is a different origin and loads attachments from this API.
+- **Emails are case-insensitive.** Login and signup look users up with
+  `lower(email)` (backed by a unique functional index), so `Foo@x.com`
+  and `foo@x.com` can never be two accounts.
 
 ## API reference
 
@@ -629,7 +761,10 @@ Two independent channels, used together for the events that matter most:
 | `src/generated/prisma/` | The generated Prisma Client, built from `prisma/schema.prisma`. | Never hand-edited — regenerated by `npx prisma generate`, which runs automatically as part of the Docker build and CI setup. Only `infrastructure` is allowed to import from it. |
 | `src/app.ts` | The composition root — builds every concrete object and wires the Express app. | See [Architecture](#architecture) above. |
 | `src/server.ts` | Starts the HTTP server, starts the report cron job, and owns graceful shutdown (`SIGTERM`/`SIGINT` close the HTTP server, then the Postgres pool, then the Redis connection, in that order, before exiting). | Kept separate from `app.ts` specifically so tests can import `buildApp()` and get a fully-wired Express app without ever opening a real port — that's exactly what `tests/smoke/app.test.ts` does. |
-| `src/infrastructure/database/schema.sql` + `migrate.ts` | The entire schema as one idempotent (`IF NOT EXISTS`) SQL file, applied by a small script connecting as the `app_migrator` role. | No migration framework, because `schema.sql` is deliberately the single place the schema is defined — Prisma reads the same shape but never owns migrating it. One file, safe to re-run, is simpler than a stack of numbered up/down migrations for a schema at this stage of the project's life. |
+| `src/infrastructure/database/migrations/` | Numbered, immutable SQL migrations. `0001_baseline.sql` is the schema as it stood when versioned migrations were introduced (idempotent, so existing databases adopt it without any change). | A small purpose-built runner instead of Prisma Migrate: the OKD migrate job runs `node dist/infrastructure/database/migrate.js` from the runtime image, which deliberately contains no npm/npx/Prisma CLI. |
+| `src/infrastructure/database/migrate.ts`, `migrationRunner.ts`, `migrationLint.ts`, `sqlScanner.ts` | The migration CLI (`up`/`status`/`plan`/`promote-check`/`lint`), the runner (advisory lock, checksums, per-migration transactions, `CONCURRENTLY` support, promotion gate, privilege reconciliation), the safety linter, and a small SQL tokenizer they share. | See [Migrations and the dev → prod workflow](#migrations-and-the-dev--prod-workflow). |
+| `scripts/dbSnapshot.ts`, `scripts/checkPrismaDrift.ts` | `dbSnapshot` hashes every row of every table so CI (and you, on a clone) can prove a migration left existing data byte-for-byte unchanged; `checkPrismaDrift` fails if `prisma/schema.prisma` no longer matches the migrated database. | The upgrade-safety and migrations CI jobs. |
+| `tests/fixtures/db/sample-data.sql` | Synthetic, non-personal rows for every table — including the awkward "legacy shapes" real data has (blank emails, a duration without a unit, overlapping sessions). | The data the upgrade-safety job loads before applying your migrations. |
 | `prisma/schema.prisma` + `prisma.config.ts` | The Prisma schema mirroring `schema.sql`, and Prisma's own connection/config file. | What `npx prisma generate` reads to produce the typed client every repository queries through. |
 | `scripts/provisionDbRoles.ts` | Idempotently creates the `app_migrator` and `app_runtime` Postgres roles and grants each exactly the privileges it needs. | Run once per database, before `db:migrate` ever points at it with the runtime role — see [The database](#the-database) above. |
 | `scripts/seedSuperAdmin.ts` | The *only* way a SuperAdmin account can ever be created — reads `SUPERADMIN_*` from `.env`, refuses to run with a password under 12 characters, no-ops safely if that email already exists. | Deliberately out-of-band: there is no API route that can create a SuperAdmin, on purpose, so that capability can never be reached over HTTP by anyone, ever. |
@@ -648,9 +783,15 @@ docker compose up -d --build
 `docker-compose.yml` runs five services: `postgres`, `redis` (password-
 protected, append-only persistence), a one-shot `provision-roles`
 service (idempotent, creates the two Postgres roles described above), a
-one-shot `migrate` service gated behind it that applies `schema.sql` and
-exits, and `backend` itself — gated behind `migrate` completing
-successfully, so the API never starts against an unmigrated database.
+one-shot `migrate` service gated behind it that applies pending
+migrations and exits, and `backend` itself — gated behind `migrate`
+completing successfully, so the API never starts against an unmigrated
+database. Opt-in profiles add the separate dev database
+(`--profile dev`: `provision-dev-db`, `migrate-dev`, `test-dev`,
+`backend-dev` — name the service you want, e.g. `up -d backend-dev` or
+`run --rm test-dev`, rather than a bare `up`) and the gated prod
+migration (`--profile promote`: `promote-prod`); plain
+`docker compose up` is unchanged.
 
 The `Dockerfile` is a four-stage multi-stage build: `deps` (installs
 with native build tools available, since `bcrypt` needs to compile),

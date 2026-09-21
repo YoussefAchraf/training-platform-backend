@@ -1,0 +1,18 @@
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_log_actor ON audit_log (actor_id) WHERE actor_id IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_calendar_session ON calendar (session_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_clients_created_by ON clients (created_by) WHERE created_by IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_conversation_participants_last_delivered ON conversation_participants (last_delivered_message_id) WHERE last_delivered_message_id IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_conversation_participants_last_read ON conversation_participants (last_read_message_id) WHERE last_read_message_id IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_feature_announcement_ratings_user ON feature_announcement_ratings (user_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_feature_announcements_created_by ON feature_announcements (created_by) WHERE created_by IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_instructor_skills_training ON instructor_skills (training_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_messages_reply_to ON messages (reply_to_message_id) WHERE reply_to_message_id IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_providers_created_by ON providers (created_by) WHERE created_by IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_session_notes_instructor ON session_notes (instructor_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_surveys_instructor ON surveys (instructor_id) WHERE instructor_id IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sessions_client ON training_sessions (client_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sessions_created_by ON training_sessions (created_by) WHERE created_by IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sessions_training ON training_sessions (training_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_trainings_created_by ON trainings (created_by) WHERE created_by IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_trainings_provider ON trainings (provider_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_approved_by ON users (approved_by) WHERE approved_by IS NOT NULL;

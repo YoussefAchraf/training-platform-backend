@@ -6,13 +6,19 @@
   "type": "commonjs",
   "scripts": {
     "prepare": "node scripts/setup-git-filters.js",
-    "build": "tsc && node -e \"const fs=require('fs'); fs.copyFileSync('src/infrastructure/database/schema.sql','dist/infrastructure/database/schema.sql'); fs.cpSync('src/infrastructure/services/emailTemplates','dist/infrastructure/services/emailTemplates',{recursive:true})\"",
+    "build": "tsc && node -e \"const fs=require('fs'); fs.cpSync('src/infrastructure/database/migrations','dist/infrastructure/database/migrations',{recursive:true}); fs.cpSync('src/infrastructure/services/emailTemplates','dist/infrastructure/services/emailTemplates',{recursive:true})\"",
     "start": "node dist/server.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
     "db:migrate": "ts-node src/infrastructure/database/migrate.ts",
+    "db:status": "ts-node src/infrastructure/database/migrate.ts status",
+    "db:plan": "ts-node src/infrastructure/database/migrate.ts plan --verify",
+    "db:audit": "ts-node scripts/dataQualityReport.ts",
+    "db:lint": "ts-node src/infrastructure/database/migrate.ts lint",
+    "db:promote-check": "ts-node src/infrastructure/database/migrate.ts promote-check",
     "db:provision-roles": "ts-node scripts/provisionDbRoles.ts",
     "db:seed-superadmin": "ts-node scripts/seedSuperAdmin.ts",
     "db:seed-developer": "ts-node scripts/seedDeveloper.ts",
+    "docs:db": "ts-node scripts/generateDbDocs.ts",
     "docs:export": "ts-node scripts/exportSwagger.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -32,6 +38,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "file-type": "^22.1.0",
+    "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "libphonenumber-js": "^1.13.12",
@@ -48,7 +55,8 @@
     "validator": "^13.15.35",
     "web-push": "^3.6.7",
     "xss": "^1.0.15",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

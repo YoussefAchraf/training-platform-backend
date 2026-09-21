@@ -29,6 +29,7 @@ model audit_log {
 
   @@index([created_at], map: "idx_audit_log_created_at")
   @@index([entity_type, entity_id], map: "idx_audit_log_entity")
+  @@index([actor_id], map: "idx_audit_log_actor", where: raw("(actor_id IS NOT NULL)"))
 }
 
 model calendar {
@@ -39,6 +40,8 @@ model calendar {
   title             String            @db.VarChar(200)
   created_at        DateTime          @default(now()) @db.Timestamptz(6)
   training_sessions training_sessions @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([session_id], map: "idx_calendar_session")
 }
 
 model clients {
@@ -55,6 +58,7 @@ model clients {
   training_sessions training_sessions[]
 
   @@index([id], map: "idx_clients_active", where: raw("(deleted_at IS NULL)"))
+  @@index([created_by], map: "idx_clients_created_by", where: raw("(created_by IS NOT NULL)"))
 }
 
 model feature_announcements {
@@ -66,8 +70,10 @@ model feature_announcements {
   created_at                    DateTime                        @default(now()) @db.Timestamptz(6)
   users                         users?                          @relation(fields: [created_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   feature_announcement_ratings  feature_announcement_ratings[]
+  feature_announcement_target_roles feature_announcement_target_roles[]
 
   @@index([created_at], map: "idx_feature_announcements_created_at")
+  @@index([created_by], map: "idx_feature_announcements_created_by", where: raw("(created_by IS NOT NULL)"))
 }
 
 model feature_announcement_ratings {
@@ -81,6 +87,7 @@ model feature_announcement_ratings {
 
   @@unique([announcement_id, user_id])
   @@index([announcement_id], map: "idx_feature_announcement_ratings_announcement")
+  @@index([user_id], map: "idx_feature_announcement_ratings_user")
 }
 
 model feedback_reports {
@@ -105,6 +112,7 @@ model instructor_skills {
   trainings               trainings   @relation(fields: [training_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([instructor_id, training_id])
+  @@index([training_id], map: "idx_instructor_skills_training")
 }
 
 model instructors {
@@ -153,6 +161,8 @@ model conversation_participants {
 
   @@id([conversation_id, user_id])
   @@index([user_id], map: "idx_conversation_participants_user")
+  @@index([last_delivered_message_id], map: "idx_conversation_participants_last_delivered", where: raw("(last_delivered_message_id IS NOT NULL)"))
+  @@index([last_read_message_id], map: "idx_conversation_participants_last_read", where: raw("(last_read_message_id IS NOT NULL)"))
 }
 
 model messages {
@@ -181,6 +191,8 @@ model messages {
 
   @@index([conversation_id, id], map: "idx_messages_conversation_id_id")
   @@index([sender_id], map: "idx_messages_sender")
+  @@index([reply_to_message_id], map: "idx_messages_reply_to", where: raw("(reply_to_message_id IS NOT NULL)"))
+  @@unique([id, conversation_id], map: "uq_messages_id_conversation")
 }
 
 model message_deletions {
@@ -208,6 +220,7 @@ model providers {
   trainings   trainings[]
 
   @@index([id], map: "idx_providers_active", where: raw("(deleted_at IS NULL)"))
+  @@index([created_by], map: "idx_providers_created_by", where: raw("(created_by IS NOT NULL)"))
 }
 
 model push_subscriptions {
@@ -245,12 +258,14 @@ model session_notes {
   instructors       instructors       @relation(fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([session_id], map: "idx_session_notes_session_id")
+  @@index([instructor_id], map: "idx_session_notes_instructor")
 }
 
 model roles {
   id    Int     @id @default(autoincrement())
   name  String  @unique @db.VarChar(50)
   users users[]
+  feature_announcement_target_roles feature_announcement_target_roles[]
 }
 
 model session_attendees {
@@ -265,6 +280,7 @@ model session_attendees {
   surveys            surveys[]
 
   @@index([session_id], map: "idx_attendees_session")
+  @@unique([id, session_id], map: "uq_session_attendees_id_session")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -282,6 +298,8 @@ model surveys {
   training_sessions training_sessions  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([session_id], map: "idx_surveys_session")
+  @@index([instructor_id], map: "idx_surveys_instructor", where: raw("(instructor_id IS NOT NULL)"))
+  @@unique([attendee_id], map: "surveys_attendee_id_key", where: raw("(attendee_id IS NOT NULL)"))
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -315,6 +333,11 @@ model training_sessions {
   @@index([instructor_id], map: "idx_sessions_instructor")
   @@index([session_status], map: "idx_sessions_status")
   @@index([start_date], map: "idx_sessions_start_date")
+  @@index([client_id], map: "idx_sessions_client")
+  @@index([created_by], map: "idx_sessions_created_by", where: raw("(created_by IS NOT NULL)"))
+  @@index([training_id], map: "idx_sessions_training")
+  @@unique([instructor_id, start_date], map: "training_sessions_instructor_start_key", where: raw("((instructor_id IS NOT NULL) AND (session_status <> 'cancelled'::session_status))"))
+  @@unique([training_id, start_date], map: "training_sessions_training_start_key", where: raw("(session_status <> 'cancelled'::session_status)"))
 }
 
 model trainings {
@@ -334,6 +357,8 @@ model trainings {
   providers         providers               @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([id], map: "idx_trainings_active", where: raw("(deleted_at IS NULL)"))
+  @@index([created_by], map: "idx_trainings_created_by", where: raw("(created_by IS NOT NULL)"))
+  @@index([provider_id], map: "idx_trainings_provider")
 }
 
 model users {
@@ -366,6 +391,19 @@ model users {
   users              users?               @relation("usersTousers", fields: [approved_by], references: [id], onDelete: SetNull, onUpdate: NoAction)
   other_users        users[]              @relation("usersTousers")
   roles              roles                @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([approved_by], map: "idx_users_approved_by", where: raw("(approved_by IS NOT NULL)"))
+}
+
+
+model feature_announcement_target_roles {
+  announcement_id       Int
+  role_id               Int
+  feature_announcements feature_announcements @relation(fields: [announcement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles                 roles                 @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([announcement_id, role_id])
+  @@index([role_id], map: "idx_announcement_target_roles_role")
 }
 
 enum assignment_status {

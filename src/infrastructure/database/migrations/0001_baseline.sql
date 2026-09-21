@@ -245,20 +245,12 @@ ALTER TABLE calendar ADD COLUMN IF NOT EXISTS end_date TIMESTAMPTZ;
 ALTER TABLE session_attendees ADD COLUMN IF NOT EXISTS attendance_status attendance_status NOT NULL DEFAULT 'pending';
 CREATE INDEX IF NOT EXISTS idx_attendees_email ON session_attendees (LOWER(email));
 
-UPDATE calendar
-SET end_date = training_sessions.end_date
-FROM training_sessions
-WHERE calendar.session_id = training_sessions.id
-  AND calendar.end_date IS NULL;
-
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
 
 ALTER TABLE reports ALTER COLUMN nps_average TYPE NUMERIC(5,2);
-
-UPDATE training_sessions SET assignment_status = 'accepted' WHERE assignment_status = 'pending';
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAULT false;
 

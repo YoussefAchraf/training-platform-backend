@@ -37,7 +37,13 @@ const definition = {
     version: '1.0.0',
     description:
       'Backend for training management platform (providers, trainings, sessions, instructors, surveys, reports). ' +
-      'Clean architecture: interface (controllers/routes) -> use-cases -> domain <- infrastructure.',
+      'Clean architecture: interface (controllers/routes) -> use-cases -> domain <- infrastructure.\n\n' +
+      'Input validation: every JSON request body and the query strings of the list endpoints are validated ' +
+      'before they reach a controller. A malformed value (wrong type, too long for its column, an id outside ' +
+      'the 32-bit integer range, a non-numeric limit) returns 400 with the ValidationError schema. Unknown ' +
+      'body fields are ignored, and account emails are trimmed and lower-cased. Whether a field is required ' +
+      'is decided by the use case, so its own error message applies. Database constraint violations ' +
+      '(duplicates, blank names, invalid country codes, ...) return a specific message rather than an internal error.',
   },
   servers: [
     { url: 'http://localhost:{port}', description: 'Local', variables: { port: { default: '4000' } } },
@@ -100,6 +106,23 @@ const definition = {
       Error: {
         type: 'object',
         properties: { error: { type: 'string', example: 'Invalid credentials' } },
+      },
+      ValidationError: {
+        type: 'object',
+        description: 'Returned with HTTP 400 when a request body, query string or path identifier is malformed.',
+        properties: {
+          error: { type: 'string', example: 'email: Invalid input: expected string, received object' },
+          details: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                field: { type: 'string', example: 'email' },
+                message: { type: 'string', example: 'Invalid input: expected string, received object' },
+              },
+            },
+          },
+        },
       },
       Role: { type: 'string', enum: ['Sales', 'Manager', 'Instructor'] },
       

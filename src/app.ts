@@ -168,6 +168,8 @@ import { setSessionCookies, clearSessionCookies, csrfCheckPasses } from './infra
 import requireRole from './interface/middlewares/roleMiddleware';
 import createRateLimiter from './interface/middlewares/rateLimitMiddleware';
 import sanitizeMiddleware from './interface/middlewares/sanitizeMiddleware';
+import securityHeadersMiddleware from './interface/middlewares/securityHeadersMiddleware';
+import requestValidationMiddleware from './interface/middlewares/requestValidationMiddleware';
 import uploadAttendeesFile from './interface/middlewares/uploadMiddleware';
 import uploadMessageAttachmentFactory from './interface/middlewares/uploadMessageAttachmentMiddleware';
 import uploadChunkMiddlewareFactory from './interface/middlewares/uploadChunkMiddleware';
@@ -635,6 +637,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   
   
   
+  app.use(securityHeadersMiddleware);
   app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
   app.use(express.json());
   
@@ -647,6 +650,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   app.use(cookieParser());
   app.use(sanitizeMiddleware);
   app.use(globalLimiter);
+  app.use(requestValidationMiddleware);
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -696,6 +700,11 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
 
   app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
   app.use((err, _req, res, _next) => {
+    const status = Number(err?.status ?? err?.statusCode);
+    if (Number.isInteger(status) && status >= 400 && status < 500) {
+      const message = status === 413 ? 'Request body is too large' : status === 400 ? 'Malformed request body' : 'Bad request';
+      return res.status(status).json({ error: message });
+    }
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
   });
