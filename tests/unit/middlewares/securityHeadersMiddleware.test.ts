@@ -26,9 +26,13 @@ describe('securityHeadersMiddleware', () => {
     expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
   });
 
-  it('does not apply the strict CSP to the Swagger UI, which needs inline scripts', async () => {
+  it('gives the Swagger UI its own policy: same-origin scripts only, inline styles allowed, never inline scripts', async () => {
     const res = await request(buildApp()).get('/api-docs');
-    expect(res.headers['content-security-policy']).toBeUndefined();
+    const csp = res.headers['content-security-policy'];
+    expect(csp).toMatch(/script-src 'self'/);
+    expect(csp).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+    expect(csp).toMatch(/frame-ancestors 'none'/);
+    expect(csp).toMatch(/default-src 'none'/);
     expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });

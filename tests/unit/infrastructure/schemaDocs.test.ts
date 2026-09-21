@@ -92,3 +92,15 @@ describe('schema documentation renderers', () => {
     expect(renderHtml(hostile)).not.toContain('<script>alert(1)</script>');
   });
 });
+
+describe('markdown cell escaping', () => {
+  it('escapes backslashes before pipes so a cell cannot break out of its table row', () => {
+    const BS = String.fromCharCode(92);
+    const hostile = `a ${BS}| b | c ${BS}`;
+    const tricky: SchemaInfo = { tables: [table({ name: 't', comment: hostile })], enums: [], functions: [], migrations: [] };
+    const row = renderReference(tricky).split(String.fromCharCode(10)).find((l) => l.startsWith('| [t]')) as string;
+    expect(row).toContain(`a ${BS}${BS}${BS}| b ${BS}| c ${BS}${BS}`);
+    const unescapedPipes = row.split(BS + BS).join('').split(BS + '|').join('').split('|').length - 1;
+    expect(unescapedPipes).toBe(6);
+  });
+});
