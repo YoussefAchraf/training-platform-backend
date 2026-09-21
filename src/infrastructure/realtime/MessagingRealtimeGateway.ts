@@ -22,16 +22,24 @@ class MessagingRealtimeGateway {
     this.messaging.to(conversationRoom(conversationId)).emit('participant:added', { conversationId, participant });
   }
 
-  async notifyGroupCreated(conversation, createdByUserId) {
+  async notifyConversationCreated(conversation, createdByUserId) {
     if (!this.messaging) return;
     await Promise.all(
-      conversation.participants
-        .filter((p) => Number(p.userId) !== Number(createdByUserId))
-        .map(async (participant) => {
-          await this.messaging.in(userRoom(participant.userId)).socketsJoin(conversationRoom(conversation.id));
+      conversation.participants.map(async (participant) => {
+        await this.messaging.in(userRoom(participant.userId)).socketsJoin(conversationRoom(conversation.id));
+        if (Number(participant.userId) !== Number(createdByUserId)) {
           this.messaging.to(userRoom(participant.userId)).emit('conversation:new', { conversation });
-        })
+        }
+      })
     );
+  }
+
+  async notifyGroupCreated(conversation, createdByUserId) {
+    await this.notifyConversationCreated(conversation, createdByUserId);
+  }
+
+  async notifyDirectCreated(conversation, createdByUserId) {
+    await this.notifyConversationCreated(conversation, createdByUserId);
   }
 
   async notifyParticipantRemoved(conversationId, userId) {
