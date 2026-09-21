@@ -89,4 +89,44 @@ describe('CreateDirectConversationUseCase', () => {
     await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
     expect(repos.conversationRepository.createDirect).toHaveBeenCalledWith({ createdBy: 1, participantUserIds: [1, 2] });
   });
+
+  it("tells the realtime gateway about a newly created conversation so both users' open sockets join its room", async () => {
+    const repos = buildRepos();
+    const created = { id: 10, type: 'direct', participants: [{ userId: 1 }, { userId: 2 }] };
+    repos.conversationRepository.createDirect.mockResolvedValue(created);
+    const messagingRealtime = { notifyDirectCreated: jest.fn().mockResolvedValue(undefined) };
+    const useCase = new CreateDirectConversationUseCase({ ...repos, messagingRealtime });
+
+    const result = await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
+
+    expect(result).toBe(created);
+    expect(messagingRealtime.notifyDirectCreated).toHaveBeenCalledWith(created, 1);
+  });
+
+  it('does not notify anyone when an existing conversation is reused', async () => {
+    const repos = buildRepos();
+    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue({ id: 99, type: 'direct' });
+    const messagingRealtime = { notifyDirectCreated: jest.fn().mockResolvedValue(undefined) };
+    const useCase = new CreateDirectConversationUseCase({ ...repos, messagingRealtime });
+
+    await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
+
+    expect(messagingRealtime.notifyDirectCreated).not.toHaveBeenCalled();
+  });
+
+  it('still returns the conversation when the realtime notification fails', async () => {
+    const repos = buildRepos();
+    const created = { id: 10, type: 'direct', participants: [{ userId: 1 }, { userId: 2 }] };
+    repos.conversationRepository.createDirect.mockResolvedValue(created);
+    const messagingRealtime = { notifyDirectCreated: jest.fn().mockRejectedValue(new Error('socket layer down')) };
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const useCase = new CreateDirectConversationUseCase({ ...repos, messagingRealtime });
+
+    const result = await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(result).toBe(created);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to notify participants'), 'socket layer down');
+    errorSpy.mockRestore();
+  });
 });

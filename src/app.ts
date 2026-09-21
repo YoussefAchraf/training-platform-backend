@@ -420,7 +420,7 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   const listMyPendingAnnouncementsUseCase = new ListMyPendingAnnouncementsUseCase({ announcementRepository });
   const rateFeatureAnnouncementUseCase = new RateFeatureAnnouncementUseCase({ announcementRepository });
 
-  const createDirectConversationUseCase = new CreateDirectConversationUseCase({ conversationRepository, userRepository });
+  const createDirectConversationUseCase = new CreateDirectConversationUseCase({ conversationRepository, userRepository, messagingRealtime });
   const createGroupConversationUseCase = new CreateGroupConversationUseCase({ conversationRepository, userRepository, messagingRealtime });
   const addParticipantUseCase = new AddParticipantUseCase({ conversationRepository, userRepository, messagingRealtime });
   const removeParticipantUseCase = new RemoveParticipantUseCase({ conversationRepository, messagingRealtime });
