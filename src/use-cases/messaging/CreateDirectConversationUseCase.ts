@@ -3,10 +3,12 @@ import { MESSAGING_ALLOWED_ROLES } from '../../domain/constants/messagingRoles';
 class CreateDirectConversationUseCase {
   conversationRepository: any;
   userRepository: any;
+  messagingRealtime: any;
 
-  constructor({ conversationRepository, userRepository }) {
+  constructor({ conversationRepository, userRepository, messagingRealtime = null }) {
     this.conversationRepository = conversationRepository;
     this.userRepository = userRepository;
+    this.messagingRealtime = messagingRealtime;
   }
 
   async execute({ requester, targetUserId }: { requester: any; targetUserId: any }) {
@@ -33,10 +35,16 @@ class CreateDirectConversationUseCase {
       return existing;
     }
 
-    return this.conversationRepository.createDirect({
+    const conversation = await this.conversationRepository.createDirect({
       createdBy: requester.id,
       participantUserIds: [requester.id, target.id],
     });
+
+    this.messagingRealtime?.notifyDirectCreated(conversation, requester.id).catch((err) => {
+      console.error('[CreateDirectConversation] Failed to notify participants in real time:', err.message);
+    });
+
+    return conversation;
   }
 }
 
