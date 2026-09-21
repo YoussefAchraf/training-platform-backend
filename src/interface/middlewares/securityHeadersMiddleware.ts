@@ -19,7 +19,24 @@ const apiHeaders = helmet({
   },
 });
 
-const docsHeaders = helmet({ ...shared, contentSecurityPolicy: false });
+const docsHeaders = helmet({
+  ...shared,
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+  },
+});
 
 export default function securityHeadersMiddleware(req, res, next) {
   const handler = req.path.startsWith('/api-docs') ? docsHeaders : apiHeaders;

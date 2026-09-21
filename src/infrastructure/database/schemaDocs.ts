@@ -340,7 +340,8 @@ export function renderErdMarkdown(schema: SchemaInfo): string {
   return out.join('\n') + '\n';
 }
 
-const cell = (value: string | null | undefined) => (value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+const cell = (value: string | null | undefined) =>
+  (value ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 
 export function renderReference(schema: SchemaInfo): string {
   const incoming = new Map<string, Array<{ table: string; fk: ForeignKeyInfo }>>();
