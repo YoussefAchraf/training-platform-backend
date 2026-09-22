@@ -11,3 +11,9 @@ PRISMA-MIGRATION-PLAN.md
 
 /src/generated/prisma
 /storage/
+
+
+/.agents/
+/.claude/
+/.windsurf/
+/skills-lock.json
