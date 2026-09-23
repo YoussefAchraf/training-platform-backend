@@ -125,14 +125,26 @@ describe('PgMessageRepository (Prisma, real database)', () => {
       await prismaClient.conversations.delete({ where: { id: conversation.id } });
     });
 
-    it('returns both file and voice messages for the files filter', async () => {
+    it('returns only file messages for the files filter, never voice notes', async () => {
       const conversation = await conversationRepository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
       const file = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'file', attachmentKey: 'a.pdf', attachmentOriginalName: 'a.pdf' });
-      const voice = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'voice', attachmentKey: 'a.webm', attachmentOriginalName: 'a.webm' });
+      await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'voice', attachmentKey: 'a.webm', attachmentOriginalName: 'a.webm' });
       await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'image', attachmentKey: 'a.png', attachmentOriginalName: 'a.png' });
 
       const results = await repository.listByConversationFiltered(conversation.id, { filter: 'files', limit: 100 });
-      expect(results.map((m) => m.id).sort()).toEqual([file.id, voice.id].sort());
+      expect(results.map((m) => m.id)).toEqual([file.id]);
+
+      await prismaClient.conversations.delete({ where: { id: conversation.id } });
+    });
+
+    it('never returns a voice note under any filter (media, files or links)', async () => {
+      const conversation = await conversationRepository.createDirect({ createdBy: managerId, participantUserIds: [managerId, instructorId] });
+      const voice = await repository.create({ conversationId: conversation.id, senderId: managerId, type: 'voice', attachmentKey: 'a.webm', attachmentOriginalName: 'a.webm' });
+
+      for (const filter of ['media', 'files', 'links'] as const) {
+        const results = await repository.listByConversationFiltered(conversation.id, { filter, limit: 100 });
+        expect(results.map((m) => m.id)).not.toContain(voice.id);
+      }
 
       await prismaClient.conversations.delete({ where: { id: conversation.id } });
     });

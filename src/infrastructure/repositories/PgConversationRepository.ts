@@ -149,6 +149,24 @@ class PgConversationRepository extends IConversationRepository {
       },
     });
 
+    
+    
+    
+    
+    const unreadRows = await this.prisma.$queryRaw<{ conversation_id: number; unread: number }[]>`
+      SELECT m.conversation_id, count(*)::int AS unread
+      FROM messages m
+      JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id
+      WHERE cp.user_id = ${userId}
+        AND (m.sender_id IS DISTINCT FROM ${userId})
+        AND m.id > COALESCE(cp.last_read_message_id, 0)
+        AND NOT EXISTS (
+          SELECT 1 FROM message_deletions md WHERE md.message_id = m.id AND md.user_id = ${userId}
+        )
+      GROUP BY m.conversation_id
+    `;
+    const unreadByConversation = new Map<number, number>(unreadRows.map((r) => [r.conversation_id, r.unread]));
+
     const results: any[] = [];
     for (const row of rows) {
       const myParticipant = row.participants.find((p) => p.user_id === userId);
@@ -159,11 +177,7 @@ class PgConversationRepository extends IConversationRepository {
         if (!reappeared) continue;
       }
 
-      const lastReadId = myParticipant?.last_read_message_id ?? 0;
-      const unreadCount = await this.prisma.messages.count({
-        where: { conversation_id: row.id, id: { gt: lastReadId }, sender_id: { not: userId } },
-      });
-      results.push(mapConversationRow(row, unreadCount));
+      results.push(mapConversationRow(row, unreadByConversation.get(row.id) ?? 0));
     }
 
     results.sort((a, b) => (b.lastMessage ? b.lastMessage.id : -1) - (a.lastMessage ? a.lastMessage.id : -1));
@@ -202,6 +216,13 @@ class PgConversationRepository extends IConversationRepository {
     await this.prisma.conversation_participants.update({
       where: { conversation_id_user_id: { conversation_id: conversationId, user_id: userId } },
       data: { hidden_at: new Date() },
+    });
+  }
+
+  async unhideConversation(conversationId, userId) {
+    await this.prisma.conversation_participants.update({
+      where: { conversation_id_user_id: { conversation_id: conversationId, user_id: userId } },
+      data: { hidden_at: null },
     });
   }
 

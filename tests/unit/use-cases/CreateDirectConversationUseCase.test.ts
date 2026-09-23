@@ -14,6 +14,7 @@ function buildRepos() {
     conversationRepository: {
       findDirectConversationBetween: jest.fn().mockResolvedValue(null),
       createDirect: jest.fn().mockResolvedValue({ id: 10, type: 'direct' }),
+      unhideConversation: jest.fn().mockResolvedValue(undefined),
     },
     userRepository: {
       findById: jest.fn().mockResolvedValue({
@@ -74,11 +75,12 @@ describe('CreateDirectConversationUseCase', () => {
 
   it('reuses an existing direct conversation instead of creating a duplicate', async () => {
     const repos = buildRepos();
-    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue({ id: 99, type: 'direct' });
+    const existing = { id: 99, type: 'direct', participants: [{ userId: 1, hiddenAt: null }, { userId: 2, hiddenAt: null }] };
+    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue(existing);
     const useCase = new CreateDirectConversationUseCase(repos);
 
     const result = await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
-    expect(result).toEqual({ id: 99, type: 'direct' });
+    expect(result).toBe(existing);
     expect(repos.conversationRepository.createDirect).not.toHaveBeenCalled();
   });
 
@@ -105,13 +107,54 @@ describe('CreateDirectConversationUseCase', () => {
 
   it('does not notify anyone when an existing conversation is reused', async () => {
     const repos = buildRepos();
-    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue({ id: 99, type: 'direct' });
+    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue({
+      id: 99,
+      type: 'direct',
+      participants: [{ userId: 1, hiddenAt: null }, { userId: 2, hiddenAt: null }],
+    });
     const messagingRealtime = { notifyDirectCreated: jest.fn().mockResolvedValue(undefined) };
     const useCase = new CreateDirectConversationUseCase({ ...repos, messagingRealtime });
 
     await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
 
     expect(messagingRealtime.notifyDirectCreated).not.toHaveBeenCalled();
+  });
+
+  it('unhides a reused conversation for the requester when they had previously hidden it', async () => {
+    const repos = buildRepos();
+    const existing = {
+      id: 99,
+      type: 'direct',
+      participants: [
+        { userId: 1, hiddenAt: '2026-01-01T00:00:00.000Z' },
+        { userId: 2, hiddenAt: '2025-06-01T00:00:00.000Z' },
+      ],
+    };
+    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue(existing);
+
+    const useCase = new CreateDirectConversationUseCase(repos);
+    const result = await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
+
+    expect(repos.conversationRepository.unhideConversation).toHaveBeenCalledWith(99, 1);
+    expect(result.participants.find((p: any) => p.userId === 1).hiddenAt).toBeNull();
+    
+    expect(result.participants.find((p: any) => p.userId === 2).hiddenAt).toBe('2025-06-01T00:00:00.000Z');
+  });
+
+  it('does not touch hidden state when the requester had not hidden the reused conversation', async () => {
+    const repos = buildRepos();
+    repos.conversationRepository.findDirectConversationBetween.mockResolvedValue({
+      id: 99,
+      type: 'direct',
+      participants: [{ userId: 1, hiddenAt: null }, { userId: 2, hiddenAt: '2026-01-01T00:00:00.000Z' }],
+    });
+
+    const useCase = new CreateDirectConversationUseCase(repos);
+    const result = await useCase.execute({ requester: buildRequester(), targetUserId: 2 });
+
+    expect(repos.conversationRepository.unhideConversation).not.toHaveBeenCalled();
+    
+    expect(result.participants.find((p: any) => p.userId === 2).hiddenAt).toBe('2026-01-01T00:00:00.000Z');
   });
 
   it('still returns the conversation when the realtime notification fails', async () => {
