@@ -32,6 +32,14 @@ class CreateDirectConversationUseCase {
 
     const existing = await this.conversationRepository.findDirectConversationBetween(requester.id, target.id);
     if (existing) {
+      
+      
+      
+      const myParticipant = existing.participants.find((p) => Number(p.userId) === Number(requester.id));
+      if (myParticipant?.hiddenAt) {
+        await this.conversationRepository.unhideConversation(existing.id, requester.id);
+        myParticipant.hiddenAt = null;
+      }
       return existing;
     }
 
