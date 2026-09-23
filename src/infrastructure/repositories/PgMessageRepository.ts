@@ -87,7 +87,7 @@ class PgMessageRepository extends IMessageRepository {
     }: { filter: 'media' | 'files' | 'links'; cursor?: number; limit?: number; requesterId?: any },
   ) {
     const typeWhere =
-      filter === 'media' ? { type: 'image' } : filter === 'files' ? { type: { in: ['file', 'voice'] } } : { type: 'text' };
+      filter === 'media' ? { type: 'image' } : filter === 'files' ? { type: 'file' } : { type: 'text' };
 
     const rows = await this.prisma.messages.findMany({
       where: {
