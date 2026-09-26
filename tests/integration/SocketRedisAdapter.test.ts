@@ -1,7 +1,8 @@
 import http from 'http';
-import { AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 import Redis from 'ioredis';
-import { io as connect, Socket } from 'socket.io-client';
+import { io as connect } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import { createMessagingSocketServer } from '../../src/infrastructure/realtime/SocketServer';
 import { MESSAGING_ALLOWED_ROLES } from '../../src/domain/constants/messagingRoles';
 
