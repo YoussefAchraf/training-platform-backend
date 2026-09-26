@@ -5,6 +5,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './docs/swaggerDefinition';
 import { redis } from './infrastructure/cache/RedisClient';
 import { prismaClient } from './infrastructure/database/prismaClient';
+import { pool } from './infrastructure/database/connection';
 
 import { PasswordHasher } from './infrastructure/security/PasswordHasher';
 import { TokenService } from './infrastructure/security/TokenService';
@@ -12,6 +13,7 @@ import { RefreshTokenStore } from './infrastructure/security/RefreshTokenStore';
 import { PasswordResetTokenStore } from './infrastructure/security/PasswordResetTokenStore';
 
 import { EmailService } from './infrastructure/services/EmailService';
+import { JobLock } from './infrastructure/services/JobLock';
 import { ReportSchedulerService } from './infrastructure/services/ReportSchedulerService';
 import { SessionReminderSchedulerService } from './infrastructure/services/SessionReminderSchedulerService';
 import { CertificationExpirySchedulerService } from './infrastructure/services/CertificationExpirySchedulerService';
@@ -709,10 +711,13 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
     res.status(500).json({ error: 'Internal server error' });
   });
 
-  const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase });
-  const sessionReminderScheduler = new SessionReminderSchedulerService({ sendUpcomingSessionRemindersUseCase });
-  const certificationExpiryScheduler = new CertificationExpirySchedulerService({ sendCertificationExpiryRemindersUseCase });
-  const attachmentUploadGcScheduler = new AttachmentUploadGcService({ attachmentStorageService });
+  
+  
+  const jobLock = new JobLock({ pool });
+  const reportScheduler = new ReportSchedulerService({ sessionRepository, generateReportUseCase, jobLock });
+  const sessionReminderScheduler = new SessionReminderSchedulerService({ sendUpcomingSessionRemindersUseCase, jobLock });
+  const certificationExpiryScheduler = new CertificationExpirySchedulerService({ sendCertificationExpiryRemindersUseCase, jobLock });
+  const attachmentUploadGcScheduler = new AttachmentUploadGcService({ attachmentStorageService, jobLock });
 
   return {
     app,

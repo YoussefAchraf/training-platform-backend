@@ -1,4 +1,5 @@
 import { Server as SocketIOServer } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { MESSAGING_ALLOWED_ROLES } from '../../domain/constants/messagingRoles';
 
 function parseCookieHeader(header) {
@@ -28,10 +29,20 @@ function userRoom(userId) {
   return `user:${userId}`;
 }
 
-function createMessagingSocketServer(httpServer, { tokenService, userRepository, conversationRepository, presenceStore }) {
+
+
+
+function createMessagingSocketServer(
+  httpServer,
+  { tokenService, userRepository, conversationRepository, presenceStore, redisAdapter = undefined }
+) {
   const io = new SocketIOServer(httpServer, {
     cors: { origin: process.env.CLIENT_URL, credentials: true },
   });
+
+  if (redisAdapter) {
+    io.adapter(createAdapter(redisAdapter.pub, redisAdapter.sub));
+  }
 
   const messaging = io.of('/messaging');
 

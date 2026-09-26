@@ -14,6 +14,15 @@ import { buildApp } from './app';
 
 const presenceStore = new PresenceStore({ redis });
 
+
+
+const socketRedisSub = process.env.SOCKET_REDIS_ADAPTER === 'true' ? redis.duplicate() : null;
+if (socketRedisSub) {
+  socketRedisSub.on('error', (err: Error) => {
+    console.error('Unexpected Socket.IO Redis subscriber error', err);
+  });
+}
+
 const app = express();
 const httpServer = http.createServer(app);
 const { messaging } = createMessagingSocketServer(httpServer, {
@@ -21,6 +30,7 @@ const { messaging } = createMessagingSocketServer(httpServer, {
   userRepository: new PgUserRepository(prismaClient),
   conversationRepository: new PgConversationRepository(prismaClient),
   presenceStore,
+  redisAdapter: socketRedisSub ? { pub: redis, sub: socketRedisSub } : undefined,
 });
 const messagingRealtime = new MessagingRealtimeGateway({ messaging });
 
@@ -55,6 +65,7 @@ function shutdown(signal: string) {
     }
     try {
       await redis.quit();
+      if (socketRedisSub) await socketRedisSub.quit();
     } catch (redisErr) {
       console.error('Error while closing Redis connection', redisErr);
       process.exitCode = 1;

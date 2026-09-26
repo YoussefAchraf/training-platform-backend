@@ -139,6 +139,7 @@ information, gathered in one place:
 | `JWT_SECRET` | Yes | Signs and verifies short-lived access tokens. Must be a long, random, real secret in anything beyond local dev. |
 | `JWT_EXPIRES_IN` | No (default `8h`) | Access token lifetime. |
 | `REDIS_URL` | Yes | Backs refresh tokens and rate limiting. `docker-compose.yml` overrides this to point at its own `redis` service with auth. |
+| `SOCKET_REDIS_ADAPTER` | No (default off) | Set to `true` when more than one backend pod can be alive at once (blue/green preview, replicas > 1). Socket.IO live events are then relayed through the same Redis, so clients connected to any pod receive them. Leave off for a single pod. |
 | `REDIS_PASSWORD` | Yes, for docker-compose | No default on purpose — required to start the `redis`/`backend` services. |
 | `REFRESH_TOKEN_TTL_DAYS` | No (default `30`) | How long a refresh token stays valid, and how long it takes an idle session to require a real login again. |
 | `PASSWORD_RESET_TOKEN_TTL_MINUTES` | No (default `60`) | How long a SuperAdmin-issued password reset link stays valid. Single-use regardless of this window - consumed the moment it's used. |
@@ -675,6 +676,13 @@ Reports additionally auto-generate through `ReportSchedulerService`, a
 `node-cron` job (`REPORT_JOB_CRON`, default every 10 minutes) that looks
 for sessions ended more than `REPORT_AUTO_GENERATE_AFTER_MINUTES`
 (default 60) ago with no report yet, and generates one.
+
+All four in-process cron jobs (reports, session reminders, certification
+expiry reminders, upload clean-up) run through `JobLock`, a PostgreSQL
+session-level advisory lock, so when several backend pods are alive (blue/green
+release, rolling update, replicas > 1) only one of them runs a given tick and
+the others skip it. The lock is tied to the connection, so a pod that dies
+mid-job cannot leave a job locked.
 
 ### Push notifications (`/push`)
 | Method | Path | Access | Notes |

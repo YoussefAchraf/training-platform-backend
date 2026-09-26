@@ -1,10 +1,13 @@
 import cron from 'node-cron';
+import { noJobLock } from './JobLock';
 
 class CertificationExpirySchedulerService {
   sendCertificationExpiryRemindersUseCase: any;
+  jobLock: any;
 
-  constructor({ sendCertificationExpiryRemindersUseCase }) {
+  constructor({ sendCertificationExpiryRemindersUseCase, jobLock = noJobLock }) {
     this.sendCertificationExpiryRemindersUseCase = sendCertificationExpiryRemindersUseCase;
+    this.jobLock = jobLock;
   }
 
   start() {
@@ -13,10 +16,12 @@ class CertificationExpirySchedulerService {
 
     cron.schedule(cronExpression, async () => {
       try {
-        const { remindedCount } = await this.sendCertificationExpiryRemindersUseCase.execute({ thresholdDays });
-        if (remindedCount > 0) {
-          console.log(`[CertificationExpiryScheduler] Sent reminders for ${remindedCount} certification(s)`);
-        }
+        await this.jobLock.runExclusive('certification-expiry-scheduler', async () => {
+          const { remindedCount } = await this.sendCertificationExpiryRemindersUseCase.execute({ thresholdDays });
+          if (remindedCount > 0) {
+            console.log(`[CertificationExpiryScheduler] Sent reminders for ${remindedCount} certification(s)`);
+          }
+        });
       } catch (err) {
         console.error('[CertificationExpiryScheduler] Failed to send certification expiry reminders:', err.message);
       }
