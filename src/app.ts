@@ -651,10 +651,12 @@ function buildApp({ app: providedApp, messagingRealtime = null, presenceStore = 
   
   app.use(cookieParser());
   app.use(sanitizeMiddleware);
+  
+  
+  
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
   app.use(globalLimiter);
   app.use(requestValidationMiddleware);
-
-  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   app.get('/api-docs.json', (_req, res) => res.json(swaggerSpec));
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
