@@ -1,12 +1,15 @@
 import cron from 'node-cron';
+import { noJobLock } from './JobLock';
 
 class ReportSchedulerService {
   sessionRepository: any;
   generateReportUseCase: any;
+  jobLock: any;
 
-  constructor({ sessionRepository, generateReportUseCase }) {
+  constructor({ sessionRepository, generateReportUseCase, jobLock = noJobLock }) {
     this.sessionRepository = sessionRepository;
     this.generateReportUseCase = generateReportUseCase;
+    this.jobLock = jobLock;
   }
 
   start() {
@@ -15,11 +18,13 @@ class ReportSchedulerService {
 
     cron.schedule(cronExpression, async () => {
       try {
-        const candidates = await this.sessionRepository.listEndedWithoutReport(thresholdMinutes);
-        for (const session of candidates) {
-          await this.generateReportUseCase.execute({ sessionId: session.id, triggeredBy: 'timeout' });
-          console.log(`[ReportScheduler] Auto-generated report for session ${session.id}`);
-        }
+        await this.jobLock.runExclusive('report-scheduler', async () => {
+          const candidates = await this.sessionRepository.listEndedWithoutReport(thresholdMinutes);
+          for (const session of candidates) {
+            await this.generateReportUseCase.execute({ sessionId: session.id, triggeredBy: 'timeout' });
+            console.log(`[ReportScheduler] Auto-generated report for session ${session.id}`);
+          }
+        });
       } catch (err) {
         console.error('[ReportScheduler] Failed to auto-generate reports:', err.message);
       }
